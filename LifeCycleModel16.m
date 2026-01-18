@@ -1,6 +1,6 @@
 %% Life-Cycle Model 16 Consumption and Borrowing Constraints 2
 % Households would like to consumption smooth
-% Exogenous shocks, if enough bad shocks in a row occour, can be another
+% Exogenous shocks, if enough bad shocks in a row occur, can be another
 % reason for households to run up against borrowing constraints (we already
 % saw one reason in Life-Cycle Model 15).
 
