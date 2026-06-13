@@ -34,13 +34,26 @@ Params.psi = 10; % Weight on leisure
 Params.w=1; % Wage
 
 %% Grids
+precision='single';
+if strcmp(precision,'single')
+    vfoptions.precision='single';
+    vfoptions.indexT='int32';
+    cast2precision=@(x) single(x)
+    cast2index=@(x) int32(x)
+else
+    vfoptions.precision='double';
+    vfoptions.indexT='double';
+    cast2precision=@(x) x
+    cast2index=@(x) x
+end
+
 % While there are no 'a' for 'z' in this model, VFI Toolkit requires them 
 % to figure out what is going on. By making them just a single grid point, 
 % and then not using them anywhere, we are essentially solving a model without them.
-a_grid=1;
+a_grid=cast2precision(1);
 
 % Grid for labour choice
-h_grid=linspace(0,1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
+h_grid=linspace(cast2precision(0),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
 % Switch into toolkit notation
 d_grid=h_grid;
 
@@ -65,8 +78,13 @@ DiscountFactorParamNames={'beta'};
 % 'LifeCycleModel1_ReturnFn' (you can right-click on its name below and click 'Open LifeCycleModel1_ReturnFn')
 % We then just have to make the @() contain exactly the same inputs as
 % 'LifeCycleModel1_ReturnFn', and then give the parameter names.
-ReturnFn=@(h,aprime,a,w,sigma,psi,eta)...
-    LifeCycleModel1_ReturnFn(h,aprime,a,w,sigma,psi,eta);
+if strcmp(precision,'single')
+    ReturnFn=@(h,aprime,a,w,sigma,psi,eta)...
+        LifeCycleModel1_ReturnFn_single(h,aprime,a,w,sigma,psi,eta);
+else
+    ReturnFn=@(h,aprime,a,w,sigma,psi,eta)...
+        LifeCycleModel1_ReturnFn(h,aprime,a,w,sigma,psi,eta);
+end
 % The first entries must be the decision variables (d), the next period endogenous 
 % state (aprime), and this period endogenous state (a), followed by any parameters.
 % VFI Toolkit will automatically look in 'Params' to find the values of these parameters.
@@ -77,7 +95,7 @@ ReturnFn=@(h,aprime,a,w,sigma,psi,eta)...
 
 %% Solve the value function iteration problem
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
-vfoptions=struct(); % Just using the defaults.
+% vfoptions=struct(); % Just using the defaults.
 tic;
 [V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, [], [], ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc

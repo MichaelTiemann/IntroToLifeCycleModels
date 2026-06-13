@@ -72,14 +72,27 @@ Params.wg2=3; % degree to which bequests are a luxury good (>=1; =1 would be a n
 Params.wg3=Params.sigma; % By using the same curvature as the utility of consumption it makes it much easier to guess appropriate parameter values for the warm glow
 
 %% Grids
+precision='single';
+if strcmp(precision,'single')
+    vfoptions.precision='single';
+    vfoptions.indexT='int32';
+    cast2precision=@(x) single(x)
+    cast2index=@(x) int32(x)
+else
+    vfoptions.precision='double';
+    vfoptions.indexT='double';
+    cast2precision=@(x) x
+    cast2index=@(x) x
+end
+
 % The ^3 means that there are more points near 0 and near 10. We know from theory that the value function will be more 'curved' near zero assets,
 % and putting more points near curvature (where the derivative changes the most) increases accuracy of results.
-a_grid=10*(linspace(0,1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
-z_grid=[1;0]; % the first entry is employment and the second is unemployment.
-pi_z=[0.7, 0.3; 0.5, 0.5]; % p_ee=0.7, p_eu=0.3, p_ue=0.5, p_uu=0.5
+a_grid=10*(linspace(cast2precision(0),1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
+z_grid=cast2precision([1;0]); % the first entry is employment and the second is unemployment.
+pi_z=cast2precision([0.7, 0.3; 0.5, 0.5]); % p_ee=0.7, p_eu=0.3, p_ue=0.5, p_uu=0.5
 
 % Grid for labour choice
-h_grid=linspace(0,1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
+h_grid=linspace(cast2precision(0),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
 % Switch into toolkit notation
 d_grid=h_grid;
 
@@ -87,8 +100,14 @@ d_grid=h_grid;
 DiscountFactorParamNames={'beta','sj'};
 
 % Notice change to 'LifeCycleModel8_ReturnFn'
-ReturnFn=@(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj)... 
-    LifeCycleModel8_ReturnFn(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
+if strcmp(precision,'single')
+    ReturnFn=@(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj)... 
+        LifeCycleModel8_ReturnFn_single(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
+else
+    ReturnFn=@(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj)... 
+        LifeCycleModel8_ReturnFn(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
+end
+
 % Important change: we now have z as the fourth input to the ReturnFn, the
 % action space of our model has increased.
 % The first inputs are always the relevant 'action space' for our model, which in
@@ -239,6 +258,7 @@ Params.mewj=Params.mewj./sum(Params.mewj); % Normalize to one
 AgeWeightsParamNames={'mewj'}; % So VFI Toolkit knows which parameter is the mass of agents of each age
 simoptions.gridinterplayer=vfoptions.gridinterplayer; % grid interpolation layer must also be set in simoptions (because it changes Policy size/interpretation)
 simoptions.ngridinterp=vfoptions.ngridinterp;
+simoptions.precision=vfoptions.precision;
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 % StationaryDist has size [n_a, n_z, N_j]
 % StationaryDist(a_index, z_index, age) is the fraction of all households at that state, and sum(StationaryDist(:)) is 1.
