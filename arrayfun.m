@@ -20,6 +20,6 @@ function F = arrayfun(ReturnFn, varargin)
     [nd_arrays{1:lastarridx}] = ndgrid (vectors{:});
 
     % Call original built-in zeros function
-    F = builtin('pararrayfun', 18, ReturnFn, nd_arrays{1:lastarridx}, varargin{paramidx:end}, "ChunksPerProc", 4);
+    F = builtin('pararrayfun', 6, ReturnFn, nd_arrays{1:lastarridx}, varargin{paramidx:end}, "ChunksPerProc", 4);
 endfunction
 
