@@ -1,7 +1,7 @@
 %% Life-Cycle Model 18: Precautionary savings with endogenous labor
 % We saw precautionary savings with exogenous labor in Life-Cycle Model 17.
 % We now repeat this, but this time with endogenous labor.
-% Recall that precautionary savings are about increasing asset holdings as a way for households 
+% Recall that precautionary savings are about increasing asset holdings as a way for households
 % to help reduce the probability of the borrowing constraints binding.
 % Now endogenous labor supply means there is another way to reduce the probability of the
 % borrowing constraint binding by working more when assets are low.
@@ -9,10 +9,10 @@
 
 % We first solve the model with endogenous labor and then solve again with exogenous labor.
 
-% We can then compare the policy functions and the aggregate assets and labor supply for the models 
-% with endogenous vs exogenous labor. We can see how endogenous labor reduces precautionary savings 
-% (there are still precautionary savings, which you would see by comparing the stochastic model with 
-% endogenous labor to the deterministic model with endogenous labor in the same manner as we did for 
+% We can then compare the policy functions and the aggregate assets and labor supply for the models
+% with endogenous vs exogenous labor. We can see how endogenous labor reduces precautionary savings
+% (there are still precautionary savings, which you would see by comparing the stochastic model with
+% endogenous labor to the deterministic model with endogenous labor in the same manner as we did for
 % exogenous labor in Life-Cycle Model 17, just not as much precautionary savings with endogenous labor
 % as there were with exogenous labor).
 
@@ -30,8 +30,8 @@ Params.agejshifter=19; % Age 20 minus one. Makes keeping track of actual age eas
 Params.J=100-Params.agejshifter; % =81, Number of period in life-cycle
 
 % Grid sizes to use
-n_d=101; % Endogenous labour choice (fraction of time worked)
-n_a=501; % Endogenous asset holdings
+n_d=51; % Endogenous labour choice (fraction of time worked)
+n_a=101; % Endogenous asset holdings
 n_z=3; % Exogenous labor productivity units shock
 N_j=Params.J; % Number of periods in finite horizon
 
@@ -70,7 +70,7 @@ Params.sigma_epsilon_z=0.03;
 Params.dj=[0.006879, 0.000463, 0.000307, 0.000220, 0.000184, 0.000172, 0.000160, 0.000149, 0.000133, 0.000114, 0.000100, 0.000105, 0.000143, 0.000221, 0.000329, 0.000449, 0.000563, 0.000667, 0.000753, 0.000823,...
     0.000894, 0.000962, 0.001005, 0.001016, 0.001003, 0.000983, 0.000967, 0.000960, 0.000970, 0.000994, 0.001027, 0.001065, 0.001115, 0.001154, 0.001209, 0.001271, 0.001351, 0.001460, 0.001603, 0.001769, 0.001943, 0.002120, 0.002311, 0.002520, 0.002747, 0.002989, 0.003242, 0.003512, 0.003803, 0.004118, 0.004464, 0.004837, 0.005217, 0.005591, 0.005963, 0.006346, 0.006768, 0.007261, 0.007866, 0.008596, 0.009473, 0.010450, 0.011456, 0.012407, 0.013320, 0.014299, 0.015323,...
     0.016558, 0.018029, 0.019723, 0.021607, 0.023723, 0.026143, 0.028892, 0.031988, 0.035476, 0.039238, 0.043382, 0.047941, 0.052953, 0.058457, 0.064494,...
-    0.071107, 0.078342, 0.086244, 0.094861, 0.104242, 0.114432, 0.125479, 0.137427, 0.150317, 0.164187, 0.179066, 0.194979, 0.211941, 0.229957, 0.249020, 0.269112, 0.290198, 0.312231, 1.000000]; 
+    0.071107, 0.078342, 0.086244, 0.094861, 0.104242, 0.114432, 0.125479, 0.137427, 0.150317, 0.164187, 0.179066, 0.194979, 0.211941, 0.229957, 0.249020, 0.269112, 0.290198, 0.312231, 1.000000];
 % dj covers Ages 0 to 100
 Params.sj=1-Params.dj(21:101); % Conditional survival probabilities
 Params.sj(end)=0; % In the present model the last period (j=J) value of sj is actually irrelevant
@@ -104,9 +104,14 @@ DiscountFactorParamNames={'beta','sj'};
 ReturnFn=@(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj) ...
     LifeCycleModel8_ReturnFn(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
 
+ncores = 18;
+vfi_pool('start', ncores);
+
 %% Solve the value function iteration problem
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 vfoptions=struct(); % Just using the defaults.
+vfoptions.verbose=1;
+vfoptions.n_proc=ncores;
 tic;
 [V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
@@ -152,7 +157,7 @@ n_z=1;
 z_grid=1;
 pi_z=1;
 jequaloneDist=zeros([n_a,n_z],'gpuArray'); % Put no households anywhere on grid
-jequaloneDist(1,1)=1; 
+jequaloneDist(1,1)=1;
 % ReturnFn is unchanged
 [V_noshock, Policy_noshock]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 StationaryDist_noshock=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Policy_noshock,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
@@ -211,7 +216,7 @@ n_z=1;
 z_grid=1;
 pi_z=1;
 jequaloneDist=zeros([n_a,n_z],'gpuArray'); % Put no households anywhere on grid
-jequaloneDist(1,1)=1; 
+jequaloneDist(1,1)=1;
 [V_exonoshock, Policy_exonoshock]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 StationaryDist_exonoshock=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Policy_exonoshock,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 % FnsToEvaluate_exo are unchanged
@@ -311,6 +316,7 @@ fprintf(' \n')
 fprintf('Ratio of earnings of endogenous labor supply model to exogenous labor supply model: %8.4f \n', AllStats.earnings.Mean/AllStats_exo.earnings.Mean)
 
 
+vfi_pool('stop', ncores);
 
 
 
