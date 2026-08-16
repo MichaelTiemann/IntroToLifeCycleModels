@@ -35,7 +35,7 @@ endif
 % Expand inputs virtually/explicitly to match full_sz
 expanded_args = cell(1, last_arr_idx);
 for i = 1:last_arr_idx
-    expanded_args{i} = bsxfun(@times, varargin{i}, ones(full_sz));
+    expanded_args{i} = bsxfun(@times, varargin{i}, builtin('ones', full_sz));
 end
 
 F = builtin('arrayfun', ReturnFn, expanded_args{:}, varargin{param_idx:end});

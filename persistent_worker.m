@@ -5,21 +5,20 @@ function persistent_worker(worker_id)
 
     while true
         if exist(in_file, 'file')
-            % 1. Load the task and delete the trigger file
-            load(in_file, 'func_str', 'args');
+            % 1. Load the raw handle and args
+            load(in_file, 'func', 'args');
             delete(in_file);
 
-            % 2. Check for the kill signal
-            if strcmp(func_str, 'EXIT')
+            % 2. Check for the kill signal (which we pass as a string)
+            if ischar(func) && strcmp(func, 'EXIT')
                 break;
             end
 
-            % 3. Execute the math
+            % 3. Execute the math using the loaded handle!
             try
-                func_handle = str2func(func_str);
-                result = arrayfun_expand(func_handle, args{:}); % Target your expander!
+                % The handle 'func' brought its closure (like 'psi') with it!
+                result = arrayfun_expand(func, args{:});
 
-                % 4. Save using fast binary format, then atomically rename
                 save('-binary', temp_out, 'result');
                 rename(temp_out, out_file);
             catch err
@@ -28,7 +27,6 @@ function persistent_worker(worker_id)
                 rename(temp_out, out_file);
             end
         else
-            % Idle yield so we don't cook the CPU while waiting for the next jj period
             pause(0.005);
         end
     end

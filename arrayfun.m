@@ -2,7 +2,7 @@ function F = arrayfun(ReturnFn, varargin)
 
 # These functions we pass directly to the built-in arrayfun
 C = {@ones, @zeros, @nan, @true, @false};
-if any(cellfun(@(x) isequal(x, ReturnFn), C));
+if length(varargin)<2 || any(cellfun(@(x) isequal(x, ReturnFn), C));
     F=builtin('arrayfun', ReturnFn, varargin{:});
     return;
 endif

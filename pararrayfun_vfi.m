@@ -39,40 +39,47 @@ function out = pararrayfun_vfi(ncores, func, varargin)
         end
     end
 
-    if true
-        % 4. Rearrange our split cell array into separate columns
-        args_for_parcellfun = cell(1, num_args);
-        for a = 1:num_args
-            args_for_parcellfun{a} = inputs_split(:, a);
+    % 4. Rearrange our split cell array into separate columns
+    args_for_parcellfun = cell(1, num_args);
+    for a = 1:num_args
+        args_for_parcellfun{a} = inputs_split(:, a);
+    end
+
+    % 5. Dispatch chunks to the persistent workers
+    for c = 1:ncores
+        args = cellfun(@(x) x(c), args_for_parcellfun); % The sliced cell array for this core
+        temp_in = sprintf('/tmp/vfi_worker_%d_temp.mat', c);
+        in_file = sprintf('/tmp/vfi_worker_%d_in.mat', c);
+
+        % Save the actual function handle 'func'
+        save('-binary', temp_in, 'func', 'args');
+        rename(temp_in, in_file); % Atomic pass
+    end
+
+    % 6. Wait for all workers to finish their slice
+    results = cell(ncores, 1);
+    completed = 0;
+    while completed < ncores
+        for c = 1:ncores
+            out_file = sprintf('/tmp/vfi_worker_%d_out.mat', c);
+
+            if isempty(results{c}) && exist(out_file, 'file')
+                data = load(out_file, 'result');
+                delete(out_file);
+
+                if isa(data.result, 'MException')
+                    rethrow(data.result); % Crash gracefully if worker failed
+                end
+
+                results{c} = data.result;
+                completed = completed + 1;
+            end
         end
-
-        % 5. Distribute the string-extracted target function
-        func_str = func2str(func);
-        func_cells = repmat({func_str}, ncores, 1);
-
-        % 6. Execute using parcellfun mapped to safe_worker
-        results = parcellfun(ncores, @safe_worker, func_cells, args_for_parcellfun{:}, ...
-            'UniformOutput', false, 'VerboseLevel', 1);
-
-        % 7. Reassemble the final array
-        out = cat(split_dim, results{:});
-    else
-        % 4. Rearrange our split cell array into separate columns for parcellfun
-        args_for_parcellfun = cell(1, num_args);
-        for a = 1:num_args
-            args_for_parcellfun{a} = inputs_split(:, a);
+        if completed < ncores
+            pause(0.005); % Yield briefly
         end
+    end
 
-        % 5. Distribute the 'builtin' command and the target function handle
-        % Create column cells replicated for each core
-        builtin_cmd_cells = repmat({'arrayfun'}, ncores, 1);
-        func_cells = repmat({regexprep(regexprep(func2str(func),'^.*\) ',''),' \(.*$','')}, ncores, 1);
-
-        % 6. Execute using parcellfun mapped to @builtin
-        % The worker natively executes: builtin('arrayfun', func, chunked_arg1, chunked_arg2, ...)
-        results = parcellfun(ncores, @builtin, builtin_cmd_cells, func_cells, args_for_parcellfun{:}, 'UniformOutput', false);
-
-        % 7. Reassemble the final array
-        out = cat(split_dim, results{:});
-    endif
+    % 7. Reassemble the final array
+    out = cat(split_dim, results{:});
 end
