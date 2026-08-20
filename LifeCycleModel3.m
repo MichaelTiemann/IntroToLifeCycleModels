@@ -64,15 +64,17 @@ ReturnFn=@(h,aprime,a,w,sigma,psi,eta,agej,Jr,pension,r)...
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 vfoptions=struct(); % Just using the defaults.
 if exist('ncores', 'var') && ncores>1
-  vfi_pool('start', ncores);
-  vfoptions.n_proc=ncores;
+    vfi_pool('start', ncores);
+    vfoptions.n_proc=ncores;
 end
 vfoptions.verbose=1;
 tic;
 [V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, [], [], ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
 
-vfi_pool('stop', ncores);
+if exist('ncores', 'var')
+    vfi_pool('stop', ncores);
+end
 
 % V is now (a,j).
 % Compare
