@@ -57,17 +57,24 @@ DiscountFactorParamNames={'beta'};
 
 % Add r to the inputs (in some sense we add a and aprime, but these were already required, if previously irrelevant)
 % Notice change to 'LifeCycleModel3_ReturnFn'
-ReturnFn=@(h,aprime,a,w,sigma,psi,eta,agej,Jr,pension,r)... 
+ReturnFn=@(h,aprime,a,w,sigma,psi,eta,agej,Jr,pension,r)...
     LifeCycleModel3_ReturnFn(h,aprime,a,w,sigma,psi,eta,agej,Jr,pension,r);
 
 %% Solve the value function iteration problem
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 vfoptions=struct(); % Just using the defaults.
+if exist('ncores', 'var') && ncores>1
+  vfi_pool('start', ncores);
+  vfoptions.n_proc=ncores;
+end
+vfoptions.verbose=1;
 tic;
 [V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, [], [], ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
 
-% V is now (a,j). 
+vfi_pool('stop', ncores);
+
+% V is now (a,j).
 % Compare
 size(V)
 % with
