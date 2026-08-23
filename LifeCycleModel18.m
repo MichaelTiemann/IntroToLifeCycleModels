@@ -105,6 +105,7 @@ ReturnFn=@(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,be
     LifeCycleModel8_ReturnFn(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
 
 ncores = 18;
+vfi_pool('stop', 18);
 vfi_pool('start', ncores);
 
 %% Solve the value function iteration problem
@@ -112,6 +113,8 @@ disp('Solve for Value fn and Policy fn using ValueFnIter command')
 vfoptions=struct(); % Just using the defaults.
 vfoptions.verbose=1;
 vfoptions.n_proc=ncores;
+% Octave compatibility layer: this ReturnFn supports direct singleton expansion.
+vfoptions.vectorizedarrayfunnames={'LifeCycleModel8_ReturnFn'};
 tic;
 [V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc

@@ -1,15 +1,43 @@
-function out = pararrayfun_vfi(ncores, func, varargin)
-    % 1. Determine the target dimensions based on implicit expansion rules
-    num_args = length(varargin);
-    max_ndims = max(cellfun(@ndims, varargin));
-    sz = ones(1, max_ndims);
+function out = pararrayfun_vfi(ncores, func, is_vectorized, varargin)
 
-    for i = 1:num_args
-        arg_sz = size(varargin{i});
-        sz(1:length(arg_sz)) = max(sz(1:length(arg_sz)), arg_sz);
+% 1. Determine the target dimensions based on implicit expansion rules
+num_args = length(varargin);
+max_ndims = max(cellfun(@ndims, varargin));
+sz = ones(1, max_ndims);
+
+for i = 1:num_args
+    arg_sz = size(varargin{i});
+    [max_d, max_i] = max(arg_sz);
+    sz(max_i) = max(sz(max_i), max_d);
+end
+
+% 2. Find the best dimension to parallelize over (minimizes overhead)
+ncores_sz=ncores-sz;
+ncores_sz(sz==1)=Inf;
+ncores_sz(ncores_sz<0)=Inf;
+[~, split_dim] = min(ncores_sz);
+if ~isempty(split_dim) && sz(split_dim) <= ncores
+    % We are going to split into exactly split_dim pieces
+    ncores=sz(split_dim);
+    inputs_split = cell(ncores, num_args);
+    indices = repmat({':'}, 1, max_ndims);
+    for c = 1:ncores
+        indices{split_dim} = c;
+        for a = 1:num_args
+            A=varargin{a};
+            if isscalar(A)
+                % Pass scalars directly; Octave's local arrayfun handles them perfectly
+                inputs_split{c, a} = A;
+            elseif size(A, split_dim) > 1
+                % Slice the matrix along the split dimension
+                inputs_split{c, a} = A(indices{:});
+            else
+                % Pass singleton dimensions (e.g., 1x201) directly to the worker
+                inputs_split{c, a} = A;
+            end
+        end
     end
-
-    % 2. Find the largest dimension to parallelize over (minimizes overhead)
+else
     [~, split_dim] = max(sz);
     N = sz(split_dim);
 
@@ -38,48 +66,51 @@ function out = pararrayfun_vfi(ncores, func, varargin)
             end
         end
     end
+end
 
-    % 4. Rearrange our split cell array into separate columns
-    args_for_parcellfun = cell(1, num_args);
-    for a = 1:num_args
-        args_for_parcellfun{a} = inputs_split(:, a);
-    end
+% 4. Rearrange our split cell array into separate columns
+args_for_parcellfun = cell(1, num_args);
+for a = 1:num_args
+    args_for_parcellfun{a} = inputs_split(:, a);
+end
 
-    % 5. Dispatch chunks to the persistent workers
+% 5. Dispatch chunks to the persistent workers
+for c = 1:ncores
+    args = cellfun(@(x) x(c), args_for_parcellfun);
+    temp_in = sprintf('/tmp/vfi_worker_%d_temp.mat', c);
+    in_file = sprintf('/tmp/vfi_worker_%d_in.mat', c);
+
+    % SAVE the new is_vectorized flag along with func and args
+    save('-binary', temp_in, 'func', 'args', 'is_vectorized');
+    rename(temp_in, in_file);
+end
+
+% 6. Wait for all workers to finish their slice
+results = cell(ncores, 1);
+completed = 0;
+while completed < ncores
     for c = 1:ncores
-        args = cellfun(@(x) x(c), args_for_parcellfun); % The sliced cell array for this core
-        temp_in = sprintf('/tmp/vfi_worker_%d_temp.mat', c);
-        in_file = sprintf('/tmp/vfi_worker_%d_in.mat', c);
+        out_file = sprintf('/tmp/vfi_worker_%d_out.mat', c);
 
-        % Save the actual function handle 'func'
-        save('-binary', temp_in, 'func', 'args');
-        rename(temp_in, in_file); % Atomic pass
-    end
+        if isempty(results{c}) && exist(out_file, 'file')
+            data = load(out_file, 'result');
+            delete(out_file);
 
-    % 6. Wait for all workers to finish their slice
-    results = cell(ncores, 1);
-    completed = 0;
-    while completed < ncores
-        for c = 1:ncores
-            out_file = sprintf('/tmp/vfi_worker_%d_out.mat', c);
-
-            if isempty(results{c}) && exist(out_file, 'file')
-                data = load(out_file, 'result');
-                delete(out_file);
-
-                if isa(data.result, 'MException')
-                    rethrow(data.result); % Crash gracefully if worker failed
-                end
-
-                results{c} = data.result;
-                completed = completed + 1;
+            if isa(data.result, 'MException')
+                rethrow(data.result); % Crash gracefully if worker failed
             end
-        end
-        if completed < ncores
-            pause(0.005); % Yield briefly
+
+            results{c} = data.result;
+            completed = completed + 1;
         end
     end
+    if completed < ncores
+        pause(0.005); % Yield briefly
+    end
+end
 
-    % 7. Reassemble the final array
-    out = cat(split_dim, results{:});
+% 7. Reassemble the final array
+out = cat(split_dim, results{:});
+
+
 end

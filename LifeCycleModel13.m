@@ -59,7 +59,7 @@ Params.sigma_epsilon_z=0.03;
 Params.dj=[0.006879, 0.000463, 0.000307, 0.000220, 0.000184, 0.000172, 0.000160, 0.000149, 0.000133, 0.000114, 0.000100, 0.000105, 0.000143, 0.000221, 0.000329, 0.000449, 0.000563, 0.000667, 0.000753, 0.000823,...
     0.000894, 0.000962, 0.001005, 0.001016, 0.001003, 0.000983, 0.000967, 0.000960, 0.000970, 0.000994, 0.001027, 0.001065, 0.001115, 0.001154, 0.001209, 0.001271, 0.001351, 0.001460, 0.001603, 0.001769, 0.001943, 0.002120, 0.002311, 0.002520, 0.002747, 0.002989, 0.003242, 0.003512, 0.003803, 0.004118, 0.004464, 0.004837, 0.005217, 0.005591, 0.005963, 0.006346, 0.006768, 0.007261, 0.007866, 0.008596, 0.009473, 0.010450, 0.011456, 0.012407, 0.013320, 0.014299, 0.015323,...
     0.016558, 0.018029, 0.019723, 0.021607, 0.023723, 0.026143, 0.028892, 0.031988, 0.035476, 0.039238, 0.043382, 0.047941, 0.052953, 0.058457, 0.064494,...
-    0.071107, 0.078342, 0.086244, 0.094861, 0.104242, 0.114432, 0.125479, 0.137427, 0.150317, 0.164187, 0.179066, 0.194979, 0.211941, 0.229957, 0.249020, 0.269112, 0.290198, 0.312231, 1.000000]; 
+    0.071107, 0.078342, 0.086244, 0.094861, 0.104242, 0.114432, 0.125479, 0.137427, 0.150317, 0.164187, 0.179066, 0.194979, 0.211941, 0.229957, 0.249020, 0.269112, 0.290198, 0.312231, 1.000000];
 % dj covers Ages 0 to 100
 Params.sj=1-Params.dj(21:101); % Conditional survival probabilities
 Params.sj(end)=0; % In the present model the last period (j=J) value of sj is actually irrelevant
@@ -101,6 +101,14 @@ disp('Solve for Value fn and Policy fn using ValueFnIter command')
 vfoptions.divideandconquer=1; % Exploit conditional monotonicity to speed up codes
 vfoptions.gridinterplayer=1; % interpolate aprime
 vfoptions.ngridinterp=20; % number of points between every two points in a_grid
+% Octave compatibility layer: this ReturnFn supports direct singleton expansion.
+vfoptions.vectorizedarrayfunnames={'LifeCycleModel8_ReturnFn'};
+% ncores=14;
+if exist('ncores', 'var') && ncores>1
+    vfi_pool('start', ncores);
+    vfoptions.n_proc=ncores;
+end
+vfoptions.verbose=1;
 tic;
 [V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
@@ -231,3 +239,6 @@ figure(5)
 plot(1:1:Params.J,SimPanelValues2.earnings(:,1:50))
 % Note how each line is short as they are each only 10 periods
 
+if exist('ncores', 'var')
+    vfi_pool('stop', ncores);
+end
