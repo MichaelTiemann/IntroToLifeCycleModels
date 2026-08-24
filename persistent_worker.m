@@ -37,6 +37,9 @@ while true
             save('-binary', temp_out, 'result');
             rename(temp_out, out_file);
         end
+
+        % Purge the payload from local memory
+        clear args func result is_vectorized num_outs;
     else
         pause(0.005);
     end

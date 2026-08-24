@@ -93,6 +93,9 @@ for c = 1:ncores
     rename(temp_in, in_file);
 end
 
+% Clear the split structures to free master RAM during the compute wait
+clear inputs_split args_for_parcellfun args A S;
+
 % 6. Wait for all workers to finish their slice
 results = cell(ncores, num_outs);
 core_completed = false(ncores, 1);
@@ -137,5 +140,8 @@ varargout = cell(1, num_outs);
 for o = 1:num_outs
     varargout{o} = cat(split_dim, results{:, o});
 end
+
+% Clear the raw results cell array before returning to the main toolkit loop
+clear results data;
 
 end
