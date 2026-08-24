@@ -1,12 +1,13 @@
 function persistent_worker(worker_id)
+
 in_file = sprintf('/tmp/vfi_worker_%d_in.mat', worker_id);
 out_file = sprintf('/tmp/vfi_worker_%d_out.mat', worker_id);
 temp_out = sprintf('/tmp/vfi_worker_%d_temp.mat', worker_id);
 
 while true
     if exist(in_file, 'file')
-        % 1. Load the raw handle, args, AND the flag
-        load(in_file, 'func', 'args', 'is_vectorized');
+        % 1. Load the raw payload
+        load(in_file, 'func', 'args', 'is_vectorized', 'num_outs');
         delete(in_file);
 
         % 2. Check for the kill signal
@@ -16,17 +17,17 @@ while true
 
         % 3. Execute the math!
         try
-            % If it's an older worker file without the flag, default to false
             if ~exist('is_vectorized', 'var')
                 is_vectorized = false;
             end
 
+            result = cell(1, num_outs);
+
             if is_vectorized
-                % THE FAST PATH: Direct evaluation of the chunked arrays!
-                result = func(args{:});
+                % THE FAST PATH: Pure feval, no workspace hacks needed!
+                [result{:}] = feval(func, args{:});
             else
-                % THE SCALAR PATH: Fall back to element-by-element
-                result = arrayfun_expand(func, args{:});
+                [result{:}] = arrayfun_expand(func, args{:});
             end
 
             save('-binary', temp_out, 'result');
