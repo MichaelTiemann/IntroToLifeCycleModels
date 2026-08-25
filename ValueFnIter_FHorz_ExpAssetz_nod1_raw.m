@@ -101,10 +101,10 @@ for reverse_j=1:N_j-1
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=squeeze(sum(EV,4)); % sum over zprime, leaving current z
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,1,N_a1,1);
+    % DiscountedEV=DiscountFactorParamsVec*repelem(EV,1,N_a1,1);
 
-    % Dispatch to map-reduce workers
-    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), DiscountedEV, ReturnFnParamNames, ReturnFnParamsVec);
+    % Dispatch to map-reduce workers, using unexpanded EV to be expanded later
+    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec);
 
     V(:,:,jj) = shiftdim(Vtemp, 1);
     Policy(:,:,jj) = shiftdim(maxindex, 1);

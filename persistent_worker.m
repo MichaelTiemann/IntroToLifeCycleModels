@@ -1,8 +1,8 @@
 function persistent_worker(worker_id)
 
-in_file = sprintf('/tmp/vfi_worker_%d_in.mat', worker_id);
-out_file = sprintf('/tmp/vfi_worker_%d_out.mat', worker_id);
-temp_out = sprintf('/tmp/vfi_worker_%d_temp.mat', worker_id);
+in_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_in.mat', worker_id);
+out_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_out.mat', worker_id);
+temp_out = sprintf('/Volumes/VFIRAM/vfi_worker_%d_temp.mat', worker_id);
 
 while true
     if exist(in_file, 'file')
@@ -30,11 +30,11 @@ while true
                 [result{:}] = arrayfun_expand(func, args{:});
             end
 
-            save('-binary', temp_out, 'result');
+            save('-v6', temp_out, 'result');
             rename(temp_out, out_file);
         catch err
             result = err;
-            save('-binary', temp_out, 'result');
+            save('-v6', temp_out, 'result');
             rename(temp_out, out_file);
         end
 

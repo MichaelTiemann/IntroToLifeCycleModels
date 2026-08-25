@@ -86,10 +86,10 @@ for c = 1:ncores
         args{a} = args_for_parcellfun{a}{c};
     end
 
-    temp_in = sprintf('/tmp/vfi_worker_%d_temp.mat', c);
-    in_file = sprintf('/tmp/vfi_worker_%d_in.mat', c);
+    temp_in = sprintf('/Volumes/VFIRAM/vfi_worker_%d_temp.mat', c);
+    in_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_in.mat', c);
 
-    save('-binary', temp_in, 'func', 'args', 'is_vectorized', 'num_outs');
+    save('-v6', temp_in, 'func', 'args', 'is_vectorized', 'num_outs');
     rename(temp_in, in_file);
 end
 
@@ -104,7 +104,7 @@ completed = 0;
 while completed < ncores
     for c = 1:ncores
         if ~core_completed(c)
-            out_file = sprintf('/tmp/vfi_worker_%d_out.mat', c);
+            out_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_out.mat', c);
             if exist(out_file, 'file')
                 try
                     data = load(out_file, 'result');
