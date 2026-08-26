@@ -30,7 +30,7 @@ end
 if last_arr_idx==0
     last_arr_idx=n_inputs;
     param_idx=n_inputs+1;
-endif
+end
 
 % Expand inputs virtually/explicitly to match full_sz
 expanded_args = cell(1, last_arr_idx);
