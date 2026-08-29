@@ -46,7 +46,7 @@ if ~isempty(split_dim) && sz(split_dim) <= ncores
         inputs_split{c, num_args - 1} = varargin{num_args - 1};
         inputs_split{c, num_args}     = varargin{num_args};
     end
-else
+elseif ncores>1
     % Fallback logic (slicing largest dimension)
     [~, split_dim] = max(sz);
     N = sz(split_dim);
@@ -71,6 +71,21 @@ else
         inputs_split{c, num_args - 1} = varargin{num_args - 1};
         inputs_split{c, num_args}     = varargin{num_args};
     end
+else
+    % Typically used for debugging...copy code from persistent_worker here
+    if ~exist('is_vectorized', 'var')
+        is_vectorized = false;
+    end
+
+    varargout = cell(1, num_outs);
+
+    if is_vectorized
+        % THE FAST PATH: Pure feval, no workspace hacks needed!
+        [varargout{:}] = feval(func, varargin{:});
+    else
+        [varargout{:}] = arrayfun_expand(func, varargin{:});
+    end
+    return
 end
 
 % 4. Rearrange our split cell array into separate columns

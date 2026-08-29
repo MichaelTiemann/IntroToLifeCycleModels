@@ -1,23 +1,50 @@
 function vfi_pool(action, ncores)
+    switch lower(action)
+        case 'stop'
+            fprintf('Shutting down %d workers...\n', ncores);
 
-if strcmp(action, 'start')
-    fprintf('Starting %d persistent workers...\n', ncores);
-    system('rm -f /Volumes/VFIRAM/vfi_worker_*'); % Clean stale files
-    for i = 1:ncores
-        % Launch headless octave processes in the background
-        system(sprintf('octave --no-gui --eval "persistent_worker(%d)" &', i));
+            % 1. Send EXIT payload to all workers
+            for i = 1:ncores
+                func = 'EXIT';
+                args = {};
+                is_vectorized = false;
+                num_outs = 1;
+                in_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_in.mat', i);
+                save('-v6', in_file, 'func', 'args', 'is_vectorized', 'num_outs');
+            end
+
+            % 2. Shutdown Barrier: Block until every worker signals exit
+            for i = 1:ncores
+                exit_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_exited', i);
+                while ~exist(exit_file, 'file')
+                  pause(0.001);
+                end
+                delete(exit_file);
+            end
+
+            % 3. Clean up stale worker files
+            system('rm -f /Volumes/VFIRAM/vfi_worker_*');
+
+        case 'start'
+            fprintf('Starting %d persistent workers...\n', ncores);
+            system('rm -f /Volumes/VFIRAM/vfi_worker_*');
+
+            % Launch headless worker processes in the background
+            for i = 1:ncores
+                system(sprintf('octave --no-gui --eval "persistent_worker(%d)" &', i));
+            end
+
+            % Startup Barrier: Block until all workers confirm initialization
+            for i = 1:ncores
+                ready_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_ready', i);
+                while ~exist(ready_file, 'file')
+                    pause(0.001);
+                end
+                delete(ready_file);
+            end
+
+        case 'restart'
+            vfi_pool('stop', ncores);
+            vfi_pool('start', ncores);
     end
-    pause(2); % Give them a second to boot up and idle
-
-elseif strcmp(action, 'stop')
-    fprintf('Shutting down workers...\n');
-    for i = 1:ncores
-        func = 'EXIT'; % Save it as 'func' to match the worker's load command
-        args = {};
-        in_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_in.mat', i);
-        save('-v6', in_file, 'func', 'args');
-    end
-end
-
-
 end
