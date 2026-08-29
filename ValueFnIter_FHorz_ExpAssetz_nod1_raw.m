@@ -6,7 +6,7 @@ N_a2=prod(n_a2);
 N_a=N_a1*N_a2;
 N_z=prod(n_z);
 
-V=zeros(N_a,N_z,N_j,'gpuArray');
+V=zeros(N_a,N_z,N_j,vfoptions.precision,'gpuArray');
 Policy=zeros(N_a,N_z,N_j,'gpuArray'); %first dim indexes the optimal choice for d and a1prime rest of dimensions a,z
 
 %%
@@ -19,7 +19,7 @@ end
 %% j=N_j
 
 % Create a vector containing all the return function parameters (in order)
-ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
+ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j,vfoptions.precision);
 
 if ~isfield(vfoptions,'V_Jplus1')
     % Dispatch directly to map-reduce workers (passing [] for DiscountedEV)
