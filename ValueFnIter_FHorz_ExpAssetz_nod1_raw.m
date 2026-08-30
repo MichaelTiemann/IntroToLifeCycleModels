@@ -109,8 +109,18 @@ for reverse_j=1:N_j-1
     V(:,:,jj) = reshape(Vtemp, [N_a, N_z]);
     Policy(:,:,jj) = reshape(maxindex, [N_a, N_z]);
 
-end
+    % --- 1. MASTER HEAP FLUSH ---
+    % Force Octave to drop the ~700MB of interpolation payloads
+    % before moving to the next age.
+    clear Vlower Vupper EV_l EV_u EV aprimeProbs aprimeIndex aprimeplus1Index skipinterp;
 
+    % --- 2. WORKER POOL REJUVENATION ---
+    % Kill and respawn the persistent workers every 5 ages to completely
+    % eradicate OS-level heap fragmentation.
+    if mod(jj, 5) == 0 && exist('vfi_pool', 'file')
+        vfi_pool('restart', vfoptions.n_proc);
+    end
+end % End of the reverse_j loop
 
 Policy=shiftdim(Policy,-1);
 
