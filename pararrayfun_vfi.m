@@ -10,13 +10,14 @@ num_args = length(varargin);
 num_grid_args = num_args - 2; % Shield the final TWO arguments (ReturnFnParamNames & ReturnFnParamsVec) from the slicer!
 
 % 1. Determine target dimensions using ONLY grid/state arguments
+% 1. Determine target dimensions using ONLY grid/state arguments
 max_ndims = max(cellfun(@ndims, varargin(1:num_grid_args)));
 sz = ones(1, max_ndims);
-
 for i = 1:num_grid_args
-    arg_sz = size(varargin{i});
-    [max_d, max_i] = max(arg_sz);
-    sz(max_i) = max(sz(max_i), max_d);
+    if isnumeric(varargin{i}) || islogical(varargin{i})
+        arg_sz = size(varargin{i});
+        sz(1:length(arg_sz)) = max(sz(1:length(arg_sz)), arg_sz);
+    end
 end
 
 % 2. Find the best dimension to parallelize over (minimizes overhead)
@@ -125,7 +126,9 @@ while completed < ncores
                     data = load(out_file, 'result');
                     delete(out_file);
 
-                    if isa(data.result, 'MException')
+                    if isstruct(data.result) && isfield(data.result, 'message')
+                        error('Worker error: %s', data.result.message);
+                    elseif isa(data.result, 'MException')
                         rethrow(data.result);
                     end
 

@@ -27,39 +27,10 @@ R_slice = CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, 0, n_d2, n_a1, n_a1, n_a2
 
 % 5. EXPECTED VALUE ADDITION (Robust Skinny Broadcasting)
 if ~isempty(DiscountedEV_slice)
-
-    sz_R = size(R_slice);
-    dim1 = sz_R(1);
-
-    % Get the exact sub-dimensions
     N_a1_total = prod(n_a1);
-    N_a2_total = prod(n_a2);
-
-    % Dynamically determine N_z_local based on actual dimensions of R_slice
-    if length(sz_R) >= 3
-        N_z_local = sz_R(3);
-    else
-        N_z_local = 1;
-    end
-
-    % 1. Reshape R_slice to split the flattened [N_a1 * N_a2] into [N_a1, N_a2]
-    if N_z_local > 1
-        R_slice = reshape(R_slice, [dim1, N_a1_total, N_a2_total, N_z_local]);
-        EV_aligned = reshape(DiscountedEV_slice, [dim1, 1, N_a2_total, N_z_local]);
-    else
-        R_slice = reshape(R_slice, [dim1, N_a1_total, N_a2_total]);
-        EV_aligned = reshape(DiscountedEV_slice, [dim1, 1, N_a2_total]);
-    end
-
-    % 2. Broadcast Add!
-    R_slice = R_slice + EV_aligned;
-
-    % 3. Flatten R_slice back so max() works correctly
-    if N_z_local > 1
-        R_slice = reshape(R_slice, [dim1, N_a1_total * N_a2_total, N_z_local]);
-    else
-        R_slice = reshape(R_slice, [dim1, N_a1_total * N_a2_total]);
-    end
+    % Explicitly repeat the EV array to match R_slice exactly, avoiding memory leaks
+    EV_expanded = repelem(DiscountedEV_slice, 1, N_a1_total, 1);
+    R_slice = R_slice + EV_expanded;
 end
 
 % 6. REDUCE

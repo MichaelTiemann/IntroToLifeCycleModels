@@ -25,8 +25,8 @@ if ~isfield(vfoptions,'V_Jplus1')
     % Dispatch directly to map-reduce workers (passing [] for DiscountedEV)
     [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), [], ReturnFnParamNames, ReturnFnParamsVec);
 
-    V(:,:,N_j) = shiftdim(Vtemp, 1);
-    Policy(:,:,N_j) = shiftdim(maxindex, 1);
+    V(:,:,N_j) = reshape(Vtemp, [N_a, N_z]);
+    Policy(:,:,N_j) = reshape(maxindex, [N_a, N_z]);
 else
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
@@ -55,13 +55,13 @@ else
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=squeeze(sum(EV,4)); % sum over zprime, leaving current z
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,1,N_a1,1);
+    % DiscountedEV=DiscountFactorParamsVec*repelem(EV,1,N_a1,1);
 
     % Dispatch to map-reduce workers
-    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), DiscountedEV, ReturnFnParamNames, ReturnFnParamsVec);
+    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec);
 
-    V(:,:,N_j) = shiftdim(Vtemp, 1);
-    Policy(:,:,N_j) = shiftdim(maxindex, 1);
+    V(:,:,N_j) = reshape(Vtemp, [N_a, N_z]);
+    Policy(:,:,N_j) = reshape(maxindex, [N_a, N_z]);
 end
 
 
@@ -106,8 +106,8 @@ for reverse_j=1:N_j-1
     % Dispatch to map-reduce workers, using unexpanded EV to be expanded later
     [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec);
 
-    V(:,:,jj) = shiftdim(Vtemp, 1);
-    Policy(:,:,jj) = shiftdim(maxindex, 1);
+    V(:,:,jj) = reshape(Vtemp, [N_a, N_z]);
+    Policy(:,:,jj) = reshape(maxindex, [N_a, N_z]);
 
 end
 
