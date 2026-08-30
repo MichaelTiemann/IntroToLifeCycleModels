@@ -40,7 +40,5 @@ end
 % 6. REDUCE
 [v_max, v_idx] = max(R_slice, [], 1);
 
-% FORCE GARBAGE COLLECTION
-clear R_slice ReturnFn z_val DiscountedEV_slice;
 
 end
