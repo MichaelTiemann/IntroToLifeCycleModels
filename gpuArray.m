@@ -1,3 +1,5 @@
 function g=gpuArray(arr)
-  g=arr;
-endfunction
+g=arr;
+
+
+end

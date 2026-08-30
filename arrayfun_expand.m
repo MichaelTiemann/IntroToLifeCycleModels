@@ -17,7 +17,7 @@ for i = 1:n_inputs
         last_arr_idx=i-1;
         param_idx=i;
         break
-    endif
+    end
     sz(end+1:max_nd) = 1; % pad with singleton dimensions
     for d = 1:max_nd
         if full_sz(d) == 1
@@ -41,6 +41,5 @@ end
 F = builtin('arrayfun', ReturnFn, expanded_args{:}, varargin{param_idx:end});
 
 
-endfunction
-
+end
 

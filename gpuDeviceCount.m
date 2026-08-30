@@ -1,4 +1,5 @@
 function count=gpuDeviceCount()
-   count=1;
- endfunction
+count=1;
 
+
+end

@@ -1,3 +1,5 @@
 function arr=gather(input)
-   arr=input;
- endfunction
+arr=input;
+
+
+end
