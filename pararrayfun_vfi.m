@@ -9,6 +9,8 @@ end
 num_args = length(varargin);
 num_grid_args = num_args - 2; % Shield the final TWO arguments (parameter arrays)
 
+ram_dir = '/mnt/VFIRAM';
+
 % =========================================================================
 % 1. IDENTIFY WORKLOAD & TARGET DIMENSIONS
 % =========================================================================
@@ -118,8 +120,8 @@ for c = 1:ncores
 
     % Write to RAM disk immediately. 'args' is overwritten on the next
     % iteration, instantly releasing the slice from master RAM.
-    temp_in = sprintf('/Volumes/VFIRAM/vfi_worker_%d_temp.mat', c);
-    in_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_in.mat', c);
+    temp_in = sprintf('%s/vfi_worker_%d_temp.mat', ram_dir, c);
+    in_file = sprintf('%s/vfi_worker_%d_in.mat', ram_dir, c);
     save('-v6', temp_in, 'func', 'args', 'is_vectorized', 'num_outs');
     rename(temp_in, in_file);
 end
@@ -134,7 +136,7 @@ completed = 0;
 while completed < ncores
     for c = 1:ncores
         if ~core_completed(c)
-            out_file = sprintf('/Volumes/VFIRAM/vfi_worker_%d_out.mat', c);
+            out_file = sprintf('%s/vfi_worker_%d_out.mat', ram_dir, c);
             if exist(out_file, 'file')
                 try
                     data = load(out_file, 'result');
