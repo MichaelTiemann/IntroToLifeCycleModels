@@ -1,6 +1,5 @@
-function persistent_worker(worker_id)
+function persistent_worker(worker_id, ram_dir)
 
-ram_dir = '/mnt/VFIRAM';
 in_file    = sprintf('%s/vfi_worker_%d_in.mat', ram_dir, worker_id);
 out_file   = sprintf('%s/vfi_worker_%d_out.mat', ram_dir, worker_id);
 temp_out   = sprintf('%s/vfi_worker_%d_temp.mat', ram_dir, worker_id);

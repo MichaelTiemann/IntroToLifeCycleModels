@@ -1,6 +1,4 @@
-function vfi_pool(action, ncores)
-
-ram_dir = '/mnt/VFIRAM';
+function vfi_pool(action, ncores, ram_dir)
 
 switch lower(action)
     case 'stop'
@@ -34,7 +32,7 @@ switch lower(action)
 
         % Launch headless worker processes in the background
         for i = 1:ncores
-            system(sprintf('octave --no-gui --eval "persistent_worker(%d)" &', i));
+            system(sprintf('octave --no-gui --eval "persistent_worker(%d, ''%s'')" &', i, ram_dir));
         end
 
         % Startup Barrier: Block until all workers confirm initialization

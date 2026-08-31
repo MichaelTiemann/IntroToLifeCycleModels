@@ -23,7 +23,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j,vfop
 
 if ~isfield(vfoptions,'V_Jplus1')
     % Dispatch directly to map-reduce workers (passing [] for DiscountedEV)
-    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), [], ReturnFnParamNames, ReturnFnParamsVec);
+    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), [], ReturnFnParamNames, ReturnFnParamsVec, vfoptions);
 
     V(:,:,N_j) = reshape(Vtemp, [N_a, N_z]);
     Policy(:,:,N_j) = reshape(maxindex, [N_a, N_z]);
@@ -58,7 +58,7 @@ else
     % DiscountedEV=DiscountFactorParamsVec*repelem(EV,1,N_a1,1);
 
     % Dispatch to map-reduce workers
-    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec);
+    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec, vfoptions);
 
     V(:,:,N_j) = reshape(Vtemp, [N_a, N_z]);
     Policy(:,:,N_j) = reshape(maxindex, [N_a, N_z]);
@@ -104,7 +104,7 @@ for reverse_j=1:N_j-1
     % DiscountedEV=DiscountFactorParamsVec*repelem(EV,1,N_a1,1);
 
     % Dispatch to map-reduce workers, using unexpanded EV to be expanded later
-    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(vfoptions.n_proc, ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec);
+    [Vtemp, maxindex] = ComputeMaxRHS_FHorz_ExpAssetz_nod1_raw(ReturnFn, n_d2, n_a1, n_a2, d2_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), DiscountFactorParamsVec*EV, ReturnFnParamNames, ReturnFnParamsVec, vfoptions);
 
     V(:,:,jj) = reshape(Vtemp, [N_a, N_z]);
     Policy(:,:,jj) = reshape(maxindex, [N_a, N_z]);

@@ -1,4 +1,4 @@
-function varargout = pararrayfun_vfi(ncores, func, is_vectorized, varargin)
+function varargout = pararrayfun_vfi(func, is_vectorized, varargin)
 
 % Determine how many outputs were requested by the calling function
 num_outs = nargout;
@@ -7,9 +7,11 @@ if num_outs == 0
 end
 
 num_args = length(varargin);
-num_grid_args = num_args - 2; % Shield the final TWO arguments (parameter arrays)
+num_grid_args = num_args - 3; % Shield the final THREE arguments (parameter arrays and vfoptions)
+vfoptions = varargin{num_args};
 
-ram_dir = '/mnt/VFIRAM';
+ram_dir = vfoptions.ram_dir;
+ncores = vfoptions.n_proc;
 
 % =========================================================================
 % 1. IDENTIFY WORKLOAD & TARGET DIMENSIONS
@@ -114,12 +116,14 @@ for c = 1:ncores
             end
         end
         % Bypass the slicer entirely for the parameter arrays
+        args{num_args - 2} = varargin{num_args - 2};
         args{num_args - 1} = varargin{num_args - 1};
         args{num_args}     = varargin{num_args};
     end
 
     % Write to RAM disk immediately. 'args' is overwritten on the next
     % iteration, instantly releasing the slice from master RAM.
+    args{num_args} = rmfield(args{num_args},{'aprimeFn','ExogShockFn1'});
     temp_in = sprintf('%s/vfi_worker_%d_temp.mat', ram_dir, c);
     in_file = sprintf('%s/vfi_worker_%d_in.mat', ram_dir, c);
     save('-v6', temp_in, 'func', 'args', 'is_vectorized', 'num_outs');
