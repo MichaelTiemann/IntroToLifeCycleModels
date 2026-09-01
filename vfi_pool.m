@@ -45,8 +45,8 @@ switch lower(action)
         end
 
     case 'restart'
-        vfi_pool('stop', ncores);
-        vfi_pool('start', ncores);
+        vfi_pool('stop', ncores, ram_dir);
+        vfi_pool('start', ncores, ram_dir);
 end
 
 
