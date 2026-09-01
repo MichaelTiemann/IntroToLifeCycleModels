@@ -23,7 +23,7 @@ if is_map_reduce
     len_a2 = size(varargin{7}, 1);
     len_z  = size(varargin{8}, 3);
 
-    if ncores > len_z && len_a2 > len_z
+    if ncores >= len_a2 && len_a2 > len_z
         split_arg = 7;
         ncores = min(ncores, len_a2);
         concat_dim = 2; % Output tensor stitches horizontally along a2
