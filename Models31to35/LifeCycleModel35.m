@@ -67,14 +67,8 @@ simoptions.refine_d=vfoptions.refine_d;
 precision='single';
 if strcmp(precision,'single')
     vfoptions.precision='single';
-    vfoptions.indexT='int32';
-    cast2precision=@(x) single(x)
-    cast2index=@(x) int32(x)
 else
     vfoptions.precision='double';
-    vfoptions.indexT='double';
-    cast2precision=@(x) x
-    cast2index=@(x) x
 end
 
 %% Parameters
@@ -135,16 +129,16 @@ Params.sj(end)=0; % In the present model the last period (j=J) value of sj is ac
 %% Grids
 % The ^3 means that there are more points near 0 and near 10. We know from theory that the value function will be more 'curved' near zero assets,
 % and putting more points near curvature (where the derivative changes the most) increases accuracy of results.
-asset_grid=-3+13*(linspace(cast2precision(0),1,n_a(2)))'; % Note, I use equal spacing (normally would put most points near zero)
+asset_grid=-3+13*(linspace(cast(0,vfoptions.precision),1,n_a(2)))'; % Note, I use equal spacing (normally would put most points near zero)
 % note: will go from -3 to 13-3
 % Make it so that there is a zero assets
 % Find closest to zero assets
 [~,zeroassetindex]=min(abs(asset_grid));
-asset_grid(zeroassetindex)=cast2precision(0);
+asset_grid(zeroassetindex)=cast(0,vfoptions.precision);
 
 % age20avgincome=Params.w*Params.kappa_j(1);
 % house_grid=[0; logspace(2*age20avgincome, 12*age20avgincome, 5)'];
-house_grid=(cast2precision(0):n_a(1)-1)';
+house_grid=(cast(0,vfoptions.precision):n_a(1)-1)';
 
 % Note, we can see from w*kappa_j*z and the values of these, that average
 % income is going to be around one, so will just use this simpler house grid
@@ -158,7 +152,7 @@ z_grid=exp(z_grid); % Take exponential of the grid
 z_grid=z_grid./mean_z; % Normalise the grid on z (so that the mean of z is exactly 1)
 
 % Share of assets invested in the risky asset
-riskyshare_grid=linspace(cast2precision(0),1,n_d(1))'; % Share of assets, from 0 to 1
+riskyshare_grid=linspace(cast(0,vfoptions.precision),1,n_d(1))'; % Share of assets, from 0 to 1
 % Set up d for VFI Toolkit (is the two decision variables)
 d_grid=[riskyshare_grid; asset_grid]; % Note: this does not have to be a_grid, I just chose to use same grid for savings as for assets
 
@@ -187,7 +181,6 @@ simoptions.a_grid=a_grid;
 simoptions.d_grid=d_grid;
 
 simoptions.precision=vfoptions.precision;
-simoptions.indexT=vfoptions.indexT;
 
 %% Now, create the return function
 % DiscountFactorParamNames={'beta','sj'};

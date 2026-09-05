@@ -37,23 +37,17 @@ Params.w=1; % Wage
 precision='single';
 if strcmp(precision,'single')
     vfoptions.precision='single';
-    vfoptions.indexT='int32';
-    cast2precision=@(x) single(x)
-    cast2index=@(x) int32(x)
 else
     vfoptions.precision='double';
-    vfoptions.indexT='double';
-    cast2precision=@(x) x
-    cast2index=@(x) x
 end
 
 % While there are no 'a' for 'z' in this model, VFI Toolkit requires them 
 % to figure out what is going on. By making them just a single grid point, 
 % and then not using them anywhere, we are essentially solving a model without them.
-a_grid=cast2precision(1);
+a_grid=cast(1,vfoptions.precision);
 
 % Grid for labour choice
-h_grid=linspace(cast2precision(0),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
+h_grid=linspace(cast(0,vfoptions.precision),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
 % Switch into toolkit notation
 d_grid=h_grid;
 

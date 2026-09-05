@@ -75,24 +75,18 @@ Params.wg3=Params.sigma; % By using the same curvature as the utility of consump
 precision='single';
 if strcmp(precision,'single')
     vfoptions.precision='single';
-    vfoptions.indexT='int32';
-    cast2precision=@(x) single(x)
-    cast2index=@(x) int32(x)
 else
     vfoptions.precision='double';
-    vfoptions.indexT='double';
-    cast2precision=@(x) x
-    cast2index=@(x) x
 end
 
 % The ^3 means that there are more points near 0 and near 10. We know from theory that the value function will be more 'curved' near zero assets,
 % and putting more points near curvature (where the derivative changes the most) increases accuracy of results.
-a_grid=10*(linspace(cast2precision(0),1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
-z_grid=cast2precision([1;0]); % the first entry is employment and the second is unemployment.
-pi_z=cast2precision([0.7, 0.3; 0.5, 0.5]); % p_ee=0.7, p_eu=0.3, p_ue=0.5, p_uu=0.5
+a_grid=10*(linspace(cast(0,vfoptions.precision),1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
+z_grid=cast([1;0],vfoptions.precision); % the first entry is employment and the second is unemployment.
+pi_z=cast([0.7, 0.3; 0.5, 0.5],vfoptions.precision); % p_ee=0.7, p_eu=0.3, p_ue=0.5, p_uu=0.5
 
 % Grid for labour choice
-h_grid=linspace(cast2precision(0),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
+h_grid=linspace(cast(0,vfoptions.precision),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
 % Switch into toolkit notation
 d_grid=h_grid;
 

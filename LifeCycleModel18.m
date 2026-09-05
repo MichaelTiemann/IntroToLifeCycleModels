@@ -85,18 +85,12 @@ Params.wg3=Params.sigma; % By using the same curvature as the utility of consump
 precision='single';
 if strcmp(precision,'single')
     vfoptions.precision='single';
-    vfoptions.indexT='int32';
-    cast2precision=@(x) single(x)
-    cast2index=@(x) int32(x)
 else
     vfoptions.precision='double';
-    vfoptions.indexT='double';
-    cast2precision=@(x) x
-    cast2index=@(x) x
 end
 % The ^3 means that there are more points near 0 and near 10. We know from theory that the value function will be more 'curved' near zero assets,
 % and putting more points near curvature (where the derivative changes the most) increases accuracy of results.
-a_grid=10*(linspace(cast2precision(0),1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
+a_grid=10*(linspace(cast(0,vfoptions.precision),1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
 
 % First, the AR(1) process z
 [z_grid,pi_z]=discretizeAR1_FarmerToda(0,Params.rho_z,Params.sigma_epsilon_z,n_z);
@@ -105,7 +99,7 @@ z_grid=exp(z_grid); % Take exponential of the grid
 z_grid=z_grid./mean_z; % Normalise the grid on z (so that the mean of z is exactly 1)
 
 % Grid for labour choice
-h_grid=linspace(cast2precision(0),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
+h_grid=linspace(cast(0,vfoptions.precision),1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
 % Switch into toolkit notation
 d_grid=h_grid;
 
@@ -141,13 +135,12 @@ jequaloneDist(1,:)=statdist_z; % All agents start with zero assets, with z drawn
 % period, repeat. Once done for all ages, normalize to one
 Params.mewj=ones(1,Params.J); % Marginal distribution of households over age
 for jj=2:length(Params.mewj)
-    Params.mewj(jj)=cast2precision(Params.sj(jj-1)*Params.mewj(jj-1));
+    Params.mewj(jj)=cast(Params.sj(jj-1)*Params.mewj(jj-1),vfoptions.precision);
 end
 Params.mewj=Params.mewj./sum(Params.mewj); % Normalize to one
 AgeWeightsParamNames={'mewj'}; % So VFI Toolkit knows which parameter is the mass of agents of each age
 simoptions=struct(); % Use the default options
 simoptions.precision=vfoptions.precision;
-simoptions.indexT=vfoptions.indexT;
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 
 %% FnsToEvaluate are how we say what we want to graph the life-cycles of
@@ -232,8 +225,8 @@ AllStats_exo=EvalFnOnAgentDist_AllStats_FHorz_Case1(StationaryDist_exo, Policy_e
 
 %% Solve a third time, this time with exogenous labor supply and no shocks (deterministic model)
 n_z=1;
-z_grid=cast2precision(1);
-pi_z=cast2precision(1);
+z_grid=cast(1,vfoptions.precision);
+pi_z=cast(1,vfoptions.precision);
 jequaloneDist=zeros([n_a,n_z],precision,'gpuArray'); % Put no households anywhere on grid
 jequaloneDist(1,1)=1; 
 

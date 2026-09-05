@@ -99,20 +99,14 @@ Params.wg3=Params.sigma; % By using the same curvature as the utility of consump
 precision='single';
 if strcmp(precision,'single')
     vfoptions.precision='single';
-    vfoptions.indexT='int32';
-    cast2precision=@(x) single(x)
-    cast2index=@(x) int32(x)
 else
     vfoptions.precision='double';
-    vfoptions.indexT='double';
-    cast2precision=@(x) x
-    cast2index=@(x) x
 end
 
 % Housing grid, from 0 to maxh. hprime=0 means renter; hprime>0 means owner.
 minh=0;
 maxh=5;
-h_grid=minh+(maxh-minh)*linspace(cast2precision(0),1,n_a(2))'.^2; % ^2 puts more points near minh
+h_grid=minh+(maxh-minh)*linspace(cast(0,vfoptions.precision),1,n_a(2))'.^2; % ^2 puts more points near minh
 
 % Asset grid. Includes a negative portion to allow mortgage borrowing.
 % The minimum possible value of assets is -(1-gamma)*maxh (the maximum mortgage).
@@ -120,9 +114,9 @@ minassets=-(1-Params.gamma)*maxh;
 maxassets=10;
 % Negative part of the grid: evenly spaced from minassets up to 0.
 n_a_neg=round(0.1*n_a(1)); % roughly 10% of points in the negative range
-asset_grid_neg=linspace(cast2precision(minassets),0,n_a_neg)';
+asset_grid_neg=linspace(cast(minassets,vfoptions.precision),0,n_a_neg)';
 % Positive part of the grid (more points nearer 0, where the value fn is most curved).
-asset_grid_pos=maxassets*linspace(cast2precision(0),1,n_a(1)-n_a_neg+1)'.^3;
+asset_grid_pos=maxassets*linspace(cast(0,vfoptions.precision),1,n_a(1)-n_a_neg+1)'.^3;
 % Note: both contain zero, so omit it from asset_grid_neg before stacking
 asset_grid=[asset_grid_neg(1:end-1); asset_grid_pos];
 
@@ -160,7 +154,6 @@ vfoptions.ngridinterp=20; % 20 evenly-spaced points between each pair of consecu
 simoptions.gridinterplayer=vfoptions.gridinterplayer; % grid interpolation layer must also be set in simoptions (it changes Policy size/interpretation)
 simoptions.ngridinterp=vfoptions.ngridinterp;
 simoptions.precision=vfoptions.precision;
-simoptions.indexT=vfoptions.indexT;
 
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 tic;
