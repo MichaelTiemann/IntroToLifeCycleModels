@@ -1,4 +1,4 @@
-function F = LifeCycleModel1_VReturnFn(h, aprime, a, w, sigma, psi, eta)
+function F = LifeCycleModelV1_ReturnFn(h, aprime, a, w, sigma, psi, eta)
 
 % 1. Calculate Consumption using element-wise operations (.*, .+, ./)
 % Both 'a' and 'aprime' will be large 1D column vectors.
