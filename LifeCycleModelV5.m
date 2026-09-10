@@ -1,0 +1,131 @@
+%% Life-Cycle Model 5: Earnings are hump-shaped
+% Introduce a parameter kappa_j, that depends on age.
+% kappa_j represents 'labor productivity units as a deterministic function of age'
+% kappa_j is created as a J-by-1 vector, and the codes immediately realise this is a parameter that varies with age (because is has length J)
+% Look at how kappa_j changes the life-cycle profiles, creating the (empirically realistic) 
+% hump-shape of earnings, which increase in age, and peak around age 45-55.
+
+%% How does VFI Toolkit think about this?
+%
+% One decision variable: h, labour hours worked
+% One endogenous state variable: a, assets (total household savings)
+% No stochastic exogenous state variables
+% Age: j
+
+%% Begin setting up to use VFI Toolkit to solve
+% Lets model agents from age 20 to age 100, so 81 periods
+
+Params.agejshifter=19; % Age 20 minus one. Makes keeping track of actual age easy in terms of model age
+Params.J=100-Params.agejshifter; % =81, Number of period in life-cycle
+
+% Grid sizes to use
+n_d=51; % Endogenous labour choice (fraction of time worked)
+n_a=201; % Endogenous asset holdings
+n_z=0; % This is how the VFI Toolkit thinks about deterministic models
+N_j=Params.J; % Number of periods in finite horizon
+
+%% Parameters
+
+% Discount rate
+Params.beta = 0.96;
+% Preferences
+Params.sigma = 2; % Coeff of relative risk aversion (curvature of consumption)
+Params.eta = 1.5; % Curvature of leisure (This will end up being 1/Frisch elasticity)
+Params.psi = 10; % Weight on leisure
+
+% Prices
+Params.w=1; % Wage
+Params.r=0.05; % Interest rate (0.05 is 5%)
+
+% Demographics
+Params.agej=1:1:Params.J; % Is a vector of all the agej: 1,2,3,...,J
+Params.Jr=46;
+
+% Pensions
+Params.pension=0.3;
+
+% Age-dependent labor productivity units
+Params.kappa_j=[linspace(0.5,2,Params.Jr-15),linspace(2,1,14),zeros(1,Params.J-Params.Jr+1)];
+% kappa_j increase from 0.5 to 2 from age j=1 to j=Jr-15, then decreases
+% from 2 to 1 from age j=Jr-14 to j=Jr-1, and then is zero during retirement from j=Jr to j=J
+
+% Note: I call this kappa_j rather than kappa just to make it easier to remember that it 
+% depend on j, it would make no difference to codes if it were just called kappa.
+
+
+%% Grids
+% The ^3 means that there are more points near 0 and near 10. We know from theory that the value function will be more 'curved' near zero assets,
+% and putting more points near curvature (where the derivative changes the most) increases accuracy of results.
+a_grid=10*(linspace(0,1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
+
+% Grid for labour choice
+h_grid=linspace(0,1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
+% Switch into toolkit notation
+d_grid=h_grid;
+
+%% Now, create the return function
+DiscountFactorParamNames={'beta'};
+
+% Notice change to 'LifeCycleModel5_ReturnFn'
+ReturnFn=@(h,aprime,a,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j)...
+    LifeCycleModelV5_ReturnFn(h,aprime,a,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j);
+
+%% Solve the value function iteration problem
+disp('Solve for Value fn and Policy fn using ValueFnIter command')
+vfoptions=struct(); % Just using the defaults.
+tic;
+[V, Policy]=ValueFnIter_Case1_VFHorz(n_d,n_a,n_z,N_j, d_grid, a_grid, [], [], ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
+toc
+
+%% Now, we want to graph Life-Cycle Profiles
+
+%% Initial distribution of agents at birth (j=1)
+% Before we plot the life-cycle profiles we have to define how agents are at age j=1. We will give them all zero assets.
+jequaloneDist=zeros(n_a,1,'gpuArray'); % Put no households anywhere on grid
+jequaloneDist(1)=1; % Note that 0 is the 1st grid point in the asset grid
+% We have put all the 'new' households (mass of 1) here (zero assets)
+
+%% We now compute the 'stationary distribution' of households
+% The 'stationary distribution' is the joint distribution of households over the state space (endogenous states, exogenous shocks, and age).
+% It tells you the fraction of all households that are at each point in the model.
+% Agents start in period j=1 distributed in the state-space according to jequaloneDist.
+% Based on their choices (Policies) and any shocks (none here, but there will be in later models)
+% they move each period and we go forward through the periods to get the distribution at ages 2, 3, ..., J.
+% Params.mewj below says how many households are of each age; here
+% we just assume an equal mass 1/J of each age.
+% Note: in this deterministic model every household of a given age is at the same point on the a_grid
+% (because they all start identically and face no shocks), so the distribution at each age is degenerate. The stationary
+% distribution only starts doing meaningful work once we add idiosyncratic shocks in Life-Cycle Model 8.
+% Note: Because the only thing we will do with this model is look at V, Policy, and Life-Cycle Profiles (which are statistics conditional on age) the age-masses mewj are not actually doing anything here, but in most models they are important.
+Params.mewj=ones(1,Params.J)/Params.J; % Put a fraction 1/J at each age
+AgeWeightsParamNames={'mewj'}; % So VFI Toolkit knows which parameter is the mass of agents of each age
+simoptions=struct(); % Use the default options
+StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Policy,n_d,n_a,n_z,N_j,[],Params,simoptions);
+% StationaryDist has size [n_a, N_j]
+% StationaryDist(a_index, age) is the fraction of all households at that state, and sum(StationaryDist(:)) is 1.
+
+%% FnsToEvaluate are how we say what we want to graph the life-cycles of
+% Like with return function, we have to include (h,aprime,a) as first inputs, then just any relevant parameters.
+FnsToEvaluate.fractiontimeworked=@(h,aprime,a) h; % h is fraction of time worked
+FnsToEvaluate.earnings=@(h,aprime,a,w,kappa_j) w*kappa_j*h; % w*h is the labor earnings
+FnsToEvaluate.assets=@(h,aprime,a) a; % a is the current asset holdings
+% notice that we have called these fractiontimeworked, earnings and assets
+
+%% Calculate the life-cycle profiles
+AgeConditionalStats=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,[],simoptions);
+
+% For example
+% AgeConditionalStats.earnings.Mean
+% There are things other than Mean, but in our current deterministic model in which all agents are born identical the rest are meaningless.
+
+%% Plot the life cycle profiles of fraction-of-time-worked, earnings, and assets
+figure(1)
+subplot(3,1,1); plot(1:1:Params.J,AgeConditionalStats.fractiontimeworked.Mean)
+title('Life Cycle Profile: Fraction Time Worked (h)')
+subplot(3,1,2); plot(1:1:Params.J,AgeConditionalStats.earnings.Mean)
+title('Life Cycle Profile: Labor Earnings (w kappa_j h)')
+subplot(3,1,3); plot(1:1:Params.J,AgeConditionalStats.assets.Mean)
+title('Life Cycle Profile: Assets (a)')
+
+
+
