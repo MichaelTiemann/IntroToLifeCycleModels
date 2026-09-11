@@ -3,15 +3,14 @@ function F = LifeCycleModelV8_ReturnFn(h, aprime, a, z, w, sigma, psi, eta, agej
 % In this model, z is the fourth input: (h, aprime, a, z, ...)
 % z represents the employment/unemployment shock [1; 0].
 
-F = -Inf(size(h), 'like', h);
-
 if agej < Jr 
-    % Vectorized budget constraint for working age: wage * productivity * shock * hours + assets - next_period_assets
     c = w .* kappa_j .* z .* h + (1 + r) .* a - aprime; 
 else 
-    % Retirement budget constraint (unaffected by z)
-    c = pension + (1 + r) .* a - aprime;
+    % Multiply dummy 0.*z and 0.*h to force broadcast across dimensions 2 and 3
+    c = pension + (1 + r) .* a - aprime + 0 .* z + 0 .* h;
 end
+
+F = -Inf(size(c), 'like', c);
 
 % Logical mask for valid consumption
 valid_c = c > 0;

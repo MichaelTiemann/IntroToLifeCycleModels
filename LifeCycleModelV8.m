@@ -101,8 +101,8 @@ ReturnFn=@(h,aprime,a,z,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,be
 
 %% Solve the value function iteration problem
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
-vfoptions.divideandconquer=0; % turn on divide-and-conquer (divide-and-conquer is explained in Life-Cycle Model 29)
-vfoptions.gridinterplayer=0; % turn on grid interpolation layer (grid interpolation layer is explained in Life-Cycle Model 30)
+vfoptions.divideandconquer=1; % turn on divide-and-conquer (divide-and-conquer is explained in Life-Cycle Model 29)
+vfoptions.gridinterplayer=1; % turn on grid interpolation layer (grid interpolation layer is explained in Life-Cycle Model 30)
 vfoptions.ngridinterp=20; % 20 evenly-spaced points between each pair of consecutive a_grid points
 % vfoptions.lowmemory=1; % default=0, set =1 to use loops over z if you get a gpu out-of-memory error, the loops reduce memory use but slow the runtimes
 tic;
