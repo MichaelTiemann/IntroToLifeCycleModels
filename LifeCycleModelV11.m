@@ -33,7 +33,7 @@ Params.agejshifter=19; % Age 20 minus one. Makes keeping track of actual age eas
 Params.J=100-Params.agejshifter; % =81, Number of period in life-cycle
 
 % Grid sizes to use
-n_d=51; % Endogenous labour choice (fraction of time worked)
+n_d=0; % Endogenous labour choice (fraction of time worked; solved analytically from FOC)
 n_a=201; % Endogenous asset holdings
 n_z=21; % Exogenous labor productivity units shocks, persistent and transitory
 n_e=3;
@@ -116,21 +116,21 @@ simoptions.pi_e=vfoptions.pi_e;
 vfoptions.divideandconquer=1; % turn on divide-and-conquer
 vfoptions.gridinterplayer=1; % turn on grid interpolation layer
 vfoptions.ngridinterp=20; % 20 evenly-spaced points between each pair of consecutive a_grid points
-vfoptions.lowmemory=1; % default=0, set =1 to use loops (over e, or z if no e) if you get a gpu out-of-memory error, the loops reduce memory use but slow the runtimes [models with e & z can set =2]
+% vfoptions.lowmemory=1; % default=0, set =1 to use loops (over e, or z if no e) if you get a gpu out-of-memory error, the loops reduce memory use but slow the runtimes [models with e & z can set =2]
 simoptions.gridinterplayer=vfoptions.gridinterplayer; % grid interpolation layer must also be set in simoptions (because it changes Policy size/interpretation)
 simoptions.ngridinterp=vfoptions.ngridinterp;
 
 % Grid for labour choice
 h_grid=linspace(0,1,n_d)'; % Notice that it is imposing the 0<=h<=1 condition implicitly
 % Switch into toolkit notation
-d_grid=h_grid;
+d_grid=[]; % We are going to solve FOC analytically
 
 %% Now, create the return function
 DiscountFactorParamNames={'beta','sj'};
 
 % Notice change to 'LifeCycleModelV11_ReturnFn', and now input z and e.
-ReturnFn=@(h,aprime,a,z,e,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj)...
-    LifeCycleModelV11_ReturnFn(h,aprime,a,z,e,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
+ReturnFn=@(aprime,a,z,e,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj)...
+    LifeCycleModelV11_ReturnFn_analytic(aprime,a,z,e,w,sigma,psi,eta,agej,Jr,pension,r,kappa_j,wg1,wg2,wg3,beta,sj);
 % Important change: we now have e as the fifth input to the ReturnFn, the
 % action space of our model has increased.
 % The first inputs are always the relevant 'action space' for our model, which in
@@ -194,9 +194,12 @@ StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Pol
 
 %% FnsToEvaluate are how we say what we want to graph the life-cycles of
 % Like with return function, we have to include (h,aprime,a,z,e) as first inputs, then just any relevant parameters.
-FnsToEvaluate.fractiontimeworked=@(h,aprime,a,z,e) h; % h is fraction of time worked
-FnsToEvaluate.earnings=@(h,aprime,a,z,e,w,kappa_j) w*kappa_j*h*z*e; % w*kappa_j*h*z*e is the labor earnings
-FnsToEvaluate.assets=@(h,aprime,a,z,e) a; % a is the current asset holdings
+% Define the exact same static FOC formula as an evaluation function:
+FnsToEvaluate.fractiontimeworked = @(aprime, a, z, e, w, psi, eta, agej, Jr, kappa_j, r) ...
+    LifeCycleModelV11_HoursFOC(aprime, a, z, e, w, psi, eta, agej, Jr, kappa_j, r);
+FnsToEvaluate.earnings = @(aprime, a, z, e, w, psi, eta, agej, Jr, kappa_j, r) ...
+    w .* kappa_j .* z .* e .* LifeCycleModelV11_HoursFOC(aprime, a, z, e, w, psi, eta, agej, Jr, kappa_j, r);
+FnsToEvaluate.assets=@(aprime,a,z,e) a; % a is the current asset holdings
 % notice that we have called these fractiontimeworked, earnings and assets
 
 %% Calculate the life-cycle profiles
