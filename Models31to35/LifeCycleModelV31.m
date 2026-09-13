@@ -128,7 +128,7 @@ d_grid=[riskyshare_grid; a_grid]; % Note: this does not have to be a_grid, I jus
 
 % riskyasset: aprime_val=aprimeFn(d,u)
 % vfoptions.refine_d: the decision variables input to aprimeFn are d2,d3
-aprimeFn=@(riskyshare, savings,u, r) LifeCycleModel31_aprimeFn(riskyshare, savings, u, r); % Will return the value of aprime
+aprimeFn=@(riskyshare, savings,u, r) LifeCycleModelV31_aprimeFn(riskyshare, savings, u, r); % Will return the value of aprime
 % Note that u is risky asset excess return and effectively includes both the (excess) mean and standard deviation of risky assets
 
 %% Put the risky asset into vfoptions and simoptions
