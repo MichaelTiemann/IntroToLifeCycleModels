@@ -1,15 +1,28 @@
-%% Life-Cycle Model 34: Portfolio-Choice with Endogenous Labor
-% Extend Life-Cycle Model 32 to endogenous labor. So we have
-% portfolio-choice with Epstein-Zin preferences and endogenous labor.
+%% Life-Cycle Model 35: Portfolio-Choice with Housing
+% Same as life-cycle model 32, so exogenous labor, Epstein-Zin preferences
+% and no warm-glow of bequests.
+% Now with housing which is modelled as a standard endogenous state that
+% can take six values (the first value is zero which represents not owning
+% a house).
 
-% Just involves adding a decision variable for the labor supply
-% Note that you need to include it as an input to the return function, the
-% aprime function, and all the functions to evaluate.
+% In terms of code, using 'riskyasset' alongside a standard asset means:
+% The return function and functions to evaluate have first inputs (d,hprime,h,a,z,...) [no aprime like in Case1]
+% Notice that we have hprime and h (for the standard asset), but only a for
+% the risky asset (no aprime).
+% We need to define aprime(d,u)
+
+% There is not much agreement on how to handle mortality risk with Epstein-Zin preferences
+% We can treat them as a risk
+vfoptions.survivalprobability='sj';
+DiscountFactorParamNames={'beta'};
+% Or we could just treat them as another discount factor
+% DiscountFactorParamNames={'beta','sj'};
+
 
 %% How does VFI Toolkit think about this?
 %
-% Three decision variable: h, riskyshare, and savings (labour supply, the share of savings invested in the risky asset, total savings)
-% One endogenous state variable: a, assets
+% Two decision variable: riskyshare and savings (total savings, and the share of savings invested in the risky asset)
+% Two endogenous state variables: h and a (housing and assets)
 % One stochastic exogenous state variable: z, an AR(1) process (in logs), idiosyncratic shock to labor productivity units
 % One between-period i.i.d. variable: u, the return to the risky asset
 % Age: j
@@ -21,14 +34,16 @@ Params.agejshifter=19; % Age 20 minus one. Makes keeping track of actual age eas
 Params.J=100-Params.agejshifter; % =81, Number of period in life-cycle
 
 % Grid sizes to use
-n_d=[21,51,201]; % Decisions: labor supply, riskyshare, savings
-n_a=201; % Endogenous asset holdings
-n_z=21; % Exogenous labor productivity units shock
+n_d=[51,201]; % Decisions: riskyshare, savings
+n_a=[5,201]; % Endogenous housing and asset holdings
+n_z=7; % Exogenous labor productivity units shock
 n_u=5; % Between period i.i.d. shock
 N_j=Params.J; % Number of periods in finite horizon
 
 vfoptions.riskyasset=1; % riskyasset aprime(d,u)
 simoptions.riskyasset=1;
+% When there is more than one endogenous state, the riskyasset is the last one
+
 
 % Specify Epstein-Zin preferences
 vfoptions.exoticpreferences='EpsteinZin';
@@ -37,7 +52,7 @@ vfoptions.EZriskaversion='phi'; % additional risk-aversion
 % Params.phi is set below
 
 %% To speed up the use of riskyasset we use 'refine_d', which requires us to set the decision variables in a specific order
-vfoptions.refine_d=[1,1,1]; % tell the code how many d1, d2, and d3 there are
+vfoptions.refine_d=[0,1,1]; % tell the code how many d1, d2, and d3 there are
 % Idea is to distinguish three categories of decision variable:
 %  d1: decision is in the ReturnFn but not in aprimeFn
 %  d2: decision is in the aprimeFn but not in ReturnFn
@@ -46,17 +61,24 @@ vfoptions.refine_d=[1,1,1]; % tell the code how many d1, d2, and d3 there are
 %       aprimeFn must use inputs (d2,d3,..)
 % n_d must be set up as n_d=[n_d1, n_d2, n_d3]
 % d_grid must be set up as d_grid=[d1_grid; d2_grid; d3_grid];
+% It is possible to solve models without any d1, as is the case here.
 simoptions.refine_d=vfoptions.refine_d;
 
 %% Parameters
+
+% Housing
+Params.f_htc=0; % transaction cost of buying/selling house (is a percent of h+prime)
+% Params.minhouse % set below, is the minimum value of house that can be purchased
+Params.rentprice=0.3; % I figured setting rent a decent fraction of income is sensible
+Params.f_coll=0; % collateral constraint (fraction of house value that can be borrowed)
+Params.houseservices=0.3; % housing services as a fraction of house value
 
 % Discount rate
 Params.beta = 0.96;
 % Preferences
 Params.sigma=2; % Coeff of relative risk aversion (curvature of consumption)
-Params.eta = 1.5; % Curvature of leisure (This will end up being 1/Frisch elasticity)
-Params.psi = 0.2; % Weight on leisure
 Params.phi=10; % Additional risk aversion (from Epstein-Zin preferences)
+Params.sigma_h=0.5; % Relative importance of housing services (vs consumption) in utility
 
 % Prices
 Params.w=1; % Wage
@@ -75,7 +97,7 @@ Params.agej=1:1:Params.J; % Is a vector of all the agej: 1,2,3,...,J
 Params.Jr=46;
 
 % Pensions
-Params.pension=0.3;
+Params.pension=0.4; % Increased to be greater than rental costs
 
 % Age-dependent labor productivity units
 Params.kappa_j=[linspace(0.5,2,Params.Jr-15),linspace(2,1,14),zeros(1,Params.J-Params.Jr+1)];
@@ -100,7 +122,20 @@ Params.sj(end)=0; % In the present model the last period (j=J) value of sj is ac
 %% Grids
 % The ^3 means that there are more points near 0 and near 10. We know from theory that the value function will be more 'curved' near zero assets,
 % and putting more points near curvature (where the derivative changes the most) increases accuracy of results.
-a_grid=13*(linspace(0,1,n_a).^3)'; % The ^3 means most points are near zero, which is where the derivative of the value fn changes most.
+asset_grid=-3+13*(linspace(0,1,n_a(2)))'; % Note, I use equal spacing (normally would put most points near zero)
+% note: will go from -3 to 13-3
+% Make it so that there is a zero assets
+% Find closest to zero assets
+[~,zeroassetindex]=min(abs(asset_grid));
+asset_grid(zeroassetindex)=0;
+
+% age20avgincome=Params.w*Params.kappa_j(1);
+% house_grid=[0; logspace(2*age20avgincome, 12*age20avgincome, 5)'];
+house_grid=(0:1:n_a(1)-1)';
+% Note, we can see from w*kappa_j*z and the values of these, that average
+% income is going to be around one, so will just use this simpler house grid
+% [We can think about the values of the house_grid as being relative the average income (or specifically average at a given age)]
+Params.minhouse=house_grid(2); % first is zero (no house)
 
 % First, the AR(1) process z
 [z_grid,pi_z]=discretizeAR1_FarmerToda(0,Params.rho_z,Params.sigma_epsilon_z,n_z);
@@ -108,19 +143,18 @@ z_grid=exp(z_grid); % Take exponential of the grid
 [mean_z,~,~,~]=MarkovChainMoments(z_grid,pi_z); % Calculate the mean of the grid so as can normalise it
 z_grid=z_grid./mean_z; % Normalise the grid on z (so that the mean of z is exactly 1)
 
-% Labor supply
-h_grid=linspace(0,1,n_d(1))';
-
 % Share of assets invested in the risky asset
-riskyshare_grid=linspace(0,1,n_d(2))'; % Share of assets, from 0 to 1
+riskyshare_grid=linspace(0,1,n_d(1))'; % Share of assets, from 0 to 1
 % Set up d for VFI Toolkit (is the two decision variables)
-d_grid=[h_grid; riskyshare_grid; a_grid]; % Note: this does not have to be a_grid, I just chose to use same grid for savings as for assets
+d_grid=[riskyshare_grid; asset_grid]; % Note: this does not have to be a_grid, I just chose to use same grid for savings as for assets
 
-%% Define aprime function used for Case 3 (value of next period assets, determined by this period decision, and u shock)
+a_grid=[house_grid; asset_grid];
+
+%% Define aprime function used for the riskyasset (value of next period assets, determined by this period decision, and u shock)
 
 % riskyasset: aprime_val=aprimeFn(d,u)
 % vfoptions.refine_d: the decision variables input to aprimeFn are d2,d3
-aprimeFn=@(riskyshare,savings,u, r) LifeCycleModel34_aprimeFn(riskyshare,savings, u, r); % Will return the value of aprime
+aprimeFn=@(riskyshare,savings,u, r) LifeCycleModelV31_aprimeFn(riskyshare,savings, u, r); % Will return the value of aprime
 % Note that u is risky asset excess return and effectively includes both the (excess) mean and standard deviation of risky assets
 
 %% Put the risky asset into vfoptions and simoptions
@@ -138,20 +172,21 @@ simoptions.pi_u=pi_u;
 simoptions.a_grid=a_grid;
 simoptions.d_grid=d_grid;
 
-
 %% Now, create the return function
-DiscountFactorParamNames={'beta','sj'};
+% DiscountFactorParamNames={'beta','sj'};
 
-% Use 'LifeCycleModel34_ReturnFn'
-ReturnFn=@(h,savings,a,z,w,sigma,agej,Jr,pension,kappa_j,eta,psi) ...
-    LifeCycleModel34_ReturnFn(h,savings,a,z,w,sigma,agej,Jr,pension,kappa_j,eta,psi);
-% vfoptions.refine_d: only (d1,d3,..) are input to ReturnFn
+% Use 'LifeCycleModel35_ReturnFn'
+ReturnFn=@(savings,hprime,h,a,z,w,sigma,agej,Jr,pension,kappa_j,sigma_h,f_htc,minhouse,rentprice,f_coll,houseservices) ...
+    LifeCycleModelV35_ReturnFn(savings,hprime,h,a,z,w,sigma,agej,Jr,pension,kappa_j,sigma_h,f_htc,minhouse,rentprice,f_coll,houseservices);
+% vfoptions.refine_d: only (d1,d3,..) are input to ReturnFn [this model has no d1, so here just d3]
 
 %% Solve the value function iteration problem
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
+vfoptions.verbose=1;
 % divide-and-conquer and grid interpolation layer cannot be applied to non-standard endogneous states, such as riskyasset
+% divide-and-conquer and grid interpolation layer could be applied to the standard endogenous state, housing, but since it has only a few grid points divide-and-conquer would not acheive much, and grid interpolation would not make sense to do (as we want only 'whole' houses)
 tic;
-[V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
+[V, Policy]=ValueFnIter_Case1_VFHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
 
 % V is now (a,z,j). This was already true, just that previously z was trivial (a single point) 
@@ -163,9 +198,10 @@ size(V)
 % Policy is
 size(Policy)
 % which is the same as
-[length(n_d),n_a,n_z,N_j]
+[length(n_d)+1,n_a,n_z,N_j]
 % The n_a,n_z,N_j represent the state on which the decisions/policys
-% depend, and there is one decision for each decision variable 'd'
+% depend, and there is one decision for each decision variable 'd' plus one
+% more for the standard asset
 
 
 %% Let's take a quick look at what we have calculated, namely V and Policy
@@ -176,27 +212,27 @@ size(Policy)
 % Which z value should we plot? I will plot the median
 zind=floor((n_z+1)/2); % This will be the median
 figure(1)
-subplot(2,1,1); surf(a_grid*ones(1,Params.J),ones(n_a,1)*(1:1:Params.J),reshape(V(:,zind,:),[n_a,Params.J]))
+subplot(2,1,1); surf(asset_grid*ones(1,Params.J),ones(n_a(2),1)*(1:1:Params.J),reshape(V(1,:,zind,:),[n_a(2),Params.J]))
 title('Value function: median value of z')
 xlabel('Age j')
 ylabel('Assets (a)')
-subplot(2,1,2); surf(a_grid*ones(1,Params.J),ones(n_a,1)*(Params.agejshifter+(1:1:Params.J)),reshape(V(:,zind,:),[n_a,Params.J]))
+subplot(2,1,2); surf(asset_grid*ones(1,Params.J),ones(n_a(2),1)*(Params.agejshifter+(1:1:Params.J)),reshape(V(1,:,zind,:),[n_a(2),Params.J]))
 title('Value function: median value of z')
 xlabel('Age in Years')
 ylabel('Assets (a)')
 
 % Do another plot of V, this time as a function (of assets) for a given age (I do a few for different ages)
 figure(2)
-subplot(5,1,1); plot(a_grid,V(:,1,1),a_grid,V(:,zind,1),a_grid,V(:,end,1)) % j=1
+subplot(5,1,1); plot(asset_grid,V(1,:,1,1),asset_grid,V(1,:,zind,1),asset_grid,V(1,:,end,1)) % j=1
 title('Value fn at age j=1')
 legend('min z','median z','max z') % Just include the legend once in the top subplot
-subplot(5,1,2); plot(a_grid,V(:,1,20),a_grid,V(:,zind,20),a_grid,V(:,end,20)) % j=20
+subplot(5,1,2); plot(asset_grid,V(1,:,1,20),asset_grid,V(1,:,zind,20),asset_grid,V(1,:,end,20)) % j=20
 title('Value fn at age j=20')
-subplot(5,1,3); plot(a_grid,V(:,1,45),a_grid,V(:,zind,45),a_grid,V(:,end,45)) % j=45
+subplot(5,1,3); plot(asset_grid,V(1,:,1,45),asset_grid,V(1,:,zind,45),asset_grid,V(1,:,end,45)) % j=45
 title('Value fn at age j=45')
-subplot(5,1,4); plot(a_grid,V(:,1,46),a_grid,V(:,zind,46),a_grid,V(:,end,46)) % j=46
+subplot(5,1,4); plot(asset_grid,V(1,:,1,46),asset_grid,V(1,:,zind,46),asset_grid,V(1,:,end,46)) % j=46
 title('Value fn at age j=46 (first year of retirement)')
-subplot(5,1,5); plot(a_grid,V(:,1,81),a_grid,V(:,zind,81),a_grid,V(:,end,81)) % j=81
+subplot(5,1,5); plot(asset_grid,V(1,:,1,81),asset_grid,V(1,:,zind,81),asset_grid,V(1,:,end,81)) % j=81
 title('Value fn at age j=81')
 xlabel('Assets (a)')
 
@@ -204,12 +240,12 @@ xlabel('Assets (a)')
 % Plot both as a 3d plot, again I arbitrarily choose the median value of z
 figure(3)
 PolicyVals=PolicyInd2Val_FHorz(Policy,n_d,n_a,n_z,N_j,d_grid,a_grid,vfoptions);
-subplot(2,1,1); surf(a_grid*ones(1,Params.J),ones(n_a,1)*(1:1:Params.J),reshape(PolicyVals(3,:,zind,:),[n_a,Params.J]))
+subplot(2,1,1); surf(asset_grid*ones(1,Params.J),ones(n_a(2),1)*(1:1:Params.J),reshape(PolicyVals(3,1,:,zind,:),[n_a(2),Params.J]))
 title('Policy function: savings, median z')
 xlabel('Age j')
 ylabel('Assets (a)')
 zlabel('Savings')
-subplot(2,1,2); surf(a_grid*ones(1,Params.J),ones(n_a,1)*(1:1:Params.J),reshape(PolicyVals(2,:,zind,:),[n_a,Params.J]))
+subplot(2,1,2); surf(asset_grid*ones(1,Params.J),ones(n_a(2),1)*(1:1:Params.J),reshape(PolicyVals(2,1,:,zind,:),[n_a(2),Params.J]))
 title('Policy function: riskyshare, median z')
 xlabel('Age j')
 ylabel('Assets (a)')
@@ -217,27 +253,27 @@ zlabel('share of savings invested in risky assets (riskyshare)')
 
 % Again, plot both policies (savings and riskyshare), this time as a function (of assets) for a given age  (I do a few for different ages)
 figure(4)
-subplot(5,2,1); plot(a_grid,PolicyVals(3,:,1,1),a_grid,PolicyVals(3,:,zind,1),a_grid,PolicyVals(3,:,end,1)) % j=1
+subplot(5,2,1); plot(asset_grid,squeeze(PolicyVals(3,1,:,1,1)),asset_grid,squeeze(PolicyVals(3,1,:,zind,1)),asset_grid,squeeze(PolicyVals(3,1,:,end,1))) % j=1
 title('Policy for savings at age j=1')
-subplot(5,2,3); plot(a_grid,PolicyVals(3,:,1,20),a_grid,PolicyVals(3,:,zind,20),a_grid,PolicyVals(3,:,end,20)) % j=20
+subplot(5,2,3); plot(asset_grid,squeeze(PolicyVals(3,1,:,1,20)),asset_grid,squeeze(PolicyVals(3,1,:,zind,20)),asset_grid,squeeze(PolicyVals(3,1,:,end,20))) % j=20
 title('Policy for savings at age j=20')
-subplot(5,2,5); plot(a_grid,PolicyVals(3,:,1,45),a_grid,PolicyVals(3,:,zind,45),a_grid,PolicyVals(3,:,end,45)) % j=45
+subplot(5,2,5); plot(asset_grid,squeeze(PolicyVals(3,1,:,1,45)),asset_grid,squeeze(PolicyVals(3,1,:,zind,45)),asset_grid,squeeze(PolicyVals(3,1,:,end,45))) % j=45
 title('Policy for savings at age j=45')
-subplot(5,2,7); plot(a_grid,PolicyVals(3,:,1,46),a_grid,PolicyVals(3,:,zind,46),a_grid,PolicyVals(3,:,end,46)) % j=46
+subplot(5,2,7); plot(asset_grid,squeeze(PolicyVals(3,1,:,1,46)),asset_grid,squeeze(PolicyVals(3,1,:,zind,46)),asset_grid,squeeze(PolicyVals(3,1,:,end,46))) % j=46
 title('Policy for savings at age j=46 (first year of retirement)')
-subplot(5,2,9); plot(a_grid,PolicyVals(3,:,1,81),a_grid,PolicyVals(3,:,zind,81),a_grid,PolicyVals(3,:,end,81)) % j=81
+subplot(5,2,9); plot(asset_grid,squeeze(PolicyVals(3,1,:,1,81)),asset_grid,squeeze(PolicyVals(3,1,:,zind,81)),asset_grid,squeeze(PolicyVals(3,1,:,end,81))) % j=81
 title('Policy for savings at age j=81')
 xlabel('Assets (a)')
-subplot(5,2,2); plot(a_grid,PolicyVals(2,:,1,1),a_grid,PolicyVals(2,:,zind,1),a_grid,PolicyVals(2,:,end,1)) % j=1
+subplot(5,2,2); plot(asset_grid,squeeze(PolicyVals(2,1,:,1,1)),asset_grid,squeeze(PolicyVals(2,1,:,zind,1)),asset_grid,squeeze(PolicyVals(2,1,:,end,1))) % j=1
 title('Policy for riskyshare at age j=1')
 legend('min z','median z','max z') % Just include the legend once in the top-right subplot
-subplot(5,2,4); plot(a_grid,PolicyVals(2,:,1,20),a_grid,PolicyVals(2,:,zind,20),a_grid,PolicyVals(2,:,end,20)) % j=20
+subplot(5,2,4); plot(asset_grid,squeeze(PolicyVals(2,1,:,1,20)),asset_grid,squeeze(PolicyVals(2,1,:,zind,20)),asset_grid,squeeze(PolicyVals(2,1,:,end,20))) % j=20
 title('Policy for riskyshare at age j=20')
-subplot(5,2,6); plot(a_grid,PolicyVals(2,:,1,45),a_grid,PolicyVals(2,:,zind,45),a_grid,PolicyVals(2,:,end,45)) % j=45
+subplot(5,2,6); plot(asset_grid,squeeze(PolicyVals(2,1,:,1,45)),asset_grid,squeeze(PolicyVals(2,1,:,zind,45)),asset_grid,squeeze(PolicyVals(2,1,:,end,45))) % j=45
 title('Policy for riskyshare at age j=45')
-subplot(5,2,8); plot(a_grid,PolicyVals(2,:,1,46),a_grid,PolicyVals(2,:,zind,46),a_grid,PolicyVals(2,:,end,46)) % j=46
+subplot(5,2,8); plot(asset_grid,squeeze(PolicyVals(2,1,:,1,46)),asset_grid,squeeze(PolicyVals(2,1,:,zind,46)),asset_grid,squeeze(PolicyVals(2,1,:,end,46))) % j=46
 title('Policy for riskyshare at age j=46 (first year of retirement)')
-subplot(5,2,10); plot(a_grid,PolicyVals(2,:,1,81),a_grid,PolicyVals(2,:,zind,81),a_grid,PolicyVals(2,:,end,81)) % j=81
+subplot(5,2,10); plot(asset_grid,squeeze(PolicyVals(2,1,:,1,81)),asset_grid,squeeze(PolicyVals(2,1,:,zind,81)),asset_grid,squeeze(PolicyVals(2,1,:,end,81))) % j=81
 title('Policy for riskyshare at age j=81')
 xlabel('Assets (a)')
 
@@ -246,7 +282,7 @@ xlabel('Assets (a)')
 %% Initial distribution of agents at birth (j=1)
 % Before we plot the life-cycle profiles we have to define how agents are at age j=1. We will give them all zero assets.
 jequaloneDist=zeros([n_a,n_z],'gpuArray'); % Put no households anywhere on grid
-jequaloneDist(1,floor((n_z+1)/2))=1; % All agents start with zero assets, and the median shock
+jequaloneDist(1,zeroassetindex,floor((n_z+1)/2))=1; % All agents start with no house, zero assets, and the median shock
 
 %% We now compute the 'stationary distribution' of households
 % Start with a mass of one at initial age, use the conditional survival
@@ -261,12 +297,14 @@ AgeWeightsParamNames={'mewj'}; % So VFI Toolkit knows which parameter is the mas
 StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Policy,n_d,n_a,n_z,N_j,pi_z,Params,simoptions);
 % riskyasset requires the grids when simulating the agent distribution to be able to handle aprime(d,u). The grids are passed in simoptions.
 
+
 %% FnsToEvaluate are how we say what we want to graph the life-cycles of
-% Like with return function, we have to include (h,riskyshare,savings,a,z) as first inputs, then just any relevant parameters.
-FnsToEvaluate.riskyshare=@(h,riskyshare,savings,a,z) riskyshare; % riskyshare, is the fraction of savings invested in the risky asset
-FnsToEvaluate.earnings=@(h,riskyshare,savings,a,z,w,kappa_j) w*kappa_j*z; % labor earnings
-FnsToEvaluate.assets=@(h,riskyshare,savings,a,z) a; % a is the current asset holdings
-% notice that we have called these riskyshare, earnings and assets
+% Like with return function, we have to include (hprime,h,riskyshare,savings,a,z) as first inputs, then just any relevant parameters.
+FnsToEvaluate.riskyshare=@(hprime,h,riskyshare,savings,a,z) riskyshare; % riskyshare, is the fraction of savings invested in the risky asset
+FnsToEvaluate.earnings=@(hprime,h,riskyshare,savings,a,z,w,kappa_j) w*kappa_j*z; % labor earnings
+FnsToEvaluate.assets=@(hprime,h,riskyshare,savings,a,z) a; % a is the current asset holdings
+FnsToEvaluate.housing=@(hprime,h,riskyshare,savings,a,z) h; % h is the current housing
+% notice that we have called these riskyshare, earnings, assets, and housing
 
 %% Calculate the life-cycle profiles
 AgeConditionalStats=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEvaluate,Params,[],n_d,n_a,n_z,N_j,d_grid,a_grid,z_grid,simoptions);
@@ -278,14 +316,14 @@ AgeConditionalStats=LifeCycleProfiles_FHorz_Case1(StationaryDist,Policy,FnsToEva
 % those were trivial, but now that we have an idiosyncratic shock z they
 % are meaningful and worth looking at.
 
-%% Plot the life cycle profiles of riskyshare, earnings, and assets
+%% Plot the life cycle profiles of riskyshare, earnings, assets, and housing
 figure(5)
-subplot(3,1,1); plot(1:1:Params.J,AgeConditionalStats.riskyshare.Mean)
+subplot(4,1,1); plot(1:1:Params.J,AgeConditionalStats.riskyshare.Mean)
 title('Life Cycle Profile: Share of savings invested in risky asset (riskyshare)')
-subplot(3,1,2); plot(1:1:Params.J,AgeConditionalStats.earnings.Mean)
+subplot(4,1,2); plot(1:1:Params.J,AgeConditionalStats.earnings.Mean)
 title('Life Cycle Profile: Labor Earnings (w kappa_j z)')
-subplot(3,1,3); plot(1:1:Params.J,AgeConditionalStats.assets.Mean)
+subplot(4,1,3); plot(1:1:Params.J,AgeConditionalStats.assets.Mean)
 title('Life Cycle Profile: Assets (a)')
-
-
+subplot(4,1,4); plot(1:1:Params.J,AgeConditionalStats.housing.Mean)
+title('Life Cycle Profile: Housing (h)')
 
