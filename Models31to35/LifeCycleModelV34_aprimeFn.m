@@ -1,14 +1,16 @@
-function aprime=LifeCycleModel34_aprimeFn(riskyshare,savings,u, r)
-% Note: because of how riskyasset works we need to input (d,u,...) as the first arguements.
-% That is, the first inputs must be the decision variables (d variables),
-% followed by the shocks that are iid and occur between periods (u variables)
-% And because we use vfoptions.refine_d, the decision variables for aprimeFn must follow the ordering d2,d3
+function aprime = LifeCycleModelV34_aprimeFn(riskyshare, savings, u, r)
 
-if savings>0
-    aprime=(1+r)*(1-riskyshare)*savings+(1+r+u)*riskyshare*savings;
-else
-    % following is enforcing the idea that negative savings represents a mortgage, and so must involve riskyshare=0
-    aprime=(1+r)*savings;
-end
+% Note: riskyshare is d2, savings is d3, u is the shock
+
+% Create logical masks for branching
+pos_mask = (savings > 0);
+neg_mask = (savings <= 0);
+
+% Vectorized evaluation
+% Positive savings get split between safe and risky returns. 
+% Negative savings (borrowing) strictly get the safe rate.
+aprime = pos_mask .* ((1 + r) * (1 - riskyshare) .* savings + (1 + r + u) .* riskyshare .* savings) + ...
+    neg_mask .* ((1 + r) .* savings);
+
 
 end
