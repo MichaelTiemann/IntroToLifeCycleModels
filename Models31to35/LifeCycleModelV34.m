@@ -53,9 +53,9 @@ simoptions.refine_d=vfoptions.refine_d;
 % Discount rate
 Params.beta = 0.96;
 % Preferences
-Params.sigma=10; % Coeff of relative risk aversion (curvature of consumption)
+Params.sigma=2; % Coeff of relative risk aversion (curvature of consumption)
 Params.eta = 1.5; % Curvature of leisure (This will end up being 1/Frisch elasticity)
-Params.psi = 10; % Weight on leisure
+Params.psi = 2; % Weight on leisure
 Params.phi=10; % Additional risk aversion (from Epstein-Zin preferences)
 
 % Prices
@@ -263,9 +263,9 @@ StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Pol
 
 %% FnsToEvaluate are how we say what we want to graph the life-cycles of
 % Like with return function, we have to include (savings,riskyshare,h,a,z) as first inputs, then just any relevant parameters.
-FnsToEvaluate.riskyshare=@(savings,riskyshare,h,a,z) riskyshare; % riskyshare, is the fraction of savings invested in the risky asset
-FnsToEvaluate.earnings=@(savings,riskyshare,h,a,z,w,kappa_j) w*kappa_j*z; % labor earnings
-FnsToEvaluate.assets=@(savings,riskyshare,h,a,z) a; % a is the current asset holdings
+FnsToEvaluate.riskyshare=@(h, riskyshare, savings,a,z) riskyshare; % riskyshare, is the fraction of savings invested in the risky asset
+FnsToEvaluate.earnings=@(h, riskyshare, savings,a,z,w,kappa_j) w*kappa_j*z; % labor earnings
+FnsToEvaluate.assets=@(h, riskyshare, savings,a,z) a; % a is the current asset holdings
 % notice that we have called these riskyshare, earnings and assets
 
 %% Calculate the life-cycle profiles
