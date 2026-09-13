@@ -154,7 +154,7 @@ ReturnFn=@(savings,a,z,w,sigma,agej,Jr,pension,kappa_j) ...
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 % divide-and-conquer and grid interpolation layer cannot be applied to non-standard endogneous states, such as riskyasset
 tic;
-[V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
+[V, Policy]=ValueFnIter_Case1_VFHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
 
 % V is now (a,z,j). This was already true, just that previously z was trivial (a single point) 
