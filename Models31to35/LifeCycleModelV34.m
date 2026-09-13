@@ -55,7 +55,7 @@ Params.beta = 0.96;
 % Preferences
 Params.sigma=2; % Coeff of relative risk aversion (curvature of consumption)
 Params.eta = 1.5; % Curvature of leisure (This will end up being 1/Frisch elasticity)
-Params.psi = 2; % Weight on leisure
+Params.psi = 0.2; % Weight on leisure
 Params.phi=10; % Additional risk aversion (from Epstein-Zin preferences)
 
 % Prices
@@ -204,7 +204,7 @@ xlabel('Assets (a)')
 % Plot both as a 3d plot, again I arbitrarily choose the median value of z
 figure(3)
 PolicyVals=PolicyInd2Val_FHorz(Policy,n_d,n_a,n_z,N_j,d_grid,a_grid,vfoptions);
-subplot(2,1,1); surf(a_grid*ones(1,Params.J),ones(n_a,1)*(1:1:Params.J),reshape(PolicyVals(1,:,zind,:),[n_a,Params.J]))
+subplot(2,1,1); surf(a_grid*ones(1,Params.J),ones(n_a,1)*(1:1:Params.J),reshape(PolicyVals(3,:,zind,:),[n_a,Params.J]))
 title('Policy function: savings, median z')
 xlabel('Age j')
 ylabel('Assets (a)')
@@ -217,15 +217,15 @@ zlabel('share of savings invested in risky assets (riskyshare)')
 
 % Again, plot both policies (savings and riskyshare), this time as a function (of assets) for a given age  (I do a few for different ages)
 figure(4)
-subplot(5,2,1); plot(a_grid,PolicyVals(1,:,1,1),a_grid,PolicyVals(1,:,zind,1),a_grid,PolicyVals(1,:,end,1)) % j=1
+subplot(5,2,1); plot(a_grid,PolicyVals(3,:,1,1),a_grid,PolicyVals(3,:,zind,1),a_grid,PolicyVals(3,:,end,1)) % j=1
 title('Policy for savings at age j=1')
-subplot(5,2,3); plot(a_grid,PolicyVals(1,:,1,20),a_grid,PolicyVals(1,:,zind,20),a_grid,PolicyVals(1,:,end,20)) % j=20
+subplot(5,2,3); plot(a_grid,PolicyVals(3,:,1,20),a_grid,PolicyVals(3,:,zind,20),a_grid,PolicyVals(3,:,end,20)) % j=20
 title('Policy for savings at age j=20')
-subplot(5,2,5); plot(a_grid,PolicyVals(1,:,1,45),a_grid,PolicyVals(1,:,zind,45),a_grid,PolicyVals(1,:,end,45)) % j=45
+subplot(5,2,5); plot(a_grid,PolicyVals(3,:,1,45),a_grid,PolicyVals(3,:,zind,45),a_grid,PolicyVals(3,:,end,45)) % j=45
 title('Policy for savings at age j=45')
-subplot(5,2,7); plot(a_grid,PolicyVals(1,:,1,46),a_grid,PolicyVals(1,:,zind,46),a_grid,PolicyVals(1,:,end,46)) % j=46
+subplot(5,2,7); plot(a_grid,PolicyVals(3,:,1,46),a_grid,PolicyVals(3,:,zind,46),a_grid,PolicyVals(3,:,end,46)) % j=46
 title('Policy for savings at age j=46 (first year of retirement)')
-subplot(5,2,9); plot(a_grid,PolicyVals(1,:,1,81),a_grid,PolicyVals(1,:,zind,81),a_grid,PolicyVals(1,:,end,81)) % j=81
+subplot(5,2,9); plot(a_grid,PolicyVals(3,:,1,81),a_grid,PolicyVals(3,:,zind,81),a_grid,PolicyVals(3,:,end,81)) % j=81
 title('Policy for savings at age j=81')
 xlabel('Assets (a)')
 subplot(5,2,2); plot(a_grid,PolicyVals(2,:,1,1),a_grid,PolicyVals(2,:,zind,1),a_grid,PolicyVals(2,:,end,1)) % j=1
@@ -264,7 +264,7 @@ StationaryDist=StationaryDist_FHorz_Case1(jequaloneDist,AgeWeightsParamNames,Pol
 %% FnsToEvaluate are how we say what we want to graph the life-cycles of
 % Like with return function, we have to include (savings,riskyshare,h,a,z) as first inputs, then just any relevant parameters.
 FnsToEvaluate.riskyshare=@(h, riskyshare, savings,a,z) riskyshare; % riskyshare, is the fraction of savings invested in the risky asset
-FnsToEvaluate.earnings=@(h, riskyshare, savings,a,z,w,kappa_j) w*kappa_j*z; % labor earnings
+FnsToEvaluate.earnings=@(h, riskyshare, savings,a,z,w,kappa_j) h*w*kappa_j*z; % labor earnings
 FnsToEvaluate.assets=@(h, riskyshare, savings,a,z) a; % a is the current asset holdings
 % notice that we have called these riskyshare, earnings and assets
 
