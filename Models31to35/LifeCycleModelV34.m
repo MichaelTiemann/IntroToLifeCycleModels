@@ -120,7 +120,7 @@ d_grid=[h_grid; riskyshare_grid; a_grid]; % Note: this does not have to be a_gri
 
 % riskyasset: aprime_val=aprimeFn(d,u)
 % vfoptions.refine_d: the decision variables input to aprimeFn are d2,d3
-aprimeFn=@(riskyshare,savings,u, r) LifeCycleModel34_aprimeFn(riskyshare,savings, u, r); % Will return the value of aprime
+aprimeFn=@(riskyshare,savings,u, r) LifeCycleModelV34_aprimeFn(riskyshare,savings, u, r); % Will return the value of aprime
 % Note that u is risky asset excess return and effectively includes both the (excess) mean and standard deviation of risky assets
 
 %% Put the risky asset into vfoptions and simoptions
@@ -144,14 +144,14 @@ DiscountFactorParamNames={'beta','sj'};
 
 % Use 'LifeCycleModel34_ReturnFn'
 ReturnFn=@(h,savings,a,z,w,sigma,agej,Jr,pension,kappa_j,eta,psi) ...
-    LifeCycleModel34_ReturnFn(h,savings,a,z,w,sigma,agej,Jr,pension,kappa_j,eta,psi);
+    LifeCycleModelV34_ReturnFn(h,savings,a,z,w,sigma,agej,Jr,pension,kappa_j,eta,psi);
 % vfoptions.refine_d: only (d1,d3,..) are input to ReturnFn
 
 %% Solve the value function iteration problem
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 % divide-and-conquer and grid interpolation layer cannot be applied to non-standard endogneous states, such as riskyasset
 tic;
-[V, Policy]=ValueFnIter_Case1_FHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
+[V, Policy]=ValueFnIter_Case1_VFHorz(n_d,n_a,n_z,N_j,d_grid, a_grid, z_grid, pi_z, ReturnFn, Params, DiscountFactorParamNames, [], vfoptions);
 toc
 
 % V is now (a,z,j). This was already true, just that previously z was trivial (a single point) 
