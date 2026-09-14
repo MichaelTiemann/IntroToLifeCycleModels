@@ -18,7 +18,7 @@ vfoptions.EZpositiveutility=0; % If utility function was positive valued, you wo
 % 2. Set the appropriate preference parameters.
 % Epstein-Zin preference parameters
 vfoptions.EZriskaversion='phi'; % Name of the relative risk aversion parameter
-Params.phi=-1;
+Params.phi=2;
 
 % 3. Minor adjustment to 'discount factors' and 'return function'.
 % To be able to use a warm-glow-of-bequests with Epstein-Zin preferences we have to distinguish
