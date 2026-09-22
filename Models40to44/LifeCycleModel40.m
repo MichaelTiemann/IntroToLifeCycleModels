@@ -141,8 +141,12 @@ ReturnFn=@(aprime,hprime,a,h,z,w,r,p,sigma,theta,upsilon,gamma,phi,delta_o,agej,
 vfoptions.divideandconquer=1; % turn on divide-and-conquer
 vfoptions.gridinterplayer=1; % turn on grid interpolation layer
 vfoptions.ngridinterp=20; % 20 evenly-spaced points between each pair of consecutive grid points on the first endogenous state
+% Activate the Bridge
+vfoptions.vectorizedreturnfn=1;
+
 simoptions.gridinterplayer=vfoptions.gridinterplayer; % grid interpolation layer must also be set in simoptions (it changes Policy size/interpretation)
 simoptions.ngridinterp=vfoptions.ngridinterp;
+simoptions.vectorizedreturnfn=vfoptions.vectorizedreturnfn;
 
 disp('Solve for Value fn and Policy fn using ValueFnIter command')
 tic;
