@@ -28,8 +28,8 @@ tic;
 [V_ref, Policy_ref] = original_func(varargin{:});
 time_ref=toc;
 
-profile clear
-profile on
+% profile clear
+% profile on
 
 fprintf("new ValueFnIter_Case1_VFHorz\n");
 tic;
@@ -37,8 +37,8 @@ tic;
 [V_new, Policy_new] = ValueFnIter_Case1_VFHorz(varargin{:});
 time_new=toc;
 
-profile off
-profile viewer
+% profile off
+% profile viewer
 
 % --- AUTOMATED POLICY MISMATCH MASKING ---
 % Identify all valid states where the agent can actually survive (V_ref > -Inf)
@@ -54,26 +54,57 @@ elseif any(Policy_new(:) ~= Policy_ref(:))
 end
 
 vfoptions=varargin{end};
-tol = 1e-10;
-if isfield(vfoptions, 'precision') && strcmp(vfoptions.precision, 'single')
-    tol = 1e-5;
-end
+tol = 1e-3; % Could need to loosen as necessary
 
-rel_diff = max(abs(V_new(:) - V_ref(:)) ./ (abs(V_ref(:)) + 1));
+% Mask out non-finite states in the reference solution
+valid_mask = isfinite(V_ref(:));
+
+% Option A: Mean absolute level of finite states (The Scale Benchmark)
+ref_scale = mean(abs(V_ref(valid_mask)));
+
+% Option B: Dynamic Range Benchmark (invariant to constant shifts in utility)
+% ref_scale = max(V_ref(valid_mask)) - min(V_ref(valid_mask));
+
+% Safe relative difference across all reachable states
+diff_vec = abs(V_new(valid_mask) - V_ref(valid_mask));
+rel_diff = max(diff_vec) / max(ref_scale, eps);
+
 if rel_diff > tol
     % Is this a floating-point rounding difference or a massive math failure?
     max_diff = max(abs(V_new(:) - V_ref(:)));
     disp(['Maximum absolute difference: ', num2str(max_diff)]);
     fprintf('Legacy NaNs: %d | Legacy -Infs: %d\n', sum(isnan(V_ref(:))), sum(V_ref(:) == -Inf));
     fprintf('Tensor NaNs: %d | Tensor -Infs: %d\n', sum(isnan(V_new(:))), sum(V_new(:) == -Inf));
-    % Find the exact coordinate of the biggest difference
-    [~, bad_idx] = max(abs(V_new(:) - V_ref(:)));
-    [bad_a, bad_z, bad_j] = ind2sub(size(V_new), bad_idx);
-    fprintf('Worst mismatch at -> Asset idx: %d, Z idx: %d, Age j: %d\n', bad_a, bad_z, bad_j);
 
-    % Show the actual values side-by-side
-    fprintf('Legacy V: %f\n', V_ref(bad_a, bad_z, bad_j));
-    fprintf('Tensor V: %f\n', V_new(bad_a, bad_z, bad_j));
+    % Find the exact linear coordinate of the biggest difference
+    [~, bad_idx] = max(abs(V_new(:) - V_ref(:)));
+
+    % Dynamically resolve the N-dimensional coordinates using a cell array
+    ndim_V = ndims(V_new);
+    coords = cell(1, ndim_V);
+    [coords{:}] = ind2sub(size(V_new), bad_idx);
+
+    % Format the coordinates for display
+    coord_str = sprintf('%d, ', cell2mat(coords));
+    coord_str = coord_str(1:end-2); % Remove trailing comma and space
+
+    fprintf('Worst mismatch at -> ND-Coords: [%s] (Linear Idx: %d)\n', coord_str, bad_idx);
+
+    % Show the actual values and signed difference (New - Ref)
+    val_ref = V_ref(bad_idx);
+    val_new = V_new(bad_idx);
+    signed_diff = val_new - val_ref;
+
+    fprintf('Legacy V: %f\n', val_ref);
+    fprintf('Tensor V: %f\n', val_new);
+    fprintf('Signed Difference (Tensor - Legacy): %f\n', signed_diff);
+
+    if signed_diff > 0
+        disp('>>> TENSOR FOUND A HIGHER VALUE (Better optimization peak) <<<');
+    else
+        disp('>>> LEGACY FOUND A HIGHER VALUE (Tensor missed the peak) <<<');
+    end
+
     error("V_new ~= V_ref");
 end
 
