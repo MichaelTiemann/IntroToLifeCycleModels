@@ -1,90 +1,92 @@
 function F = VLifeCycleModel40_ReturnFn(aprime, hprime, a, h, z, w, r, p, sigma, theta, upsilon, gamma, phi, delta_o, agej, Jr, pension, kappa_j, wg1, wg2, wg3, beta, sj)
 
-% 1. Income (working age vs retired - agej is a scalar so 'if' is safe here)
+% 1. Income (working age vs retired) -> TINY ARRAY
 if agej < Jr
     income = w * kappa_j .* z;
 else
     income = pension;
 end
 
-% 2. Housing transactions cost
+% 2. Housing transactions cost -> TINY ARRAY
 tau_hhprime = phi .* h .* (hprime ~= h);
 
-% 3. Resources available before purchasing new house and choosing aprime
+% 3. Resources -> MEDIUM ARRAY (Only 4 active dims, no aprime yet)
 resources = income + (1+r).*a + (1-delta_o).*h - tau_hhprime;
 
 % ==========================================
-% RENTER LOGIC (hprime == 0)
+% ALGEBRAIC PRE-COLLAPSING: RENTER SCALARS
 % ==========================================
-cspend = resources - aprime;
-
-if upsilon == 0 % Cobb-Douglas limit
-    c_rent = theta .* cspend;
-    d_rent = (1-theta) .* cspend ./ p;
-else
-    c_rent = cspend ./ (1 + (p^(upsilon/(upsilon-1))) * ((theta/(1-theta))^(1/(upsilon-1))));
-    d_rent = (cspend - c_rent) ./ p;
-end
-
-% Shield against complex numbers from negative fractional powers
-c_rent_safe = max(c_rent, 1e-10);
-d_rent_safe = max(d_rent, 1e-10);
-
+% c_rent and d_rent are strictly proportional to cspend.
+% We collapse the entire CES utility into a single scalar multiplier!
 if upsilon == 0
-    uinner_rent = (c_rent_safe.^theta) .* (d_rent_safe.^(1-theta));
+    K_rent = (theta^theta) * (((1-theta)/p)^(1-theta));
 else
-    uinner_rent = (theta .* (c_rent_safe.^upsilon) + (1-theta) .* (d_rent_safe.^upsilon)).^(1/upsilon);
+    K_c = 1 / (1 + (p^(upsilon/(upsilon-1))) * ((theta/(1-theta))^(1/(upsilon-1))));
+    K_d = (1 - K_c) / p;
+    K_rent = (theta * K_c^upsilon + (1-theta) * K_d^upsilon)^(1/upsilon);
 end
-
-F_rent = (uinner_rent.^(1-sigma)) ./ (1-sigma);
-
-% Because cspend is fully 6D, invalid_rent is safely 6D
-invalid_rent = (cspend <= 0) | (c_rent <= 0) | (d_rent <= 0) | (aprime < 0);
-F_rent(invalid_rent) = -Inf;
+K_F_rent = (K_rent^(1-sigma)) / (1-sigma);
 
 % ==========================================
-% OWNER LOGIC (hprime > 0)
+% OWNER LOGIC (Evaluated Globally for Speed)
 % ==========================================
+% This is the FIRST massive array allocation
 c_own = resources - aprime - hprime;
 
-c_own_safe = max(c_own, 1e-10);
-hprime_safe = max(hprime, 1e-10);
+hprime_safe = max(hprime, 1e-10); % TINY ARRAY
 
+% Collapsed power operations to minimize VRAM bandwidth
 if upsilon == 0
-    uinner_own = (c_own_safe.^theta) .* (hprime_safe.^(1-theta));
+    h_pow = hprime_safe.^((1-theta)*(1-sigma)) ./ (1-sigma);
+    F = max(c_own, 1e-10).^(theta*(1-sigma)) .* h_pow;
 else
-    uinner_own = (theta .* (c_own_safe.^upsilon) + (1-theta) .* (hprime_safe.^upsilon)).^(1/upsilon);
+    h_pow = (1-theta) .* hprime_safe.^upsilon;
+    uinner_pow = theta .* max(c_own, 1e-10).^upsilon + h_pow;
+    F = uinner_pow.^((1-sigma)/upsilon) ./ (1-sigma);
 end
 
-F_own = (uinner_own.^(1-sigma)) ./ (1-sigma);
-
-invalid_own = (c_own <= 0) | (aprime < -(1-gamma).*hprime);
-F_own(invalid_own) = -Inf;
+% Owner Constraints (Math-masking bypasses logical find())
+invalid_borrow = aprime < -(1-gamma).*hprime; % TINY ARRAY
+F(c_own <= 0 | invalid_borrow) = -Inf; % SECOND massive allocation
 
 % ==========================================
-% COMBINE RENTERS AND OWNERS
+% RENTER LOGIC (Subscript Overwrite)
 % ==========================================
-F = F_own;
+hprime_1d = squeeze(hprime);
+renter_idx = find(hprime_1d == 0);
 
-% Force the 2D renter mask to explicitly expand to the massive 6D size
-is_renter_full = (hprime == 0) | false(size(F_own));
-F(is_renter_full) = F_rent(is_renter_full);
+if ~isempty(renter_idx)
+    % Extract ONLY the renter slice from resources to save memory
+    res_renter = resources(:, :, renter_idx, :, :, :);
+
+    % Shield against differing aprime geometries (Branch 1 vs Slicer)
+    if size(aprime, 3) > 1
+        aprime_renter = aprime(:, :, renter_idx, :, :, :);
+    else
+        aprime_renter = aprime;
+    end
+
+    cspend = res_renter - aprime_renter; % Strictly collapsed array
+
+    % The entire renter utility is now executed in ONE operation
+    F_rent_slice = K_F_rent .* max(cspend, 1e-10).^(1-sigma);
+    F_rent_slice(cspend <= 0 | aprime_renter < 0) = -Inf;
+
+    % Direct subscript overwrite (zero logical masking overhead)
+    F(:, :, renter_idx, :, :, :) = F_rent_slice;
+end
 
 % ==========================================
 % WARM GLOW OF BEQUESTS
 % ==========================================
 if agej >= Jr + 10
-    bequest = aprime + (1-delta_o).*hprime;
-
-    % Shield fractional power from negative arguments
+    bequest = aprime + (1-delta_o).*hprime; % TINY ARRAY
     beq_safe = max(bequest, -wg2 + 1e-10);
-
     warmglow = wg1 .* ((1 + beq_safe./wg2).^(1-wg3)) ./ (1-wg3);
     warmglow = beta * (1-sj) .* warmglow;
 
-    % Mathematical masking!
-    % If F is -Inf, adding a finite number leaves it -Inf.
-    % We bypass the CUDA size crash entirely.
+    % Mathematical masking! If F is -Inf, adding a finite number leaves it -Inf.
+    % This completely bypasses the CUDA 6D expansion crash.
     F = F + warmglow .* (bequest > -wg2);
 end
 

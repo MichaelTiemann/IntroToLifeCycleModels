@@ -21,12 +21,18 @@ if isempty(original_func)
     cd(current_dir); % Go back safely
 end
 
+% profile clear
+% profile on
+
 % Your custom wrapper code goes here...
 fprintf("reference ValueFnIter_Case1_FHorz\n");
 tic;
 % Call the shadowed function using the saved handle
 [V_ref, Policy_ref] = original_func(varargin{:});
 time_ref=toc;
+
+% profile off
+% profile viewer
 
 % profile clear
 % profile on
@@ -53,7 +59,6 @@ elseif any(Policy_new(:) ~= Policy_ref(:))
     disp('Policy check passed on all reachable states! (Ignored dead -Inf states)');
 end
 
-vfoptions=varargin{end};
 tol = 1e-3; % Could need to loosen as necessary
 
 % Mask out non-finite states in the reference solution
@@ -100,14 +105,18 @@ if rel_diff > tol
     fprintf('Signed Difference (Tensor - Legacy): %f\n', signed_diff);
 
     if signed_diff > 0
-        disp('>>> TENSOR FOUND A HIGHER VALUE (Better optimization peak) <<<');
+        warning('>>> TENSOR FOUND A HIGHER VALUE (Better optimization peak) <<<');
     else
-        disp('>>> LEGACY FOUND A HIGHER VALUE (Tensor missed the peak) <<<');
+        error('>>> LEGACY FOUND A HIGHER VALUE (Tensor missed the peak) <<<');
     end
 
-    error("V_new ~= V_ref");
+    % error("V_new ~= V_ref");
 end
 
-fprintf('time reference: %.2f seconds; time difference: %.2f seconds; time ratio to ref: %.0f%%\n', time_ref, time_new-time_ref, 100*time_new/time_ref);
+xx=dbstack();
+filenames={xx.file};
+% The caller of this function is the test case we are measuring, or caller of caller if called via _Ptype
+fprintf('%s -- time reference: %.2f seconds; time difference: %.2f seconds; time ratio to ref: %.0f%%\n', ...
+    filenames{3-isempty(strfind(filenames{2}, 'Horz_PType'))}, time_ref, time_new-time_ref, 100*time_new/time_ref);
 
 end

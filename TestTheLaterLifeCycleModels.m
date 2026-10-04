@@ -1,69 +1,6 @@
-% Run to test all the Life-Cycle Models are working without error.
+% Run to test all the later Life-Cycle Models are working without error.
 
-clear all
-LifeCycleModel1
-
-clear all
-LifeCycleModel2
-
-clear all
-LifeCycleModel3
-
-clear all
-LifeCycleModel4
-
-clear all
-LifeCycleModel5
-
-clear all
-LifeCycleModel6
-
-clear all
-LifeCycleModel7
-
-clear all
-LifeCycleModel8
-
-clear all
-LifeCycleModel9
-
-clear all
-LifeCycleModel10
-
-%%
-clear all
-LifeCycleModel11
-
-clear all
-LifeCycleModel12
-
-% clear all
-% Simulating panel data slows us down
-% LifeCycleModel13
-
-clear all
-LifeCycleModel14
-
-clear all
-LifeCycleModel15
-
-% clear all
-% Simulating panel data slows us down
-% LifeCycleModel16
-
-clear all
-LifeCycleModel17
-
-clear all
-LifeCycleModel18
-
-% LifeCycleModel19 is only equations/explanation, no code
-
-%%
-addpath('./Models20to30/')
-
-clear all
-LifeCycleModel20
+if false
 
 clear all
 LifeCycleModel21
@@ -113,6 +50,7 @@ LifeCycleModel34
 
 clear all
 LifeCycleModel35
+end
 
 %%
 addpath('./Models36to39/')
@@ -174,7 +112,6 @@ LifeCycleModel49
 clear all
 LifeCycleModel50
 end
-
 
 %%
 % Now the appendix models

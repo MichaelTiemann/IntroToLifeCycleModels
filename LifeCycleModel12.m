@@ -30,7 +30,7 @@ Params.phi=-1;
 % 4. Warm-glow of bequests
 % Using warm-glow of bequests together with EZ preferences is subtle, so dealing with them has been mostly automated.
 % Need to define two things (if you don't want bequests you simply do not define these)
-vfoptions.WarmGlowBequestsFn=@(aprime,wg1,wg2,wg3,agej,Jr) (agej>=Jr+10)*wg1*((1+aprime/wg2)^(1-wg3))/(1-wg3); % First input argument must be aprime, after that can be any parameters
+vfoptions.WarmGlowBequestsFn=@(aprime,wg1,wg2,wg3,agej,Jr) (agej>=Jr+10).*wg1.*((1+aprime./wg2).^(1-wg3))./(1-wg3); % First input argument must be aprime, after that can be any parameters
 % Comment: Loosely speaking you want the WarmGlowBequestsFn to output the 'same'
 % thing as the return fn. Our utility function has (c^(1-sigma))/(1-sigma)
 % and hence we set the warmglow curvature wg3 equal to sigma, applied to the
