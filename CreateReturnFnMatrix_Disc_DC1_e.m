@@ -27,7 +27,11 @@ GridParamsCell = [d_vals, {aprime_grid}, {shiftdim(a_grid, -2)}, z_vals, e_vals]
 Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
 if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_aprime, N_a, N_z, N_e]);
+    if Level == 2 || Level == 5
+        Fmatrix = reshape(Fmatrix, [N_aprime, N_a, N_z, N_e]);
+    else
+        Fmatrix = reshape(Fmatrix, [1, N_aprime, N_a, N_z, N_e]);
+    end
 else
     if Level == 2 || Level == 5
         Fmatrix = reshape(Fmatrix, [N_d * N_aprime, N_a, N_z, N_e]);

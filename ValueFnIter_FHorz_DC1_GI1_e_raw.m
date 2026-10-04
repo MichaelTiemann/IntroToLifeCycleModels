@@ -10,12 +10,12 @@ Nd_eff = max(N_d, 1);
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 
 if has_d
-    Policy = zeros(4, N_a, N_j, 'gpuArray');
-    Policy(4, :, :) = 2;
+    Policy = zeros(4, N_a, N_z, N_e, N_j, 'gpuArray');
+    Policy(4, :, :, :, :) = 2;
     d_offset = 1;
 else
-    Policy = zeros(3, N_a, N_j, 'gpuArray');
-    Policy(3, :, :) = 2;
+    Policy = zeros(3, N_a, N_z, N_e, N_j, 'gpuArray');
+    Policy(3, :, :, :, :) = 2;
     d_offset = 0;
 end
 % When ReturnFn is -Inf on one of the course grid points, we will allow fine index between that and the neighbouring course grid point, but we use L2flag to record this and so later avoid that -Inf point when simulating/iteration
@@ -109,7 +109,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         V(:,:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
         allind=d_ind+Nd_eff*aind+Nd_eff*N_a*zind+Nd_eff*N_a*N_z*eind; % midpoint is n_d-by-1-by-n_a-by-n_z-by-n_e
-        Policy(1,:,:,:,N_j)=d_ind; % d
+        if has_d; Policy(1,:,:,:,N_j)=d_ind; end % d % d
         Policy(d_offset+1,:,:,:,N_j)=shiftdim(squeeze(midpoints_jj(allind)),-1); % midpoint
         Policy(d_offset+2,:,:,:,N_j)=shiftdim(ceil(maxindexL2/Nd_eff),-1); % aprimeL2ind
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
@@ -308,7 +308,7 @@ else
         V(:,:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
         allind=d_ind+Nd_eff*aind+Nd_eff*N_a*zind+Nd_eff*N_a*N_z*eind; % midpoint is n_d-by-1-by-n_a-by-n_z-by-n_e
-        Policy(1,:,:,:,N_j)=d_ind; % d
+        if has_d; Policy(1,:,:,:,N_j)=d_ind; end % d % d
         Policy(d_offset+1,:,:,:,N_j)=shiftdim(squeeze(midpoints_jj(allind)),-1); % midpoint
         Policy(d_offset+2,:,:,:,N_j)=shiftdim(ceil(maxindexL2/Nd_eff),-1); % aprimeL2ind
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)

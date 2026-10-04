@@ -100,7 +100,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
         allind=d_ind+Nd_eff*aind+Nd_eff*N_a*zind; % midpoint is n_d-by-1-by-n_a-by-n_z
-        Policy(1,:,:,N_j)=d_ind; % d
+        if has_d; Policy(1,:,:,N_j)=d_ind; end % d
         Policy(d_offset+1,:,:,N_j)=shiftdim(squeeze(midpoints_jj(allind)),-1); % midpoint
         Policy(d_offset+2,:,:,N_j)=shiftdim(ceil(maxindexL2/Nd_eff),-1); % aprimeL2ind
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
@@ -234,7 +234,7 @@ else
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
         allind=d_ind+Nd_eff*aind+Nd_eff*N_a*zind; % midpoint is n_d-by-1-by-n_a-by-n_z
-        Policy(1,:,:,N_j)=d_ind; % d
+        if has_d; Policy(1,:,:,N_j)=d_ind; end % d
         Policy(d_offset+1,:,:,N_j)=shiftdim(squeeze(midpoints_jj(allind)),-1); % midpoint
         Policy(d_offset+2,:,:,N_j)=shiftdim(ceil(maxindexL2/Nd_eff),-1); % aprimeL2ind
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
@@ -387,7 +387,7 @@ for reverse_j=1:N_j-1
         V(:,:,jj)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
         allind=d_ind+Nd_eff*aind+Nd_eff*N_a*zind; % midpoint is n_d-by-1-by-n_a-by-n_z
-        Policy(1,:,:,jj)=d_ind; % d
+        if has_d; Policy(1,:,:,jj)=d_ind; end % d
         Policy(d_offset+1,:,:,jj)=shiftdim(squeeze(midpoints_jj(allind)),-1); % midpoint
         Policy(d_offset+2,:,:,jj)=shiftdim(ceil(maxindexL2/Nd_eff),-1); % aprimeL2ind
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)

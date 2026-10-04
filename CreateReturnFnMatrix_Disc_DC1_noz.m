@@ -30,7 +30,11 @@ Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
 % Reshape dynamically based on Level and presence of d
 if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_aprime, N_a]);
+    if Level == 2 || Level == 5
+        Fmatrix = reshape(Fmatrix, [N_aprime, N_a]);
+    else
+        Fmatrix = reshape(Fmatrix, [1, N_aprime, N_a]);
+    end
 else
     if Level == 2 || Level == 5
         Fmatrix = reshape(Fmatrix, [N_d * N_aprime, N_a]);
