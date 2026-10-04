@@ -544,16 +544,24 @@ else
     end
 
     % Now we just max over d2, and keep the policy that corresponded to that (including modify the policy to include the d2 decision)
-    [V_jj,maxindex]=max(V_ford2_jj,[],3); % max over d2
-    V(:,:,N_j)=V_jj;
-    Policy(2,:,:,N_j)=shiftdim(maxindex,-1); % d2 is just maxindex
-    maxindex=reshape(maxindex,[N_a*N_semiz*N_z,1]); % This is the value of d that corresponds, make it this shape for addition just below
-    d1aprimeL2_ind=reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)'+(N_a*N_semiz*N_z)*(maxindex-1)),[1,N_a,N_semiz*N_z]);
-    Policy(1,:,:,N_j)=shiftdim(rem(d1aprimeL2_ind-1,Nd1_eff)+1,-1); % d1
-    Policy(4,:,:,N_j)=shiftdim(ceil(d1aprimeL2_ind/Nd1_eff),-1); % aprimeL2ind
-    Policy(3,:,:,N_j)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)'+(N_a*N_semiz*N_z)*(maxindex-1)),[1,N_a,N_semiz*N_z]); % midpoint
-    Policy(5,:,:,N_j)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z)'+(N_a*N_semiz*N_z)*(maxindex-1)),[1,N_a,N_semiz*N_z]);
+    [V_jj, maxindex] = max(V_ford2_jj, [], 3); % max over d2
+    V(:,:,jj) = V_jj;
 
+    maxindex = reshape(maxindex, [N_a * N_semiz * N_z, 1]);
+    d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
+
+    curr_offset = 1;
+    if has_d1
+        Policy(curr_offset, :, :, jj) = shiftdim(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, -1); % d1
+        curr_offset = curr_offset + 1;
+    end
+    if has_d2
+        Policy(curr_offset, :, :, jj) = reshape(maxindex, [1, N_a, N_semiz * N_z]); %d2
+    end
+
+    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]); % midpoint
+    Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
+    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
 end
 
 %% Iterate backwards through j.
@@ -818,23 +826,23 @@ for reverse_j=1:N_j-1
     end
 
     % Now we just max over d2, and keep the policy that corresponded to that (including modify the policy to include the d2 decision)
-    [V_temp, maxindex] = max(V_ford2_jj, [], 3); % max over d2
-    V(:,:,jj) = V_temp;
+    [V_jj, maxindex] = max(V_ford2_jj, [], 3); % max over d2
+    V(:,:,jj) = V_jj;
 
     maxindex = reshape(maxindex, [N_a * N_semiz * N_z, 1]);
     d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
 
     curr_offset = 1;
     if has_d1
-        Policy(curr_offset, :, :, jj) = shiftdim(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, -1);
+        Policy(curr_offset, :, :, jj) = shiftdim(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, -1); % d1
         curr_offset = curr_offset + 1;
     end
     if has_d2
-        Policy(curr_offset, :, :, jj) = shiftdim(maxindex, -1);
+        Policy(curr_offset, :, :, jj) = reshape(maxindex, [1, N_a, N_semiz * N_z]); %d2
     end
 
-    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
-    Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1);
+    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]); % midpoint
+    Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
     Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
 end
 
