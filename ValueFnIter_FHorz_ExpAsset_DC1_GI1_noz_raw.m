@@ -367,12 +367,12 @@ end
 % (which ranges -n2short-1:1:1+n2short). It is much easier to use later if
 % we switch Policy(2,:) to 'lower grid point' and then have Policy(3,:)
 % counting 0:nshort+1 up from this.
-adjust=(Policy(3,:,:)<1+n2short+1); % if second layer is choosing below midpoint
-Policy(2,:,:)=Policy(2,:,:)-adjust; % lower grid point
-Policy(3,:,:)=Policy(3,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid point) to 1+n2short+1 (upper grid point)
+adjust=(Policy(2+d_offset,:,:)<1+n2short+1); % if second layer is choosing below midpoint
+Policy(1+d_offset,:,:)=Policy(1+d_offset,:,:)-adjust; % lower grid point
+Policy(2+d_offset,:,:)=Policy(2+d_offset,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid point) to 1+n2short+1 (upper grid point)
 
 % %% For experience asset, just output Policy as single index and then use Case2 to UnKron
-% Policy=shiftdim(Policy(1,:,:)+N_d*(Policy(2,:,:)-1)+N_d*Na1_eff*(Policy(3,:,:)-1)+N_d*Na1_eff*(n2short+2)*(Policy(4,:,:)-1),1);
+% Policy=shiftdim(Policy(1,:,:)+N_d*(Policy(1+d_offset,:,:)-1)+N_d*Na1_eff*(Policy(2+d_offset,:,:)-1)+N_d*Na1_eff*(n2short+2)*(Policy(3+d_offset,:,:)-1),1);
 
 
 end
