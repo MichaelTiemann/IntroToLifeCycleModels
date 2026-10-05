@@ -79,7 +79,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
 
 if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
-    midpoints_Nj=zeros(N_d,1,N_a,N_semiz,'gpuArray');
+    midpoints_Nj=zeros(Nd_eff,1,N_a,N_semiz,'gpuArray');
 
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_semiz, d_gridvals, a_grid, a_grid(level1ii), semiz_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
@@ -119,8 +119,8 @@ if ~isfield(vfoptions,'V_Jplus1')
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn,n_d,n_semiz,d_gridvals,aprime_grid(aprimeindexes),a_grid,semiz_gridvals_J(:,:,N_j),ReturnFnParamsVec,2);
         [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
-        d_ind=rem(maxindexL2-1,N_d)+1;
-        allind=d_ind+N_d*aind+N_d*N_a*semizind; % midpoint is n_d-by-1-by-n_a-by-n_semiz
+        d_ind=rem(maxindexL2-1,Nd_eff)+1;
+        allind=d_ind+Nd_eff*aind+Nd_eff*N_a*semizind; % midpoint is n_d-by-1-by-n_a-by-n_semiz
         curr_offset = 1;
         if has_d1
             Policy(curr_offset,:,:,N_j)=shiftdim(rem(d_ind - 1, Nd1_eff) + 1, -1); %d1
@@ -134,9 +134,9 @@ if ~isfield(vfoptions,'V_Jplus1')
         Policy(d_total+2,:,:,N_j)=shiftdim(ceil(maxindexL2 / Nd_eff), -1); % aprimeL2ind
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-        L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind                  + N_d*n2long*aind + N_d*n2long*N_a*semizind;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*semizind;
+        L2offset = ceil(maxindexL2/Nd_eff);
+        linidx_lower = d_ind                  + Nd_eff*n2long*aind + Nd_eff*n2long*N_a*semizind;
+        linidx_upper = d_ind + Nd_eff*(n2long-1) + Nd_eff*n2long*aind + Nd_eff*n2long*N_a*semizind;
         isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
@@ -144,7 +144,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         Policy(d_total+3,:,:,N_j)=shiftdim(squeeze(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper)), -1);
 
     elseif vfoptions.lowmemory==1 % loop semiz
-        midpoints_Nj=zeros(N_d,1,N_a,'gpuArray');
+        midpoints_Nj=zeros(Nd_eff,1,N_a,'gpuArray');
         for semiz_c=1:N_semiz
             semiz_val=semiz_gridvals_J(semiz_c,:,N_j);
 
@@ -186,8 +186,8 @@ if ~isfield(vfoptions,'V_Jplus1')
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn,n_d,special_n_semiz,d_gridvals,aprime_grid(aprimeindexes),a_grid,semiz_val,ReturnFnParamsVec,2);
             [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
             V(:,semiz_c,N_j)=shiftdim(Vtempii,1);
-            d_ind=rem(maxindexL2-1,N_d)+1;
-            allind=d_ind+N_d*aind; % midpoint is n_d-by-1-by-n_a
+            d_ind=rem(maxindexL2-1,Nd_eff)+1;
+            allind=d_ind+Nd_eff*aind; % midpoint is n_d-by-1-by-n_a
             curr_offset = 1;
             if has_d1
                 Policy(curr_offset,:,:,N_j)=shiftdim(rem(d_ind - 1, Nd1_eff) + 1, -1); %d1
@@ -201,9 +201,9 @@ if ~isfield(vfoptions,'V_Jplus1')
             Policy(d_total+2,:,:,N_j)=shiftdim(ceil(maxindexL2 / Nd_eff), -1); % aprimeL2ind
 
             % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-            L2offset = ceil(maxindexL2/N_d);
-            linidx_lower = d_ind                  + N_d*n2long*aind;
-            linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind;
+            L2offset = ceil(maxindexL2/Nd_eff);
+            linidx_lower = d_ind                  + Nd_eff*n2long*aind;
+            linidx_upper = d_ind + Nd_eff*(n2long-1) + Nd_eff*n2long*aind;
             isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
             isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
             inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);

@@ -13,12 +13,13 @@ d_total = has_d1 + has_d2;
 N_a=prod(n_a);
 N_semiz=prod(n_semiz);
 N_z=prod(n_z);
+has_z = (N_z > 0); Nz_eff = max(N_z, 1);
 N_bothz=prod(n_bothz);
 N_e=prod(n_e);
 
-V=zeros(N_a,N_semiz*N_z,N_e,N_j,'gpuArray');
+V=zeros(N_a,N_bothz,N_e,N_j,'gpuArray');
 % For semiz it turns out to be easier to go straight to constructing policy that stores d,d2,aprime seperately
-Policy=zeros(3+d_total,N_a,N_semiz*N_z,N_e,N_j,'gpuArray');
+Policy=zeros(3+d_total,N_a,N_bothz,N_e,N_j,'gpuArray');
 Policy(3+d_total,:,:,:,:)=2; % L2 flag: 1=all to lower, 2=usual, 3=all to upper
 % First dimension: d1, d2, aprime, aprime2
 
@@ -59,17 +60,17 @@ eind=shiftdim(gpuArray(0:1:N_e-1),-2); % already includes -1
 semizind=shiftdim(gpuArray(0:1:N_semiz-1),-1); % already includes -1 (for lowmemory==2 split: outer z, inner e, vectorize semiz)
 semizind2=shiftdim(gpuArray(0:1:N_semiz-1),-2); % already includes -1 (for lowmemory==2 split)
 
-bothz_gridvals_J=[repmat(semiz_gridvals_J,N_z,1,1),repelem(z_gridvals_J,N_semiz,1,1)];
+bothz_gridvals_J=[repmat(semiz_gridvals_J,Nz_eff,1,1),repelem(z_gridvals_J,N_semiz,1,1)];
 
 % Preallocate
-V_ford2_jj=zeros(N_a,N_semiz*N_z,N_e,Nd2_eff,'gpuArray');
-Policy_ford2_jj=zeros(N_a,N_semiz*N_z,N_e,Nd2_eff,'gpuArray');
-midpoint_ford2_jj=zeros(N_a,N_semiz*N_z,N_e,Nd2_eff,'gpuArray');
-PolicyL2flag_ford2_jj=2*ones(N_a,N_semiz*N_z,N_e,Nd2_eff,'gpuArray');
+V_ford2_jj=zeros(N_a,N_bothz,N_e,Nd2_eff,'gpuArray');
+Policy_ford2_jj=zeros(N_a,N_bothz,N_e,Nd2_eff,'gpuArray');
+midpoint_ford2_jj=zeros(N_a,N_bothz,N_e,Nd2_eff,'gpuArray');
+PolicyL2flag_ford2_jj=2*ones(N_a,N_bothz,N_e,Nd2_eff,'gpuArray');
 if vfoptions.lowmemory==0
-    midpoints_jj=zeros(Nd1_eff,1,N_a,N_semiz*N_z,N_e,'gpuArray');
+    midpoints_jj=zeros(Nd1_eff,1,N_a,N_bothz,N_e,'gpuArray');
 elseif vfoptions.lowmemory==1
-    midpoints_jj=zeros(Nd1_eff,1,N_a,N_semiz*N_z,'gpuArray');
+    midpoints_jj=zeros(Nd1_eff,1,N_a,N_bothz,'gpuArray');
 elseif vfoptions.lowmemory==2
     midpoints_jj=zeros(Nd1_eff,1,N_a,N_semiz,'gpuArray');
 elseif vfoptions.lowmemory==3
@@ -106,7 +107,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
 if ~isfield(vfoptions,'V_Jplus1')
 
     if vfoptions.lowmemory==0
-        midpoints_Nj=zeros(Nd_eff,1,N_a,N_semiz*N_z,N_e,'gpuArray');
+        midpoints_Nj=zeros(Nd_eff,1,N_a,N_bothz,N_e,'gpuArray');
 
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_bothz, n_e, d_gridvals, a_grid, a_grid(level1ii), bothz_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
@@ -175,7 +176,7 @@ if ~isfield(vfoptions,'V_Jplus1')
 
     elseif vfoptions.lowmemory==1
 
-        midpoints_Nj=zeros(Nd_eff,1,N_a,N_semiz*N_z,'gpuArray');
+        midpoints_Nj=zeros(Nd_eff,1,N_a,N_bothz,'gpuArray');
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
@@ -250,7 +251,7 @@ if ~isfield(vfoptions,'V_Jplus1')
 
         midpoints_Nj=zeros(Nd_eff,1,N_a,N_semiz,'gpuArray');
 
-        for z_c=1:N_z
+        for z_c=1:Nz_eff
             semizblock=(z_c-1)*N_semiz+(1:1:N_semiz);
             z_valblock=bothz_gridvals_J(semizblock,:,N_j);
             for e_c=1:N_e
@@ -401,12 +402,16 @@ else
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    EV=sum(reshape(vfoptions.V_Jplus1,[N_a,N_semiz*N_z,N_e]).*pi_e_J(1,1,:,N_j+1),3); % First, switch V_Jplus1 into Kron form
+    EV=sum(reshape(vfoptions.V_Jplus1,[N_a,N_bothz,N_e]).*pi_e_J(1,1,:,N_j+1),3); % First, switch V_Jplus1 into Kron form
 
     if vfoptions.lowmemory==0
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
             EV_d2inf=(EV==-Inf);
             EV_d2=EV;
@@ -468,7 +473,7 @@ else
             Policy_ford2_jj(:,:,:,d2_c)=shiftdim(maxindex,1);
 
             d1_ind=rem(maxindex-1,Nd1_eff)+1;
-            allind=d1_ind+Nd1_eff*aind+Nd1_eff*N_a*bothzind+Nd1_eff*N_a*N_semiz*N_z*eind; % loweredge is n_d-by-1-by-n_a-by-n_semiz-by-n_e
+            allind=d1_ind+Nd1_eff*aind+Nd1_eff*N_a*bothzind+Nd1_eff*N_a*N_bothz*eind; % loweredge is n_d-by-1-by-n_a-by-n_semiz-by-n_e
             midpoint_ford2_jj(:,:,:,d2_c)=squeeze(midpoints_jj(allind));
 
             % L2 flag for this d2
@@ -487,25 +492,29 @@ else
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,N_j) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
     elseif vfoptions.lowmemory==1
          for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
             EV_d2inf=(EV==-Inf);
             EV_d2=EV;
@@ -590,27 +599,31 @@ else
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,N_j) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
     elseif vfoptions.lowmemory==2 % outer z / inner e, vectorize semiz
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if haz_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
-            for z_c=1:N_z
+            for z_c=1:Nz_eff
                 semizblock=(z_c-1)*N_semiz+(1:1:N_semiz);
                 z_valblock=bothz_gridvals_J(semizblock,:,N_j);
 
@@ -695,25 +708,29 @@ else
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,N_j) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
     elseif vfoptions.lowmemory==3 % joint bothz, inner e
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
             for z_c=1:N_bothz
                 z_val=bothz_gridvals_J(z_c,:,N_j);
@@ -793,20 +810,20 @@ else
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,N_j) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
     end
 end
@@ -830,7 +847,11 @@ for reverse_j=1:N_j-1
     if vfoptions.lowmemory==0
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
             EV_d2inf=(EV==-Inf);
             EV_d2=EV;
@@ -892,7 +913,7 @@ for reverse_j=1:N_j-1
             Policy_ford2_jj(:,:,:,d2_c)=shiftdim(maxindex,1);
 
             d1_ind=rem(maxindex-1,Nd1_eff)+1;
-            allind=d1_ind+Nd1_eff*aind+Nd1_eff*N_a*bothzind+Nd1_eff*N_a*N_semiz*N_z*eind; % loweredge is n_d-by-1-by-n_a-by-n_semiz-by-n_e
+            allind=d1_ind+Nd1_eff*aind+Nd1_eff*N_a*bothzind+Nd1_eff*N_a*N_bothz*eind; % loweredge is n_d-by-1-by-n_a-by-n_semiz-by-n_e
             midpoint_ford2_jj(:,:,:,d2_c)=squeeze(midpoints_jj(allind));
 
             % L2 flag for this d2
@@ -911,26 +932,30 @@ for reverse_j=1:N_j-1
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,jj) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
 elseif vfoptions.lowmemory==1
 
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
             EV_d2inf=(EV==-Inf);
             EV_d2=EV;
@@ -1014,27 +1039,31 @@ elseif vfoptions.lowmemory==1
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,jj) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
     elseif vfoptions.lowmemory==2 % outer z / inner e, vectorize semiz
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if
+                pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
-            for z_c=1:N_z
+            for z_c=1:Nz_eff
                 semizblock=(z_c-1)*N_semiz+(1:1:N_semiz);
                 z_valblock=bothz_gridvals_J(semizblock,:,jj);
 
@@ -1119,25 +1148,29 @@ elseif vfoptions.lowmemory==1
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,jj) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
 
     elseif vfoptions.lowmemory==3 % joint bothz, inner e
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
             for z_c=1:N_bothz
                 z_val=bothz_gridvals_J(z_c,:,jj);
@@ -1217,20 +1250,20 @@ elseif vfoptions.lowmemory==1
 
         curr_offset = 1;
         if has_d1
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
+            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_bothz, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
-            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
+            d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(reshape(maxindex, [N_a*N_bothz*N_e, 1]) - 1)), [1, N_a, N_bothz, N_e]);
         end
         if has_d2
             Policy(curr_offset,:,:,:,jj) = shiftdim(maxindex, -1); % d2
         end
 
-        maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        maxindex_vec = reshape(maxindex, [N_a*N_bothz*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
+        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_bothz, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz*N_e)' + (N_a*N_bothz*N_e)*(maxindex_vec - 1)), [1, N_a, N_bothz, N_e]);
     end
 end
 

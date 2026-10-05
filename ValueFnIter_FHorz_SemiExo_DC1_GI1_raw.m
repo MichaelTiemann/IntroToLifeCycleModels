@@ -13,11 +13,12 @@ d_total = has_d1 + has_d2; % Dynamically sets Policy size
 N_a=prod(n_a);
 N_semiz=prod(n_semiz);
 N_z=prod(n_z);
+has_z = (N_z > 0); Nz_eff = max(N_z, 1);
 N_bothz=prod(n_bothz);
 
-V=zeros(N_a,N_semiz*N_z,N_j,'gpuArray');
+V=zeros(N_a,N_bothz,N_j,'gpuArray');
 % For semiz it turns out to be easier to go straight to constructing policy that stores d,d2,aprime seperately
-Policy=zeros(3+d_total,N_a,N_semiz*N_z,N_j,'gpuArray'); % first dim indexes the optimal choice for d1,d2,aprime and aprime2 (in GI layer)
+Policy=zeros(3+d_total,N_a,N_bothz,N_j,'gpuArray'); % first dim indexes the optimal choice for d1,d2,aprime and aprime2 (in GI layer)
 Policy(3+d_total,:,:,:)=2; % L2 flag: 1=all to lower, 2=usual, 3=all to upper
 
 %%
@@ -56,13 +57,13 @@ end
 bothz_gridvals_J=[repmat(semiz_gridvals_J,N_z,1,1),repelem(z_gridvals_J,N_semiz,1,1)];
 
 % Preallocate
-V_ford2_jj=zeros(N_a,N_semiz*N_z,Nd2_eff,'gpuArray');
-Policy_ford2_jj=zeros(N_a,N_semiz*N_z,Nd2_eff,'gpuArray');
-midpoint_ford2_jj=zeros(N_a,N_semiz*N_z,Nd2_eff,'gpuArray');
-PolicyL2flag_ford2_jj=2*ones(N_a,N_semiz*N_z,Nd2_eff,'gpuArray');
+V_ford2_jj=zeros(N_a,N_bothz,Nd2_eff,'gpuArray');
+Policy_ford2_jj=zeros(N_a,N_bothz,Nd2_eff,'gpuArray');
+midpoint_ford2_jj=zeros(N_a,N_bothz,Nd2_eff,'gpuArray');
+PolicyL2flag_ford2_jj=2*ones(N_a,N_bothz,Nd2_eff,'gpuArray');
 % Preallocate
 if vfoptions.lowmemory==0
-    midpoints_jj=zeros(Nd1_eff,1,N_a,N_semiz*N_z,'gpuArray');
+    midpoints_jj=zeros(Nd1_eff,1,N_a,N_bothz,'gpuArray');
 elseif vfoptions.lowmemory==1
     midpoints_jj=zeros(Nd1_eff,1,N_a,N_semiz,'gpuArray');
 elseif vfoptions.lowmemory==2
@@ -95,7 +96,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
 
 if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
-        midpoints_Nj=zeros(Nd_eff,1,N_a,N_semiz*N_z,'gpuArray');
+        midpoints_Nj=zeros(Nd_eff,1,N_a,N_bothz,'gpuArray');
 
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_bothz, d_gridvals, a_grid, a_grid(level1ii), bothz_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
@@ -316,7 +317,11 @@ else
     if vfoptions.lowmemory==0
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
             EV_d2inf=(EV==-Inf);
             EV_d2=EV;
@@ -397,7 +402,11 @@ else
     elseif vfoptions.lowmemory==1 % parallel over semiz, loop over z
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
             for z_c=1:N_z
                 semizblock=(z_c-1)*N_semiz+(1:1:N_semiz);
@@ -480,7 +489,11 @@ else
     elseif vfoptions.lowmemory==2 % joint loop over bothz
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
+            end
 
             for z_c=1:N_bothz
                 z_val=bothz_gridvals_J(z_c,:,N_j);
@@ -563,7 +576,7 @@ else
     V(:,:,jj) = V_jj;
 
     maxindex = reshape(maxindex, [N_a * N_semiz * N_z, 1]);
-    d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
+    d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_bothz)' + (N_a*N_bothz)*(maxindex-1)), [1, N_a, N_bothz]);
 
     curr_offset = 1;
     if has_d1
@@ -574,9 +587,9 @@ else
         Policy(curr_offset, :, :, jj) = reshape(maxindex, [1, N_a, N_semiz * N_z]); %d2
     end
 
-    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]); % midpoint
+    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_bothz)' + (N_a*N_bothz)*(maxindex-1)), [1, N_a, N_bothz]); % midpoint
     Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
-    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
+    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz)' + (N_a*N_bothz)*(maxindex-1)), [1, N_a, N_bothz]);
 end
 
 %% Iterate backwards through j.
@@ -598,7 +611,11 @@ for reverse_j=1:N_j-1
     if vfoptions.lowmemory==0
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj),pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,jj),pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
             EV_d2inf=(EV==-Inf);
             EV_d2=EV;
@@ -679,7 +696,11 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==1 % parallel over semiz, loop over z
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj),pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,jj),pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
             for z_c=1:N_z
                 semizblock=(z_c-1)*N_semiz+(1:1:N_semiz);
@@ -762,7 +783,11 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==2 % joint loop over bothz
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            pi_bothz=kron(pi_z_J(:,:,jj),pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            if has_z
+                pi_bothz=kron(pi_z_J(:,:,jj),pi_semiz_J(:,:,d2_c,jj)); % reverse order
+            else
+                pi_bothz = pi_semiz_J(:,:,d2_c,jj);
+            end
 
             for z_c=1:N_bothz
                 z_val=bothz_gridvals_J(z_c,:,jj);
@@ -845,7 +870,7 @@ for reverse_j=1:N_j-1
     V(:,:,jj)=V_jj;
 
     maxindex=reshape(maxindex, [N_a * N_semiz * N_z, 1]);
-    d1aprimeL2_ind=reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
+    d1aprimeL2_ind=reshape(Policy_ford2_jj((1:1:N_a*N_bothz)' + (N_a*N_bothz)*(maxindex-1)), [1, N_a, N_bothz]);
 
     curr_offset=1;
     if has_d1
@@ -856,9 +881,9 @@ for reverse_j=1:N_j-1
         Policy(curr_offset,:,:,jj)=reshape(maxindex, [1, N_a, N_semiz * N_z]); %d2
     end
 
-    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]); % midpoint
+    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_bothz)' + (N_a*N_bothz)*(maxindex-1)), [1, N_a, N_bothz]); % midpoint
     Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
-    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
+    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_bothz)' + (N_a*N_bothz)*(maxindex-1)), [1, N_a, N_bothz]);
 end
 
 
