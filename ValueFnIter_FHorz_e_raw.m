@@ -23,12 +23,12 @@ pi_e_J = shiftdim(pi_e_J, -2);
 %% j = N_j
 ReturnFnParamsVec_J = CreateVectorFromParams(Parameters, ReturnFnParamNames, N_j);
 
-z_grid_N_j = [];
-if has_z; z_grid_N_j = z_gridvals_J(:,:,N_j); end
+z_gridvals_N_j = [];
+if has_z; z_gridvals_N_j = z_gridvals_J(:,:,N_j); end
 
 if ~isfield(vfoptions, 'V_Jplus1')
     if vfoptions.lowmemory == 0
-        ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_grid_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
+        ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
         if ~has_z
             sz = size(ReturnMatrix);
             if length(sz) == 2; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, 1]); else; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, sz(3:end)]); end
@@ -39,7 +39,7 @@ if ~isfield(vfoptions, 'V_Jplus1')
     elseif vfoptions.lowmemory == 1
         for e_c = 1:N_e
             e_val = e_gridvals_J(e_c, :, N_j);
-            ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_grid_N_j, e_val, ReturnFnParamsVec_J, 0);
+            ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_N_j, e_val, ReturnFnParamsVec_J, 0);
             if ~has_z
                 sz = size(ReturnMatrix_e);
                 if length(sz) == 2; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, 1]); else; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, sz(3:end)]); end
@@ -79,7 +79,7 @@ else
     if has_d; entireEV = repelem(EV, N_d, 1, 1); end
 
     if vfoptions.lowmemory == 0
-        ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_grid_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
+        ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
         if ~has_z
             sz = size(ReturnMatrix);
             if length(sz) == 2; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, 1]); else; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, sz(3:end)]); end
@@ -91,7 +91,7 @@ else
     elseif vfoptions.lowmemory == 1
         for e_c = 1:N_e
             e_val = e_gridvals_J(e_c, :, N_j);
-            ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_grid_N_j, e_val, ReturnFnParamsVec_J, 0);
+            ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_N_j, e_val, ReturnFnParamsVec_J, 0);
             if ~has_z
                 sz = size(ReturnMatrix_e);
                 if length(sz) == 2; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, 1]); else; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, sz(3:end)]); end
@@ -142,11 +142,11 @@ for reverse_j = 1:N_j-1
     entireEV = EV;
     if has_d; entireEV = repelem(EV, N_d, 1, 1); end
 
-    z_grid_jj = [];
-    if has_z; z_grid_jj = z_gridvals_J(:,:,jj); end
+    z_gridvals_jj = [];
+    if has_z; z_gridvals_jj = z_gridvals_J(:,:,jj); end
 
     if vfoptions.lowmemory == 0
-        ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_grid_jj, e_gridvals_J(:,:,jj), ReturnFnParamsVec, 0);
+        ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_jj, e_gridvals_J(:,:,jj), ReturnFnParamsVec, 0);
         if ~has_z
             sz = size(ReturnMatrix);
             if length(sz) == 2; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, 1]); else; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, sz(3:end)]); end
@@ -158,7 +158,7 @@ for reverse_j = 1:N_j-1
     elseif vfoptions.lowmemory == 1
         for e_c = 1:N_e
             e_val = e_gridvals_J(e_c, :, jj);
-            ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_grid_jj, e_val, ReturnFnParamsVec, 0);
+            ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_jj, e_val, ReturnFnParamsVec, 0);
             if ~has_z
                 sz = size(ReturnMatrix_e);
                 if length(sz) == 2; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, 1]); else; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, sz(3:end)]); end
