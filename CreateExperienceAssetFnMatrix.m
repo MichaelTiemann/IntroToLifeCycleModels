@@ -1,4 +1,4 @@
-function [a2primeIndexes,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d, n_a2, d_gridvals, a2_grid, aprimeFnParams, aprimeIndexAsColumn)
+function [a2primeIndexes,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d, n_a2, d_gridvals, a2_grid, aprimeFnParams, aprimeIndexAsColumn, n_z, z_gridvals, n_e, e_gridvals)
 % For experienceasset: enumerate a2prime=aprimeFn(d, a2) over ALL d (used
 % during value-function iteration). Because the true value of a2prime will
 % (almost always) lie between two consecutive points in a2_grid, it is
@@ -20,6 +20,10 @@ function [a2primeIndexes,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n
 %     point. These are per-dimension indices, NOT linear indices in N_a2=prod(n_a2) space.
 %     The caller combines them into the four corners itself and does a nested 2-corner interp
 %     with skipinterp at each level (bit-exact when V is flat in a dimension).
+
+% Catch omitted trailing arguments for backward compatibility
+if nargin < 8; n_z = 0; z_gridvals = []; end
+if nargin < 10; n_e = 0; e_gridvals = []; end
 
 ParamCell=cell(length(aprimeFnParams),1);
 for ii=1:length(aprimeFnParams)
@@ -49,34 +53,81 @@ if nargin(aprimeFn)~=l_d+l_a2+(l_a2>=2)+length(aprimeFnParams)
     error('Number of inputs to aprimeFn does not fit with size of aprimeFnParams')
 end
 
-if l_d>=1
-    d1vals=d_gridvals(:,1);
-    if l_d>=2
-        d2vals=d_gridvals(:,2);
-        if l_d>=3
-            d3vals=d_gridvals(:,3);
-            if l_d>=4
-                d4vals=d_gridvals(:,4);
-            end
+% --- ELEGANT DYNAMIC GRID PACKING ---
+
+% 1. Pack 'd' variables (Dimension 1)
+if l_d == 0
+    d_vals_cell = {};
+else
+    d_vals_cell = cell(1, l_d);
+    if l_d == 1; d_vals_cell{1} = d_gridvals;
+    else
+        for i = 1:l_d
+            d_vals_cell{i} = d_gridvals(:, i);
         end
     end
 end
 
-if l_a2==1
-    a2vals=shiftdim(a2_grid(1:n_a2(1)),-1);
+% 2. Pack Exogenous States (z, e)
+% The shift offset for exogenous states must start after a2.
+% If l_a2=1, z starts at dim 3 (shift -2). If l_a2=2, z starts at dim 4 (shift -3).
+shift_offset = -(1 + l_a2);
 
-    if l_d==1
-        a2primeVals=arrayfun(aprimeFn, d1vals, a2vals, ParamCell{:});
-    elseif l_d==2
-        a2primeVals=arrayfun(aprimeFn, d1vals,d2vals, a2vals, ParamCell{:});
-    elseif l_d==3
-        a2primeVals=arrayfun(aprimeFn, d1vals,d2vals,d3vals, a2vals, ParamCell{:});
-    elseif l_d==4
-        a2primeVals=arrayfun(aprimeFn, d1vals,d2vals,d3vals,d4vals, a2vals, ParamCell{:});
+z_vals_cell = {};
+if ~isempty(z_gridvals)
+    l_z = length(n_z);
+    z_vals_cell = cell(1, l_z);
+    if l_z == 1; z_vals_cell{1} = shiftdim(z_gridvals, shift_offset);
+    else
+        for i = 1:l_z
+            z_vals_cell{i} = shiftdim(z_gridvals(:, i), shift_offset);
+        end
     end
+    shift_offset = shift_offset - 1;
+end
 
+e_vals_cell = {};
+if ~isempty(e_gridvals)
+    l_e = length(n_e);
+    e_vals_cell = cell(1, l_e);
+    if l_e == 1; e_vals_cell{1} = shiftdim(e_gridvals, shift_offset);
+    else
+        for i = 1:l_e
+            e_vals_cell{i} = shiftdim(e_gridvals(:, i), shift_offset);
+        end
+    end
+    shift_offset = shift_offset - 1; % Ready for u_gridvals later
+end
 
-    %% Calcuate grid indexes and probs from the values
+% 3. Evaluate arrayfun seamlessly for both 1D and 2D Experience Assets
+if l_a2 == 1
+    a2vals_cell = {shiftdim(a2_grid(1:n_a2(1)), -1)};
+    
+    % Combine all inputs positionally: [d, a2, z, e, Params]
+    % Note: ParamCell' transposes the column cell to a row cell for horizontal concatenation
+    GridParamsCell = [d_vals_cell, a2vals_cell, z_vals_cell, e_vals_cell, ParamCell'];
+    
+    a2primeVals = arrayfun(aprimeFn, GridParamsCell{:});
+    
+elseif l_a2 == 2
+    n_a2_1 = n_a2(1);
+    n_a2_2 = n_a2(2);
+    a2_grid_1 = a2_grid(1:n_a2_1);
+    a2_grid_2 = a2_grid(n_a2_1+1:n_a2_1+n_a2_2);
+    
+    a2vals_cell = {shiftdim(a2_grid_1, -1), shiftdim(a2_grid_2, -2)};
+    
+    % For l_a2 == 2, aprimeFn requires a 'whicha' selector (1 or 2) injected immediately after the a2 inputs
+    GridParamsCell_1 = [d_vals_cell, a2vals_cell, {1}, z_vals_cell, e_vals_cell, ParamCell'];
+    GridParamsCell_2 = [d_vals_cell, a2vals_cell, {2}, z_vals_cell, e_vals_cell, ParamCell'];
+    
+    a2primeVals_1 = arrayfun(aprimeFn, GridParamsCell_1{:});
+    a2primeVals_2 = arrayfun(aprimeFn, GridParamsCell_2{:});
+end
+
+if l_a2==1
+
+    %% Calculate grid indexes and probs from the values
     a2primeVals=reshape(a2primeVals,[1,N_d*N_a2]);
 
     a2_griddiff=a2_grid(2:end)-a2_grid(1:end-1); % Distance between point and the next point
@@ -120,23 +171,6 @@ elseif l_a2==2
     n_a2_1=n_a2(1); n_a2_2=n_a2(2);
     a2_grid_1=a2_grid(1:n_a2_1);
     a2_grid_2=a2_grid(n_a2_1+1:n_a2_1+n_a2_2);
-    a2_1_vals=shiftdim(a2_grid_1,-1); % dim 2
-    a2_2_vals=shiftdim(a2_grid_2,-2); % dim 3
-
-    % GPU arrayfun requires scalar output; call once per a2 dim with whicha selector
-    if l_d==1
-        a2primeVals_1=arrayfun(aprimeFn, d1vals, a2_1_vals, a2_2_vals, 1, ParamCell{:});
-        a2primeVals_2=arrayfun(aprimeFn, d1vals, a2_1_vals, a2_2_vals, 2, ParamCell{:});
-    elseif l_d==2
-        a2primeVals_1=arrayfun(aprimeFn, d1vals,d2vals, a2_1_vals, a2_2_vals, 1, ParamCell{:});
-        a2primeVals_2=arrayfun(aprimeFn, d1vals,d2vals, a2_1_vals, a2_2_vals, 2, ParamCell{:});
-    elseif l_d==3
-        a2primeVals_1=arrayfun(aprimeFn, d1vals,d2vals,d3vals, a2_1_vals, a2_2_vals, 1, ParamCell{:});
-        a2primeVals_2=arrayfun(aprimeFn, d1vals,d2vals,d3vals, a2_1_vals, a2_2_vals, 2, ParamCell{:});
-    elseif l_d==4
-        a2primeVals_1=arrayfun(aprimeFn, d1vals,d2vals,d3vals,d4vals, a2_1_vals, a2_2_vals, 1, ParamCell{:});
-        a2primeVals_2=arrayfun(aprimeFn, d1vals,d2vals,d3vals,d4vals, a2_1_vals, a2_2_vals, 2, ParamCell{:});
-    end
 
     %% Per-dim grid indexes and probs (inlined 1D linear-interp; mirrors l_a2==1 above)
     a2primeVals_1=reshape(a2primeVals_1,[1,N_d*N_a2]);
