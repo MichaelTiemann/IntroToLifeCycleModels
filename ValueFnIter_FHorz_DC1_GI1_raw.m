@@ -1,20 +1,29 @@
 function [V,Policy]=ValueFnIter_FHorz_DC1_GI1_raw(n_d,n_a,n_z,N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
 has_d = (N_d > 0);
 Nd_eff = max(N_d, 1);
 
-V=zeros(N_a,N_z,N_j,'gpuArray');
+N_a=prod(n_a);
+
+N_z = prod(n_z);
+if N_z == 0
+    pi_z_J = ones(1, 1, N_j);
+    z_gridvals_J = zeros(1, 1, N_j);
+    Nz_eff = 1;
+else
+    Nz_eff = N_z;
+end
+
+V=zeros(N_a,Nz_eff,N_j,'gpuArray');
 
 % Dynamic Policy allocation
 if has_d
-    Policy = zeros(4, N_a, N_z, N_j, 'gpuArray');
+    Policy = zeros(4, N_a, Nz_eff, N_j, 'gpuArray');
     Policy(4, :, :, :) = 2;
     d_offset = 1;
 else
-    Policy = zeros(3, N_a, N_z, N_j, 'gpuArray');
+    Policy = zeros(3, N_a, Nz_eff, N_j, 'gpuArray');
     Policy(3, :, :, :) = 2;
     d_offset = 0;
 end
@@ -24,16 +33,16 @@ end
 
 % Preallocate
 if vfoptions.lowmemory==0
-    midpoints_jj=zeros(Nd_eff,1,N_a,N_z,'gpuArray');
+    midpoints_jj=zeros(Nd_eff,1,N_a,Nz_eff,'gpuArray');
 elseif vfoptions.lowmemory==1 % loops over z
     midpoints_jj=zeros(Nd_eff,1,N_a,'gpuArray');
-    special_n_z=ones(1,length(n_z));
+    if N_z == 0; special_n_z = 0; else; special_n_z = ones(1,length(n_z)); end
 end
 
 aind=gpuArray(0:1:N_a-1); % already includes -1
-zind=shiftdim(gpuArray(0:1:N_z-1),-1); % already includes -1
+zind=shiftdim(gpuArray(0:1:Nz_eff-1),-1); % already includes -1
 
-zBind=shiftdim(gpuArray(0:1:N_z-1),-2); % already includes -1
+zBind=shiftdim(gpuArray(0:1:Nz_eff-1),-2); % already includes -1
 
 % n-Monotonicity
 level1ii=round(linspace(1,n_a,vfoptions.level1n));
@@ -115,7 +124,7 @@ if ~isfield(vfoptions,'V_Jplus1')
 
 
     elseif vfoptions.lowmemory==1
-        for z_c=1:N_z
+        for z_c=1:Nz_eff
             z_val=z_gridvals_J(z_c,:,N_j);
             % n-Monotonicity
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, d_gridvals, a_grid, a_grid(level1ii), z_val, ReturnFnParamsVec,1);
@@ -176,13 +185,13 @@ else
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    EV=reshape(vfoptions.V_Jplus1,[N_a,N_z]); % First, switch V_Jplus1 into Kron form
+    EV=reshape(vfoptions.V_Jplus1,[N_a,Nz_eff]); % First, switch V_Jplus1 into Kron form
 
     EVinf=(EV==-Inf);
     EV(EVinf)=-1e250; % stop -Inf*0 -> NaN inside the product
     EV=EV*pi_z_J(:,:,N_j)';
     EV(EVinf*(pi_z_J(:,:,N_j)'>0)>0)=-Inf; % exact -Inf restoration
-    EV=reshape(EV,[N_a,1,N_z]);
+    EV=reshape(EV,[N_a,1,Nz_eff]);
 
     % Interpolate EV over aprime_grid
     EVinterp=interp1(a_grid,EV,aprime_grid);
@@ -213,7 +222,7 @@ else
                 % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), ReturnFnParamsVec,3);
                 aprimez=aprimeindexes+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*EV(reshape(aprimez,[Nd_eff,(maxgap(ii)+1),1,N_z]));  % autoexpand the level1iidiff(ii) in 3rd-dim
+                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*EV(reshape(aprimez,[Nd_eff,(maxgap(ii)+1),1,Nz_eff]));  % autoexpand the level1iidiff(ii) in 3rd-dim
                 [~,maxindex]=max(entireRHS_ii,[],2);
                 midpoints_jj(:,1,curraindex,:)=maxindex+(loweredge-1);
             else
@@ -229,7 +238,7 @@ else
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn,n_d,n_z,d_gridvals,aprime_grid(aprimeindexes),a_grid,z_gridvals_J(:,:,N_j),ReturnFnParamsVec,2);
         aprimez=aprimeindexes+n2aprime*zBind;
-        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[Nd_eff*n2long,N_a,N_z]);
+        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[Nd_eff*n2long,N_a,Nz_eff]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
@@ -250,7 +259,7 @@ else
     elseif vfoptions.lowmemory==1
         DiscountedEV=DiscountFactorParamsVec*EV;
         DiscountedEVinterp=DiscountFactorParamsVec*EVinterp;
-        for z_c=1:N_z
+        for z_c=1:Nz_eff
             z_val=z_gridvals_J(z_c,:,N_j);
             DiscountedEV_z=DiscountedEV(:,:,z_c);
             DiscountedEVinterp_z=DiscountedEVinterp(:,:,z_c);
@@ -335,7 +344,7 @@ for reverse_j=1:N_j-1
     EV(EVinf)=-1e250; % stop -Inf*0 -> NaN inside the product
     EV=EV*pi_z_J(:,:,jj)';
     EV(EVinf*(pi_z_J(:,:,jj)'>0)>0)=-Inf; % exact -Inf restoration
-    EV=reshape(EV,[N_a,1,N_z]);
+    EV=reshape(EV,[N_a,1,Nz_eff]);
 
     % Interpolate EV over aprime_grid
     EVinterp=interp1(a_grid,EV,aprime_grid);
@@ -366,7 +375,7 @@ for reverse_j=1:N_j-1
                 % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), ReturnFnParamsVec,3);
                 aprimez=aprimeindexes+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*EV(reshape(aprimez,[Nd_eff,(maxgap(ii)+1),1,N_z]));  % autoexpand the level1iidiff(ii) in 3rd-dim
+                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*EV(reshape(aprimez,[Nd_eff,(maxgap(ii)+1),1,Nz_eff]));  % autoexpand the level1iidiff(ii) in 3rd-dim
                 [~,maxindex]=max(entireRHS_ii,[],2);
                 midpoints_jj(:,1,curraindex,:)=maxindex+(loweredge-1);
             else
@@ -382,7 +391,7 @@ for reverse_j=1:N_j-1
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn,n_d,n_z,d_gridvals,aprime_grid(aprimeindexes),a_grid,z_gridvals_J(:,:,jj),ReturnFnParamsVec,2);
         aprimez=aprimeindexes+n2aprime*zBind;
-        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[Nd_eff*n2long,N_a,N_z]);
+        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[Nd_eff*n2long,N_a,Nz_eff]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,jj)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,Nd_eff)+1;
@@ -403,7 +412,7 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==1
         DiscountedEV=DiscountFactorParamsVec*EV;
         DiscountedEVinterp=DiscountFactorParamsVec*EVinterp;
-        for z_c=1:N_z
+        for z_c=1:Nz_eff
             z_val=z_gridvals_J(z_c,:,jj);
             DiscountedEV_z=DiscountedEV(:,:,z_c);
             DiscountedEVinterp_z=DiscountedEVinterp(:,:,z_c);

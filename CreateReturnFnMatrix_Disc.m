@@ -11,12 +11,9 @@ N_d = prod(n_d);
 N_a = prod(n_a);
 N_z = prod(n_z);
 
-l_d = length(n_d);
-if N_d == 0
-    l_d = 0;
-end
+l_d = length(n_d); if N_d == 0; l_d = 0; end
 l_a = length(n_a);
-l_z = length(n_z);
+l_z = length(n_z); if N_z == 0; l_z = 0; end
 
 % Validation checks
 if l_d > 4
@@ -43,16 +40,26 @@ for i = 1:l_a
 end
 
 % Collect 'd' values dynamically
-d_vals = cell(1, l_d);
-for i = 1:l_d
-    d_vals{i} = d_gridvals(:, i);
+if l_d == 0
+    d_vals = {};
+else
+    d_vals = cell(1, l_d);
+    for i = 1:l_d
+        d_vals{i} = d_gridvals(:, i);
+    end
 end
 
 % Collect 'z' values dynamically
-z_vals = cell(1, l_z);
-z_shift_base = 2 * l_a;
-for i = 1:l_z
-    z_vals{i} = shiftdim(z_gridvals(:, i), -(1 + z_shift_base));
+if l_z == 0
+    z_vals = {};
+    Nz_eff = 1;
+else
+    z_vals = cell(1, l_z);
+    z_shift_base = 2 * l_a;
+    for i = 1:l_z
+        z_vals{i} = shiftdim(z_gridvals(:, i), -(1 + z_shift_base));
+    end
+    Nz_eff = N_z;
 end
 
 % Combine all inputs into a single argument cell array for arrayfun
@@ -63,12 +70,12 @@ Fmatrix = arrayfun(ReturnFn, all_inputs{:});
 
 % Reshape output matrix
 if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_z]);
+    Fmatrix = reshape(Fmatrix, [N_a, N_a, Nz_eff]);
 else
     if Refine == 1
-        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_z]);
+        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, Nz_eff]);
     else
-        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_z]);
+        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, Nz_eff]);
     end
 end
 end

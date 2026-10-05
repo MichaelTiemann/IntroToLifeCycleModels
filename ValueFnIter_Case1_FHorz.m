@@ -511,11 +511,7 @@ end
 
 % vfoptions.parallel==2 % GPU
 if N_e == 0
-    if N_z == 0
-        [VKron, PolicyKron] = ValueFnIter_FHorz_noz_raw(n_d, n_a, N_j, d_gridvals, a_grid, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-    else
-        [VKron, PolicyKron] = ValueFnIter_FHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-    end
+    [VKron, PolicyKron] = ValueFnIter_FHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 else
     [VKron, PolicyKron] = ValueFnIter_FHorz_e_raw(n_d, n_a, n_z, vfoptions.n_e, N_j, d_gridvals, a_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 end

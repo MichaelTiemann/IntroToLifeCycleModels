@@ -4,9 +4,8 @@ N_d = prod(n_d);
 N_a = length(a_grid);
 N_z = prod(n_z);
 
-l_d = length(n_d);
-if N_d == 0; l_d = 0; end
-l_z = length(n_z);
+l_d = length(n_d); if N_d == 0; l_d = 0; end
+l_z = length(n_z); if N_z == 0; l_z = 0; end
 
 if l_d > 4 || l_z > 4
     error('Using GPU for the return fn does not allow for more than four of d or z variables');
@@ -20,27 +19,31 @@ elseif Level == 2 || Level == 3 || Level == 6
 end
 
 % Build dynamic parameters
-d_vals = cell(1, l_d);
-for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
+if l_d == 0
+    d_vals = {};
+    Nd_eff = 1;
+else
+    d_vals = cell(1, l_d);
+    for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
+    Nd_eff = N_d;
+end
 
-z_vals = cell(1, l_z);
-for i = 1:l_z; z_vals{i} = shiftdim(z_gridvals(:, i), -3); end
+if l_z == 0
+    z_vals = {};
+    Nz_eff = 1;
+else
+    z_vals = cell(1, l_z);
+    for i = 1:l_z; z_vals{i} = shiftdim(z_gridvals(:, i), -3); end
+    Nz_eff = N_z;
+end
 
 GridParamsCell = [d_vals, {aprime_grid}, {shiftdim(a_grid, -2)}, z_vals];
 Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
-if l_d == 0
-    if Level == 2 || Level == 5
-        Fmatrix = reshape(Fmatrix, [N_aprime, N_a, N_z]);
-    else
-        Fmatrix = reshape(Fmatrix, [1, N_aprime, N_a, N_z]);
-    end
+if Level == 2 || Level == 5
+    Fmatrix = reshape(Fmatrix, [Nd_eff * N_aprime, N_a, Nz_eff]);
 else
-    if Level == 2 || Level == 5
-        Fmatrix = reshape(Fmatrix, [N_d * N_aprime, N_a, N_z]);
-    else
-        Fmatrix = reshape(Fmatrix, [N_d, N_aprime, N_a, N_z]);
-    end
+    Fmatrix = reshape(Fmatrix, [Nd_eff, N_aprime, N_a, Nz_eff]);
 end
 
 
