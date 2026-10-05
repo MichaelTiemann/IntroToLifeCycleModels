@@ -22,14 +22,14 @@ else
     n_d = [n_d1, n_d2]; % Almost everything is done without distinguishing d1 and d2, just for some reshapes at the end
 end
 
-N_d = max(prod(n_d), 1);
+Nd_eff = max(prod(n_d), 1);
 Nd1_eff = max(N_d1_raw, 1);
 Nd2_eff = max(N_d2_raw, 1);
 N_a1prime = max(prod(n_a1prime), 1);
 N_a1 = max(prod(n_a1), 1);
 N_a2 = max(prod(n_a2), 1);
-N_z = max(prod(n_z), 1);
-N_e = max(prod(n_e), 1);
+Nz_eff = max(prod(n_z), 1);
+N_e = prod(n_e);
 
 l_d = length(n_d); if prod(n_d)==0; l_d=0; end
 l_a1 = length(n_a1); if prod(n_a1)==0; l_a1=0; end
@@ -54,26 +54,35 @@ if l_e>5
 end
 
 % Build dynamic parameters (preserve N-dimensional arrays natively when l_x==1)
-d_vals = cell(1, l_d);
-for i = 1:l_d
-    if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
-    d_vals{i} = v;
-end
-
-a1prime_vals = cell(1, l_a1);
-for i = 1:l_a1
-    if l_a1 == 1; v = a1prime_gridvals; else; v = a1prime_gridvals(:, i); end
-    if Level == 0 || Level == 1
-        a1prime_vals{i} = shiftdim(v, -1);
-    else % Level 2 or 3
-        a1prime_vals{i} = v;
+if l_d == 0
+    d_vals = {};
+else
+    d_vals = cell(1, l_d);
+    for i = 1:l_d
+        if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
+        d_vals{i} = v;
     end
 end
 
-a1_vals = cell(1, l_a1);
-for i = 1:l_a1
-    if l_a1 == 1; v = a1_gridvals; else; v = a1_gridvals(:, i); end
-    a1_vals{i} = shiftdim(v, -2);
+if l_a1 == 0
+    a1prime_vals = {};
+    a1_vals= {};
+else
+    a1prime_vals = cell(1, l_a1);
+    for i = 1:l_a1
+        if l_a1 == 1; v = a1prime_gridvals; else; v = a1prime_gridvals(:, i); end
+        if Level == 0 || Level == 1
+            a1prime_vals{i} = shiftdim(v, -1);
+        else % Level 2 or 3
+            a1prime_vals{i} = v;
+        end
+    end
+    
+    a1_vals = cell(1, l_a1);
+    for i = 1:l_a1
+        if l_a1 == 1; v = a1_gridvals; else; v = a1_gridvals(:, i); end
+        a1_vals{i} = shiftdim(v, -2);
+    end
 end
 
 a2_vals = cell(1, l_a2);
@@ -82,10 +91,14 @@ for i = 1:l_a2
     a2_vals{i} = shiftdim(v, -3);
 end
 
-z_vals = cell(1, l_z);
-for i = 1:l_z
-    if l_z == 1; v = z_gridvals; else; v = z_gridvals(:, i); end
-    z_vals{i} = shiftdim(v, -4);
+if l_z == 0
+    z_vals = {};
+else
+    z_vals = cell(1, l_z);
+    for i = 1:l_z
+        if l_z == 1; v = z_gridvals; else; v = z_gridvals(:, i); end
+        z_vals{i} = shiftdim(v, -4);
+    end
 end
 
 e_vals = cell(1, l_e);
@@ -100,15 +113,15 @@ Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 % Reshape
 if Level == 0 || Level == 2
     if Refine == 0 || prod(n_d1) == 0
-        Fmatrix = reshape(Fmatrix, [N_d * N_a1prime, N_a1 * N_a2, N_z, N_e]);
+        Fmatrix = reshape(Fmatrix, [Nd_eff * N_a1prime, N_a1 * N_a2, Nz_eff, N_e]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1 * N_a2, N_z, N_e]);
+        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1 * N_a2, Nz_eff, N_e]);
     end
 elseif Level == 1 || Level == 3
     if Refine == 0 || prod(n_d1) == 0
-        Fmatrix = reshape(Fmatrix, [N_d, N_a1prime, N_a1, N_a2, N_z, N_e]);
+        Fmatrix = reshape(Fmatrix, [Nd_eff, N_a1prime, N_a1, N_a2, Nz_eff, N_e]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1, N_a2, N_z, N_e]);
+        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1, N_a2, Nz_eff, N_e]);
     end
 end
 
