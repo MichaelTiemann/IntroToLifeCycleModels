@@ -77,18 +77,10 @@ if length(n_a1)>1
 end
 
 %% Dispatch (single DC dim — existing DC1+GI1 path)
-if N_e==0 % no e variable
-    if N_d1==0
-        [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAssetz_DC1_GI1_nod1_raw(n_d2,n_a1,n_a2,n_z, N_j, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-    else
-        [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAssetz_DC1_GI1_raw(n_d1,n_d2,n_a1,n_a2,n_z, N_j, d_gridvals , d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-    end
+if N_e == 0 % no e variable
+    [VKron, PolicyKron] = ValueFnIter_FHorz_ExpAssetz_DC1_GI1_raw(n_d1, n_d2, n_a1, n_a2, n_z, N_j, d_gridvals, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
 else % N_e
-    if N_d1==0
-        [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAssetz_DC1_GI1_nod1_e_raw(n_d2,n_a1,n_a2,n_z, vfoptions.n_e, N_j, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-    else % d1 variable
-        [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAssetz_DC1_GI1_e_raw(n_d1,n_d2,n_a1,n_a2,n_z, vfoptions.n_e, N_j, d_gridvals, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-    end
+    [VKron, PolicyKron] = ValueFnIter_FHorz_ExpAssetz_DC1_GI1_e_raw(n_d1, n_d2, n_a1, n_a2, n_z, vfoptions.n_e, N_j, d_gridvals, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
 end
 
 
