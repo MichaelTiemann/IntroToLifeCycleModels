@@ -134,8 +134,8 @@ simoptions.d_grid=d_grid; % Needed to handle aprimeFn
 simoptions.a_grid=a_grid; % Needed to handle aprimeFn
 
 % Use divide-and-conquer and grid interpolation layer on the standard endogenous state, assets (see Life-Cycle Models 29 and 30)
-vfoptions.divideandconquer=1; % turn on divide-and-conquer
-vfoptions.gridinterplayer=1; % turn on grid interpolation layer
+vfoptions.divideandconquer=0; % turn on divide-and-conquer
+vfoptions.gridinterplayer=0; % turn on grid interpolation layer
 vfoptions.ngridinterp=20; % 20 evenly-spaced points between each pair of consecutive a_grid points
 % vfoptions.lowmemory=1; % default=0, set =1 to use loops (over e, or z if no e) if you get a gpu out-of-memory error, the loops reduce memory use but slow the runtimes [models with e & z can set =2]
 simoptions.gridinterplayer=vfoptions.gridinterplayer; % grid interpolation layer must also be set in simoptions (because it changes Policy size/interpretation)
