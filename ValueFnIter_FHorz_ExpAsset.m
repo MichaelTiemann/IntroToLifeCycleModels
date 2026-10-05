@@ -7,14 +7,28 @@ else
     error('To use an experience asset you must define vfoptions.aprimeFn')
 end
 
-% aprimeFnParamNames in same fashion
-l_d2=length(n_d2);
-l_a2=length(n_a2);
-temp=getAnonymousFnInputNames(aprimeFn);
-if length(temp)>(l_d2+l_a2+(l_a2>=2))  % the (l_a2>=2) term is the 'whicha' selector slot, which aprimeFn only takes when there are two experience assets
-    aprimeFnParamNames={temp{l_d2+l_a2+(l_a2>=2)+1:end}}; % the first inputs are (d2,a2), plus the 'whicha' selector when l_a2>=2
+% --- Parse aprimeFnParamNames positionally based on explicit user configuration ---
+l_d2 = length(n_d2);
+l_a2 = length(n_a2);
+
+% Check explicit vfoptions flags to see which exogenous states are passed to aprimeFn
+has_exp_z = vfoptions.experienceassetz == 1 || vfoptions.experienceassetze == 1;
+has_exp_e = vfoptions.experienceassete == 1 || vfoptions.experienceassetze == 1;
+has_exp_u = vfoptions.experienceassetu == 1;
+
+% Count the active state variables that aprimeFn expects
+l_z_active = 0; if has_exp_z; l_z_active = length(n_z); end
+l_e_active = 0; if has_exp_e; l_e_active = length(vfoptions.n_e); end
+l_u_active = 0; if has_exp_u; l_u_active = length(vfoptions.n_u); end % (assuming n_u is in vfoptions)
+
+% Total positional inputs = d2 + a2 + 'whicha' selector (if l_a2 >= 2) + active exogenous states
+num_state_args = l_d2 + l_a2 + (l_a2 >= 2) + l_z_active + l_e_active + l_u_active;
+
+temp = getAnonymousFnInputNames(aprimeFn);
+if length(temp) > num_state_args
+    aprimeFnParamNames = {temp{num_state_args + 1 : end}}; % The parameters start immediately after the state args
 else
-    aprimeFnParamNames={};
+    aprimeFnParamNames = {};
 end
 
 N_d1=prod(n_d1);
