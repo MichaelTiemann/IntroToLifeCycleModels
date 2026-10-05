@@ -91,7 +91,7 @@ if vfoptions.outputkron==1
     return
 end
 
-if n_d1>0
+if N_d1>0
     n_d=[n_d1,n_d2];
 else
     n_d=n_d2;
