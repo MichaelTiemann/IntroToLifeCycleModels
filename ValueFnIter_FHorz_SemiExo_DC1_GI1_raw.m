@@ -17,14 +17,29 @@ N_bothz=prod(n_bothz);
 
 V=zeros(N_a,N_semiz*N_z,N_j,'gpuArray');
 % For semiz it turns out to be easier to go straight to constructing policy that stores d,d2,aprime seperately
-Policy=zeros(3 + d_total,N_a,N_semiz*N_z,N_j,'gpuArray'); % first dim indexes the optimal choice for d1,d2,aprime and aprime2 (in GI layer)
-Policy(3 + d_total,:,:,:)=2; % L2 flag: 1=all to lower, 2=usual, 3=all to upper
+Policy=zeros(3+d_total,N_a,N_semiz*N_z,N_j,'gpuArray'); % first dim indexes the optimal choice for d1,d2,aprime and aprime2 (in GI layer)
+Policy(3+d_total,:,:,:)=2; % L2 flag: 1=all to lower, 2=usual, 3=all to upper
 
 %%
-special_n_d=[n_d1,ones(1,max(length(n_d2),1))];
-d_gridvals=[repmat(d1_gridvals,Nd2_eff,1),repelem(d2_gridvals,Nd1_eff,1)];
-
-d12_gridvals=permute(reshape(d_gridvals,[Nd1_eff,Nd2_eff,max(length(n_d1)+length(n_d2),1)]),[1,3,2]); % version to use when looping over d2
+if has_d1 && has_d2
+    special_n_d = [n_d1, ones(1, max(length(n_d2), 1))];
+    d_gridvals = [repmat(d1_gridvals, Nd2_eff, 1), repelem(d2_gridvals, Nd1_eff, 1)];
+    % version to use when looping over d2
+    d12_gridvals = permute(reshape(d_gridvals, [Nd1_eff, Nd2_eff, max(length(n_d1)+length(n_d2), 1)]), [1, 3, 2]);
+elseif has_d1
+    special_n_d = n_d1;
+    d_gridvals = d1_gridvals;
+    d12_gridvals = d1_gridvals;
+elseif has_d2
+    special_n_d = ones(1, max(length(n_d2), 1));
+    d_gridvals = d2_gridvals;
+    % version to use when looping over d2
+    d12_gridvals = permute(d2_gridvals, [3, 2, 1]);
+else
+    special_n_d = [];
+    d_gridvals = [];
+    d12_gridvals = [];
+end
 
 aind=gpuArray(0:1:N_a-1); % already includes -1
 bothzind=shiftdim(gpuArray(0:1:N_bothz-1),-1); % already includes -1
@@ -826,19 +841,19 @@ for reverse_j=1:N_j-1
     end
 
     % Now we just max over d2, and keep the policy that corresponded to that (including modify the policy to include the d2 decision)
-    [V_jj, maxindex] = max(V_ford2_jj, [], 3); % max over d2
-    V(:,:,jj) = V_jj;
+    [V_jj, maxindex]=max(V_ford2_jj,[],3); % max over d2
+    V(:,:,jj)=V_jj;
 
-    maxindex = reshape(maxindex, [N_a * N_semiz * N_z, 1]);
-    d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
+    maxindex=reshape(maxindex, [N_a * N_semiz * N_z, 1]);
+    d1aprimeL2_ind=reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]);
 
-    curr_offset = 1;
+    curr_offset=1;
     if has_d1
-        Policy(curr_offset, :, :, jj) = shiftdim(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, -1); % d1
-        curr_offset = curr_offset + 1;
+        Policy(curr_offset,:,:,jj)=shiftdim(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, -1); % d1
+        curr_offset=curr_offset+1;
     end
     if has_d2
-        Policy(curr_offset, :, :, jj) = reshape(maxindex, [1, N_a, N_semiz * N_z]); %d2
+        Policy(curr_offset,:,:,jj)=reshape(maxindex, [1, N_a, N_semiz * N_z]); %d2
     end
 
     Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z)' + (N_a*N_semiz*N_z)*(maxindex-1)), [1, N_a, N_semiz*N_z]); % midpoint

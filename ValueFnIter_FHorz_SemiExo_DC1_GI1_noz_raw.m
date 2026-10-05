@@ -4,20 +4,39 @@ n_d=[n_d1,n_d2];
 
 N_d1=prod(n_d1);
 N_d2=prod(n_d2);
-N_d=N_d1*N_d2;
+has_d1 = (N_d1 > 0); Nd1_eff = max(N_d1, 1);
+has_d2 = (N_d2 > 0); Nd2_eff = max(N_d2, 1);
+Nd_eff = Nd1_eff * Nd2_eff; % Needed for N_j when converting to form of Policy3
+d_total = has_d1 + has_d2;
+
 N_a=prod(n_a);
 N_semiz=prod(n_semiz);
 
 V=zeros(N_a,N_semiz,N_j,'gpuArray');
 % For semiz it turns out to be easier to go straight to constructing policy that stores d,d2,aprime seperately
-Policy=zeros(5,N_a,N_semiz,N_j,'gpuArray'); % first dim indexes the optimal choice for d1,d2,aprime and aprime2 (in GI layer)
-Policy(5,:,:,:)=2; % L2 flag: 1=all to lower, 2=usual, 3=all to upper
+Policy=zeros(3+d_total,N_a,N_semiz,N_j,'gpuArray'); % first dim indexes the optimal choice for d1,d2,aprime and aprime2 (in GI layer)
+Policy(3+d_total,:,:,:)=2; % L2 flag: 1=all to lower, 2=usual, 3=all to upper
 
 %%
-special_n_d=[n_d1,ones(1,length(n_d2))];
-d_gridvals=[repmat(d1_gridvals,N_d2,1),repelem(d2_gridvals,N_d1,1)];
-
-d12_gridvals=permute(reshape(d_gridvals,[N_d1,N_d2,length(n_d1)+length(n_d2)]),[1,3,2]); % version to use when looping over d2
+if has_d1 && has_d2
+    special_n_d = [n_d1, ones(1, max(length(n_d2), 1))];
+    d_gridvals = [repmat(d1_gridvals, Nd2_eff, 1), repelem(d2_gridvals, Nd1_eff, 1)];
+    % version to use when looping over d2
+    d12_gridvals = permute(reshape(d_gridvals, [Nd1_eff, Nd2_eff, max(length(n_d1)+length(n_d2), 1)]), [1, 3, 2]);
+elseif has_d1
+    special_n_d = n_d1;
+    d_gridvals = d1_gridvals;
+    d12_gridvals = d1_gridvals;
+elseif has_d2
+    special_n_d = ones(1, max(length(n_d2), 1));
+    d_gridvals = d2_gridvals;
+    % version to use when looping over d2
+    d12_gridvals = permute(d2_gridvals, [3, 2, 1]);
+else
+    special_n_d = [];
+    d_gridvals = [];
+    d12_gridvals = [];
+end
 
 if vfoptions.lowmemory==1
     special_n_semiz=ones(1,length(n_semiz));
@@ -71,7 +90,11 @@ if ~isfield(vfoptions,'V_Jplus1')
         midpoints_Nj(:,1,level1ii,:)=maxindex1;
 
         % Second level based on monotonicity
-        maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
+        maxgap=maxindex1(:, 1, 2:end, :) - maxindex1(:, 1, 1:end-1, :);
+        maxgap=max(maxgap, [], 4); % across semiz
+        if has_d1; maxgap=max(maxgap, [], 1); end % across d1
+        maxgap=squeeze(maxgap);
+
         for ii=1:(vfoptions.level1n-1)
             curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
             if maxgap(ii)>0
@@ -98,10 +121,17 @@ if ~isfield(vfoptions,'V_Jplus1')
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,N_d)+1;
         allind=d_ind+N_d*aind+N_d*N_a*semizind; % midpoint is n_d-by-1-by-n_a-by-n_semiz
-        Policy(1,:,:,N_j)=shiftdim(rem(d_ind-1,N_d1)+1,-1); % d1
-        Policy(2,:,:,N_j)=shiftdim(ceil(d_ind/N_d1),-1); % d2
-        Policy(3,:,:,N_j)=shiftdim(squeeze(midpoints_Nj(allind)),-1); % midpoint
-        Policy(4,:,:,N_j)=shiftdim(ceil(maxindexL2/N_d),-1); % aprimeL2ind
+        curr_offset = 1;
+        if has_d1
+            Policy(curr_offset,:,:,N_j)=shiftdim(rem(d_ind - 1, Nd1_eff) + 1, -1); %d1
+            curr_offset = curr_offset + 1;
+        end
+        if has_d2
+            Policy(curr_offset,:,:,N_j)=shiftdim(ceil(d_ind / Nd1_eff), -1); %d2
+        end
+
+        Policy(d_total+1,:,:,N_j)=shiftdim(squeeze(midpoints_Nj(allind)), -1); % midpoint
+        Policy(d_total+2,:,:,N_j)=shiftdim(ceil(maxindexL2 / Nd_eff), -1); % aprimeL2ind
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
         L2offset = ceil(maxindexL2/N_d);
@@ -111,7 +141,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
         inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(5,:,:,N_j) = shiftdim(squeeze(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper)),-1);
+        Policy(d_total+3,:,:,N_j)=shiftdim(squeeze(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper)), -1);
 
     elseif vfoptions.lowmemory==1 % loop semiz
         midpoints_Nj=zeros(N_d,1,N_a,'gpuArray');
@@ -127,7 +157,11 @@ if ~isfield(vfoptions,'V_Jplus1')
             midpoints_Nj(:,1,level1ii,:)=maxindex1;
 
             % Second level based on monotonicity
-            maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
+            maxgap=maxindex1(:, 1, 2:end, :) - maxindex1(:, 1, 1:end-1, :);
+            maxgap=max(maxgap, [], 4); % across semiz
+            if has_d1; maxgap=max(maxgap, [], 1); end % across d1
+            maxgap=squeeze(maxgap);
+
             for ii=1:(vfoptions.level1n-1)
                 curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
                 if maxgap(ii)>0
@@ -154,10 +188,17 @@ if ~isfield(vfoptions,'V_Jplus1')
             V(:,semiz_c,N_j)=shiftdim(Vtempii,1);
             d_ind=rem(maxindexL2-1,N_d)+1;
             allind=d_ind+N_d*aind; % midpoint is n_d-by-1-by-n_a
-            Policy(1,:,semiz_c,N_j)=shiftdim(rem(d_ind-1,N_d1)+1,-1); % d1
-            Policy(2,:,semiz_c,N_j)=shiftdim(ceil(d_ind/N_d1),-1); % d2
-            Policy(3,:,semiz_c,N_j)=shiftdim(squeeze(midpoints_Nj(allind)),-1); % midpoint
-            Policy(4,:,semiz_c,N_j)=shiftdim(ceil(maxindexL2/N_d),-1); % aprimeL2ind
+            curr_offset = 1;
+            if has_d1
+                Policy(curr_offset,:,:,N_j)=shiftdim(rem(d_ind - 1, Nd1_eff) + 1, -1); %d1
+                curr_offset = curr_offset + 1;
+            end
+            if has_d2
+                Policy(curr_offset,:,:,N_j)=shiftdim(ceil(d_ind / Nd1_eff), -1); %d2
+            end
+
+            Policy(d_total+1,:,:,N_j)=shiftdim(squeeze(midpoints_Nj(allind)), -1); % midpoint
+            Policy(d_total+2,:,:,N_j)=shiftdim(ceil(maxindexL2 / Nd_eff), -1); % aprimeL2ind
 
             % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
             L2offset = ceil(maxindexL2/N_d);
@@ -167,7 +208,7 @@ if ~isfield(vfoptions,'V_Jplus1')
             isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
             inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
             inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(5,:,semiz_c,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+            Policy(d_total+3,:,:,N_j)=shiftdim(squeeze(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper)), -1);
         end
 
     end
@@ -201,7 +242,11 @@ else
         midpoints_jj(:,1,level1ii,:)=maxindex1;
 
         % Second level based on monotonicity
-        maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
+        maxgap=maxindex1(:, 1, 2:end, :) - maxindex1(:, 1, 1:end-1, :);
+        maxgap=max(maxgap, [], 4); % across semiz
+        if has_d1; maxgap=max(maxgap, [], 1); end % across d1
+        maxgap=squeeze(maxgap);
+
         for ii=1:(vfoptions.level1n-1)
             curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
             if maxgap(ii)>0
@@ -276,7 +321,11 @@ else
                 midpoints_jj(:,1,level1ii,:)=maxindex1;
 
                 % Second level based on monotonicity
-                maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
+                maxgap=maxindex1(:, 1, 2:end, :) - maxindex1(:, 1, 1:end-1, :);
+                maxgap=max(maxgap, [], 4); % across semiz
+                if has_d1; maxgap=max(maxgap, [], 1); end % across d1
+                maxgap=squeeze(maxgap);
+
                 for ii=1:(vfoptions.level1n-1)
                     curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
                     if maxgap(ii)>0
@@ -378,7 +427,11 @@ for reverse_j=1:N_j-1
         midpoints_jj(:,1,level1ii,:)=maxindex1;
 
         % Second level based on monotonicity
-        maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
+        maxgap=maxindex1(:, 1, 2:end, :) - maxindex1(:, 1, 1:end-1, :);
+        maxgap=max(maxgap, [], 4); % across semiz
+        if has_d1; maxgap=max(maxgap, [], 1); end % across d1
+        maxgap=squeeze(maxgap);
+
         for ii=1:(vfoptions.level1n-1)
             curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
             if maxgap(ii)>0
@@ -453,7 +506,11 @@ for reverse_j=1:N_j-1
                 midpoints_jj(:,1,level1ii,:)=maxindex1;
 
                 % Second level based on monotonicity
-                maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
+                maxgap=maxindex1(:, 1, 2:end, :) - maxindex1(:, 1, 1:end-1, :);
+                maxgap=max(maxgap, [], 4); % across semiz
+                if has_d1; maxgap=max(maxgap, [], 1); end % across d1
+                maxgap=squeeze(maxgap);
+
                 for ii=1:(vfoptions.level1n-1)
                     curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
                     if maxgap(ii)>0
@@ -505,16 +562,24 @@ for reverse_j=1:N_j-1
         end
     end
     % Now we just max over d2, and keep the policy that corresponded to that (including modify the policy to include the d2 decision)
-    [V_jj,maxindex]=max(V_ford2_jj,[],3); % max over d2
+    [V_jj, maxindex]=max(V_ford2_jj,[],3); % max over d2
     V(:,:,jj)=V_jj;
-    Policy(2,:,:,jj)=shiftdim(maxindex,-1); % d2 is just maxindex
-    maxindex=reshape(maxindex,[N_a*N_semiz,1]); % This is the value of d that corresponds, make it this shape for addition just below
-    d1aprimeL2_ind=reshape(Policy_ford2_jj((1:1:N_a*N_semiz)'+(N_a*N_semiz)*(maxindex-1)),[1,N_a,N_semiz]);
-    Policy(1,:,:,jj)=shiftdim(rem(d1aprimeL2_ind-1,N_d1)+1,-1); % d1
-    Policy(4,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind/N_d1),-1); % aprimeL2ind
-    Policy(3,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz)'+(N_a*N_semiz)*(maxindex-1)),[1,N_a,N_semiz]); % midpoint
-    Policy(5,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz)'+(N_a*N_semiz)*(maxindex-1)),[1,N_a,N_semiz]);
 
+    maxindex=reshape(maxindex, [N_a * N_semiz, 1]);
+    d1aprimeL2_ind=reshape(Policy_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]);
+
+    curr_offset=1;
+    if has_d1
+        Policy(curr_offset,:,:,jj)=shiftdim(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, -1); % d1
+        curr_offset=curr_offset+1;
+    end
+    if has_d2
+        Policy(curr_offset,:,:,jj)=reshape(maxindex, [1, N_a, N_semiz]); %d2
+    end
+
+    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]); % midpoint
+    Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
+    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]);
 end
 
 
@@ -523,9 +588,9 @@ end
 % (which ranges -n2short-1:1:1+n2short). It is much easier to use later if
 % we switch Policy(3,:) to 'lower grid point' and then have Policy(4,:)
 % counting 0:nshort+1 up from this.
-adjust=(Policy(4,:,:,:)<1+n2short+1); % if second layer is choosing below midpoint
-Policy(3,:,:,:)=Policy(3,:,:,:)-adjust; % lower grid point
-Policy(4,:,:,:)=Policy(4,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid point) to 1+n2short+1 (upper grid point)
+adjust=(Policy(d_total + 2, :, :, :) < 1 + n2short + 1); % if second layer is choosing below midpoint
+Policy(d_total+1,:,:,:)=Policy(d_total+1,:,:,:)-adjust; % lower grid point
+Policy(d_total+2,:,:,:)=Policy(d_total+2,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid point) to 1+n2short+1 (upper grid point)
 
 % Policy=squeeze(Policy(1,:,:,:)+N_d1*(Policy(2,:,:,:)-1)+N_d*(Policy(3,:,:,:)-1)+N_d*N_a*(Policy(4,:,:,:)-1)+N_d*N_a*(n2short+2)*(Policy(5,:,:,:)-1));
 
