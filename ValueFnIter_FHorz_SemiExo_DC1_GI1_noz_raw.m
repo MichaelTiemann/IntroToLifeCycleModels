@@ -47,10 +47,10 @@ semizind=shiftdim(gpuArray(0:1:N_semiz-1),-1); % already includes -1
 semizind2=shiftdim(gpuArray(0:1:N_semiz-1),-2); % already includes -1
 
 % Preallocate
-V_ford2_jj=zeros(N_a,N_semiz,N_d2,'gpuArray');
-Policy_ford2_jj=zeros(N_a,N_semiz,N_d2,'gpuArray');
-midpoint_ford2_jj=zeros(N_a,N_semiz,N_d2,'gpuArray');
-PolicyL2flag_ford2_jj=2*ones(N_a,N_semiz,N_d2,'gpuArray');
+V_ford2_jj=zeros(N_a,N_semiz,Nd2_eff,'gpuArray');
+Policy_ford2_jj=zeros(N_a,N_semiz,Nd2_eff,'gpuArray');
+midpoint_ford2_jj=zeros(N_a,N_semiz,Nd2_eff,'gpuArray');
+PolicyL2flag_ford2_jj=2*ones(N_a,N_semiz,Nd2_eff,'gpuArray');
 % Preallocate
 midpoints_jj=zeros(Nd1_eff,1,N_a,N_semiz,'gpuArray');
 
@@ -390,9 +390,9 @@ else
         Policy(curr_offset,:,:,jj)=reshape(maxindex, [1, N_a, N_semiz]); %d2
     end
 
-    Policy(d_total+1,:,:,jj)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]); % midpoint
-    Policy(d_total+2,:,:,jj)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
-    Policy(d_total+3,:,:,jj)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]);
+    Policy(d_total+1,:,:,N_j)=reshape(midpoint_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]); % midpoint
+    Policy(d_total+2,:,:,N_j)=shiftdim(ceil(d1aprimeL2_ind / Nd1_eff), -1); % aprimeL2ind
+    Policy(d_total+3,:,:,N_j)=reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz)' + (N_a*N_semiz)*(maxindex-1)), [1, N_a, N_semiz]);
 
 end
 
