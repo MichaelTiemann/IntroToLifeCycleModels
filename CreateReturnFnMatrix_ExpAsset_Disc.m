@@ -9,15 +9,22 @@ function Fmatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1, n_d2, n_a1pr
 
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
-if n_d1(1) == 0
+N_d1_raw = prod(n_d1);
+N_d2_raw = prod(n_d2);
+
+if N_d1_raw == 0 && N_d2_raw == 0
+    n_d = 0;
+elseif N_d1_raw == 0
     n_d = n_d2;
+elseif N_d2_raw == 0
+    n_d = n_d1;
 else
     n_d = [n_d1, n_d2];
 end
 
 N_d = max(prod(n_d), 1);
-N_d1 = max(prod(n_d1), 1);
-N_d2 = max(prod(n_d2), 1);
+Nd1_eff = max(N_d1_raw, 1);
+Nd2_eff = max(N_d2_raw, 1);
 N_a1prime = max(prod(n_a1prime), 1);
 N_a1 = max(prod(n_a1), 1);
 N_a2 = max(prod(n_a2), 1);
@@ -65,13 +72,13 @@ if Level == 0 || Level == 2
     if Refine == 0 || prod(n_d1) == 0
         Fmatrix = reshape(Fmatrix, [N_d * N_a1prime, N_a1 * N_a2, N_z]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [N_d1, N_d2 * N_a1prime, N_a1 * N_a2, N_z]);
+        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1 * N_a2, N_z]);
     end
 elseif Level == 1 || Level == 3
     if Refine == 0 || prod(n_d1) == 0
         Fmatrix = reshape(Fmatrix, [N_d, N_a1prime, N_a1, N_a2, N_z]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [N_d1, N_d2 * N_a1prime, N_a1, N_a2, N_z]);
+        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1, N_a2, N_z]);
     end
 end
 
