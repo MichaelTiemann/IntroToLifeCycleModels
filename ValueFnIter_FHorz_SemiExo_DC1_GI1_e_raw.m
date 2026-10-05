@@ -1213,24 +1213,24 @@ elseif vfoptions.lowmemory==1
         end
         % Now we just max over d2, and keep the policy that corresponded to that (including modify the policy to include the d2 decision)
         [V_jj, maxindex] = max(V_ford2_jj, [], 4); % max over d2
-        V(:,:,:,N_j) = V_jj;
+        V(:,:,:,jj) = V_jj;
 
         curr_offset = 1;
         if has_d1
             d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
-            Policy(curr_offset,:,:,:,N_j) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
+            Policy(curr_offset,:,:,:,jj) = reshape(rem(d1aprimeL2_ind - 1, Nd1_eff) + 1, [1, N_a, N_semiz*N_z, N_e]); % d1
             curr_offset = curr_offset + 1;
         else
             d1aprimeL2_ind = reshape(Policy_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]) - 1)), [1, N_a, N_semiz*N_z, N_e]);
         end
         if has_d2
-            Policy(curr_offset,:,:,:,N_j) = shiftdim(maxindex, -1); % d2
+            Policy(curr_offset,:,:,:,jj) = shiftdim(maxindex, -1); % d2
         end
 
         maxindex_vec = reshape(maxindex, [N_a*N_semiz*N_z*N_e, 1]); % This is the value of d that corresponds, make it this shape for addition just below
-        Policy(d_total+1,:,:,:,N_j) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
-        Policy(d_total+2,:,:,:,N_j) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
-        Policy(d_total+3,:,:,:,N_j) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
+        Policy(d_total+1,:,:,:,jj) = reshape(midpoint_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]); % midpoint
+        Policy(d_total+2,:,:,:,jj) = reshape(ceil(d1aprimeL2_ind / Nd1_eff), [1, N_a, N_semiz*N_z, N_e]); % aprimeL2ind
+        Policy(d_total+3,:,:,:,jj) = reshape(PolicyL2flag_ford2_jj((1:1:N_a*N_semiz*N_z*N_e)' + (N_a*N_semiz*N_z*N_e)*(maxindex_vec - 1)), [1, N_a, N_semiz*N_z, N_e]);
     end
 end
 
