@@ -5,9 +5,11 @@ N_d2=prod(n_d2);
 has_d1=(N_d1 > 0); Nd1_eff = max(N_d1, 1);
 has_d2=(N_d2 > 0); Nd2_eff = max(N_d2, 1);
 
-N_a1=prod(n_a1);
-N_a2=prod(n_a2);
-N_a=N_a1*N_a2;
+N_a1 = prod(n_a1);
+has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
+N_a2 = prod(n_a2);
+N_a = Na1_eff * N_a2;
+
 N_z=prod(n_z);
 
 if ~has_d1
@@ -58,12 +60,12 @@ else
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem((1:1:N_a1)',Nd2_eff,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1,1); % [Nd2_eff*N_a1,N_a2]
-        aprimeplus1Index=repelem((1:1:N_a1)',Nd2_eff,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1,1); % [Nd2_eff*N_a1,N_a2]
-        aprimeProbs=repmat(a2primeProbs,N_a1,1,N_z); % [Nd2_eff*N_a1,N_a2,N_z]
+        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,N_z); % [Nd2_eff*Na1_eff,N_a2,N_z]
 
-        Vlower=reshape(EVpre(aprimeIndex(:),:),[Nd2_eff*N_a1,N_a2,N_z]);
-        Vupper=reshape(EVpre(aprimeplus1Index(:),:),[Nd2_eff*N_a1,N_a2,N_z]);
+        Vlower=reshape(EVpre(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        Vupper=reshape(EVpre(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -80,17 +82,17 @@ else
         n_a2_1=n_a2(1);
         loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
         loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),N_a1,1,N_z);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),N_a1,1,N_z);
-        a1prime_offsets=repelem((1:1:N_a1)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
-        aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-        V_ll=reshape(EVpre(aprime_ll(:),:),[Nd2_eff*N_a1,N_a2,N_z]);
-        V_hl=reshape(EVpre(aprime_hl(:),:),[Nd2_eff*N_a1,N_a2,N_z]);
-        V_lh=reshape(EVpre(aprime_lh(:),:),[Nd2_eff*N_a1,N_a2,N_z]);
-        V_hh=reshape(EVpre(aprime_hh(:),:),[Nd2_eff*N_a1,N_a2,N_z]);
+        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
+        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
+        a1prime_offsets=repelem((1:1:Na1_eff)',Nd2_eff,N_a2);
+        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
+        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
+        V_ll=reshape(EVpre(aprime_ll(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        V_hl=reshape(EVpre(aprime_hl(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        V_lh=reshape(EVpre(aprime_lh(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        V_hh=reshape(EVpre(aprime_hh(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -111,7 +113,7 @@ else
     EV=squeeze(sum(EV,3));
     % EV is over (d2,a1prime,a2,z)
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,N_a1);
+    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff);
 
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
@@ -162,12 +164,12 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem((1:1:N_a1)',Nd2_eff,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1,1); % [Nd2_eff*N_a1,N_a2]
-        aprimeplus1Index=repelem((1:1:N_a1)',Nd2_eff,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1,1); % [Nd2_eff*N_a1,N_a2]
-        aprimeProbs=repmat(a2primeProbs,N_a1,1,N_z); % [Nd2_eff*N_a1,N_a2,N_z]
+        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,N_z); % [Nd2_eff*Na1_eff,N_a2,N_z]
 
-        Vlower=reshape(V(aprimeIndex(:),:,jj+1),[Nd2_eff*N_a1,N_a2,N_z]);
-        Vupper=reshape(V(aprimeplus1Index(:),:,jj+1),[Nd2_eff*N_a1,N_a2,N_z]);
+        Vlower=reshape(V(aprimeIndex(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        Vupper=reshape(V(aprimeplus1Index(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -184,17 +186,17 @@ for reverse_j=1:N_j-1
         n_a2_1=n_a2(1);
         loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
         loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),N_a1,1,N_z);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),N_a1,1,N_z);
-        a1prime_offsets=repelem((1:1:N_a1)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
-        aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-        V_ll=reshape(V(aprime_ll(:),:,jj+1),[Nd2_eff*N_a1,N_a2,N_z]);
-        V_hl=reshape(V(aprime_hl(:),:,jj+1),[Nd2_eff*N_a1,N_a2,N_z]);
-        V_lh=reshape(V(aprime_lh(:),:,jj+1),[Nd2_eff*N_a1,N_a2,N_z]);
-        V_hh=reshape(V(aprime_hh(:),:,jj+1),[Nd2_eff*N_a1,N_a2,N_z]);
+        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
+        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
+        a1prime_offsets=repelem((1:1:Na1_eff)',Nd2_eff,N_a2);
+        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
+        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
+        V_ll=reshape(V(aprime_ll(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        V_hl=reshape(V(aprime_hl(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        V_lh=reshape(V(aprime_lh(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        V_hh=reshape(V(aprime_hh(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -216,7 +218,7 @@ for reverse_j=1:N_j-1
     EV=squeeze(sum(EV,3));
     % EV is over (d2,a1prime,a2,z)
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,N_a1);
+    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff);
 
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals,z_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
