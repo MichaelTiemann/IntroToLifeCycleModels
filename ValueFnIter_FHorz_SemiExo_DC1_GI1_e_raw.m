@@ -1,12 +1,13 @@
 function [V,Policy]=ValueFnIter_FHorz_SemiExo_DC1_GI1_e_raw(n_d1,n_d2,n_a,n_z,n_semiz, n_e,N_j, d1_gridvals, d2_gridvals, a_grid, z_gridvals_J, semiz_gridvals_J, e_gridvals_J,pi_z_J, pi_semiz_J, pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 n_d=[n_d1,n_d2];
-n_bothz=[n_semiz,n_z]; % These are the return function arguments
-
 N_d1=prod(n_d1);
 N_d2=prod(n_d2);
 has_d1 = (N_d1 > 0); Nd1_eff = max(N_d1, 1);
 has_d2 = (N_d2 > 0); Nd2_eff = max(N_d2, 1);
+if ~has_d1
+    n_d = n_d2;
+end
 Nd_eff = Nd1_eff * Nd2_eff; % Needed for N_j when converting to form of Policy3
 d_total = has_d1 + has_d2;
 
@@ -14,7 +15,12 @@ N_a=prod(n_a);
 N_semiz=prod(n_semiz);
 N_z=prod(n_z);
 has_z = (N_z > 0); Nz_eff = max(N_z, 1);
-N_bothz=prod(n_bothz);
+N_bothz = N_semiz * Nz_eff;
+if ~has_z
+    n_bothz = n_semiz;
+else
+    n_bothz = [n_semiz, n_z];
+end
 N_e=prod(n_e);
 
 V=zeros(N_a,N_bothz,N_e,N_j,'gpuArray');
@@ -60,7 +66,11 @@ eind=shiftdim(gpuArray(0:1:N_e-1),-2); % already includes -1
 semizind=shiftdim(gpuArray(0:1:N_semiz-1),-1); % already includes -1 (for lowmemory==2 split: outer z, inner e, vectorize semiz)
 semizind2=shiftdim(gpuArray(0:1:N_semiz-1),-2); % already includes -1 (for lowmemory==2 split)
 
-bothz_gridvals_J=[repmat(semiz_gridvals_J,Nz_eff,1,1),repelem(z_gridvals_J,N_semiz,1,1)];
+if has_z
+    bothz_gridvals_J=[repmat(semiz_gridvals_J,Nz_eff,1,1),repelem(z_gridvals_J,N_semiz,1,1)];
+else
+    bothz_gridvals_J=semiz_gridvals_J;
+end
 
 % Preallocate
 V_ford2_jj=zeros(N_a,N_bothz,N_e,Nd2_eff,'gpuArray');
@@ -617,7 +627,7 @@ else
     elseif vfoptions.lowmemory==2 % outer z / inner e, vectorize semiz
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            if haz_z
+            if has_z
                 pi_bothz=kron(pi_z_J(:,:,N_j), pi_semiz_J(:,:,d2_c,N_j)); % reverse order
             else
                 pi_bothz = pi_semiz_J(:,:,d2_c,N_j);
@@ -1057,7 +1067,7 @@ elseif vfoptions.lowmemory==1
     elseif vfoptions.lowmemory==2 % outer z / inner e, vectorize semiz
         for d2_c=1:Nd2_eff
             d12c_gridvals=d12_gridvals(:,:,d2_c);
-            if
+            if has_z
                 pi_bothz=kron(pi_z_J(:,:,jj), pi_semiz_J(:,:,d2_c,jj)); % reverse order
             else
                 pi_bothz = pi_semiz_J(:,:,d2_c,jj);

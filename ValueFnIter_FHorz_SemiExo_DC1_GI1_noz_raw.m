@@ -1,11 +1,13 @@
 function [V,Policy]=ValueFnIter_FHorz_SemiExo_DC1_GI1_noz_raw(n_d1,n_d2,n_a,n_semiz,N_j, d1_gridvals, d2_gridvals, a_grid, semiz_gridvals_J, pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 n_d=[n_d1,n_d2];
-
 N_d1=prod(n_d1);
 N_d2=prod(n_d2);
 has_d1 = (N_d1 > 0); Nd1_eff = max(N_d1, 1);
 has_d2 = (N_d2 > 0); Nd2_eff = max(N_d2, 1);
+if ~has_d1
+    n_d = n_d2;
+end
 Nd_eff = Nd1_eff * Nd2_eff; % Needed for N_j when converting to form of Policy3
 d_total = has_d1 + has_d2;
 
