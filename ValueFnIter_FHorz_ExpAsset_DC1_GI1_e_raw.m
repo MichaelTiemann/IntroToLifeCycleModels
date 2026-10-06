@@ -199,7 +199,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         end
     elseif vfoptions.lowmemory==2
         for z_c=1:Nz_eff
-            if has_z; z_val = z_gridvals_J(z_c, :, N_j); else; z_val = []; end
+            if N_z>0; z_val = z_gridvals_J(z_c, :, N_j); else; z_val = []; end
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
                 % n-Monotonicity
@@ -323,7 +323,7 @@ else
     end
     % Already applied the probabilities from interpolating onto grid
 
-    if has_z
+    if N_z>0
         EV=EV.*shiftdim(pi_z_J(:,:,N_j)', -2);
         EV(isnan(EV))=0;
         EV=squeeze(sum(EV, 3)); % EV is over (d2,a1prime,a2,z)
@@ -331,9 +331,9 @@ else
         EV(isnan(EV))=0; % EV is over (d2,a1prime,a2)
     end
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff]);
+    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
     % Interpolate EV over aprime_grid
-    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5]),a1prime_grid),[2,1,3,4,5]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff]
+    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff,N_e]
     % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
 
     if vfoptions.lowmemory==0
@@ -401,11 +401,13 @@ else
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
+            DiscountedEV_e = DiscountedEV(:,:,:,:,:,e_c);
+            DiscountedEVinterp_e = DiscountedEVinterp(:,:,:,:,:,e_c);
 
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV,Nd1_eff,1,1,1,1);
+            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,Nd1_eff,1,1,1,1);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -440,7 +442,7 @@ else
             % aprime possibilities are n_d2-by-n2long-by-n_a1-by-n_a2-by-n_z
             ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2,0); % [N_d,Na1_effprime,Na1_eff,N_a2,Nz_eff]; Level=2, Refine=0
             da1primea2z=d2ind+Nd2_eff*(a1primeindexesfine-1)+Nd2_eff*Na1_effprime*a2ind+Nd2_eff*Na1_effprime*N_a2*zind; % [N_d,n2long,Na1_eff,N_a2,Nz_eff]; linear index into DiscountedEVinterp [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff]
-            entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z),[Nd_eff*n2long,Na1_eff*N_a2,Nz_eff]);
+            entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_e(da1primea2z),[Nd_eff*n2long,Na1_eff*N_a2,Nz_eff]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
             V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
             d_ind=rem(maxindexL2-1,Nd_eff)+1;
@@ -465,16 +467,16 @@ else
     elseif vfoptions.lowmemory==2
 
         for z_c=1:Nz_eff
-            if has_z; z_val = z_gridvals_J(z_c, :, N_j); else; z_val = []; end
-            DiscountedEV_z=DiscountedEV(:,:,:,:,z_c);
-            DiscountedEVinterp_z=DiscountedEVinterp(:,:,:,:,z_c);
+            if N_z>0; z_val = z_gridvals_J(z_c, :, N_j); else; z_val = []; end
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
+                DiscountedEV_ze = DiscountedEV(:,:,:,:,z_c,e_c);
+                DiscountedEVinterp_ze = DiscountedEVinterp(:,:,:,:,z_c,e_c);
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_z,Nd1_eff,1,1,1);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,Nd1_eff,1,1,1);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
@@ -491,9 +493,9 @@ else
                         % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
                         a1primeindexes=loweredge+(0:1:maxgap(ii));
                         % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2
-                        ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals(a1primeindexes), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec,3,0); % Level 3 as DC1+GI; Level=3, Refine=0
+                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals(a1primeindexes), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec,3,0); % Level 3 as DC1+GI; Level=3, Refine=0
                         d2aprime=d2ind+Nd2_eff*(a1primeindexes-1)+Nd2_eff*Na1_eff*a2ind; % [N_d,maxgap+1,1,N_a2]; linear index into DiscountedEV_z [Nd2_eff,Na1_eff,1,N_a2]
-                        entireRHS_ii_ze=ReturnMatrix_ii_z+DiscountedEV_z(d2aprime);
+                        entireRHS_ii_ze=ReturnMatrix_ii_ze+DiscountedEV_ze(d2aprime);
                         [~,maxindex]=max(entireRHS_ii_ze,[],2);
                         midpoint(:,1,curraindex,:)=maxindex+(loweredge-1);
                     else
@@ -509,7 +511,7 @@ else
                 % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2
                 ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1, n_d2, n2long, n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,2,0); % [N_d,Na1_effprime,Na1_eff,N_a2]; Level=2, Refine=0
                 da1primea2=d2ind+Nd2_eff*(a1primeindexesfine-1)+Nd2_eff*Na1_effprime*a2ind; % [N_d,n2long,Na1_eff,N_a2]; linear index into DiscountedEVinterp_z [Nd2_eff,Na1_effprime,1,N_a2]
-                entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_z(da1primea2),[Nd_eff*n2long,Na1_eff*N_a2]);
+                entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_ze(da1primea2),[Nd_eff*n2long,Na1_eff*N_a2]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
                 V(:,z_c,e_c,N_j)=shiftdim(Vtempii,1);
                 d_ind=rem(maxindexL2-1,Nd_eff)+1;
@@ -576,10 +578,9 @@ for reverse_j=1:N_j-1
         % Vupper=reshape(EV(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
 
         z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
-        e_offset = shiftdim((0:N_e-1) * (N_a * Nz_eff), -2); % Notice the extra dimension multiplier
 
-        Vlower = EVpre(aprimeIndex_full + z_offset + e_offset);
-        Vupper = EVpre(aprimeplus1Index_full + z_offset + e_offset);
+        Vlower = EVpre(aprimeIndex_full + z_offset);
+        Vupper = EVpre(aprimeplus1Index_full + z_offset);
 
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
@@ -607,12 +608,11 @@ for reverse_j=1:N_j-1
         aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1,1);
 
         z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
-        e_offset = shiftdim((0:N_e-1) * (N_a * Nz_eff), -2); % Notice the extra dimension multiplier
 
-        V_ll = EV(aprime_ll + z_offset + e_offset);
-        V_hl = EV(aprime_hl + z_offset + e_offset);
-        V_lh = EV(aprime_lh + z_offset + e_offset);
-        V_hh = EV(aprime_hh + z_offset + e_offset);
+        V_ll = EVpre(aprime_ll + z_offset);
+        V_hl = EVpre(aprime_hl + z_offset);
+        V_lh = EVpre(aprime_lh + z_offset);
+        V_hh = EVpre(aprime_hh + z_offset);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -628,7 +628,7 @@ for reverse_j=1:N_j-1
     end
     % Already applied the probabilities from interpolating onto grid
 
-    if has_z
+    if N_z>0
         EV=EV.*shiftdim(pi_z_J(:,:,jj)',-2);
         EV(isnan(EV))=0; % remove nan created where value fn is -Inf but probability is zero
         EV=squeeze(sum(EV,3)); % EV is over (d2,a1prime,a2,z)
@@ -636,9 +636,9 @@ for reverse_j=1:N_j-1
         EV(isnan(EV))=0; % EV is over (d2,a1prime,a2)
     end
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff]);
+    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
     % Interpolate EV over aprime_grid
-    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5]),a1prime_grid),[2,1,3,4,5]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff]
+    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff,N_e]
     % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
 
 
@@ -707,11 +707,13 @@ for reverse_j=1:N_j-1
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
+            DiscountedEV_e = DiscountedEV(:,:,:,:,:,e_c);
+            DiscountedEVinterp_e = DiscountedEVinterp(:,:,:,:,:,e_c);
 
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV,Nd1_eff,1,1,1,1);
+            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,Nd1_eff,1,1,1,1);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -746,7 +748,7 @@ for reverse_j=1:N_j-1
             % aprime possibilities are n_d2-by-n2long-by-n_a1-by-n_a2-by-n_z
             ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,2,0); % [N_d,Na1_effprime,Na1_eff,N_a2,Nz_eff]; Level=2, Refine=0
             da1primea2z=d2ind+Nd2_eff*(a1primeindexesfine-1)+Nd2_eff*Na1_effprime*a2ind+Nd2_eff*Na1_effprime*N_a2*zind; % [N_d,n2long,Na1_eff,N_a2,Nz_eff]; linear index into DiscountedEVinterp [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff]
-            entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z),[Nd_eff*n2long,Na1_eff*N_a2,Nz_eff]);
+            entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_e(da1primea2z),[Nd_eff*n2long,Na1_eff*N_a2,Nz_eff]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
             V(:,:,e_c,jj)=shiftdim(Vtempii,1);
             d_ind=rem(maxindexL2-1,Nd_eff)+1;
@@ -771,16 +773,16 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==2
 
         for z_c=1:Nz_eff
-            if has_z; z_val = z_gridvals_J(z_c, :, jj); else; z_val = []; end
-            DiscountedEV_z=DiscountedEV(:,:,:,:,z_c);
-            DiscountedEVinterp_z=DiscountedEVinterp(:,:,:,:,z_c);
+            if N_z>0; z_val = z_gridvals_J(z_c, :, jj); else; z_val = []; end
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);
+                DiscountedEV_ze = DiscountedEV(:,:,:,:,z_c,e_c);
+                DiscountedEVinterp_ze = DiscountedEVinterp(:,:,:,:,z_c,e_c);
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_z,Nd1_eff,1,1,1);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,Nd1_eff,1,1,1);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
@@ -799,7 +801,7 @@ for reverse_j=1:N_j-1
                         % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2
                         ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals(a1primeindexes), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec,3,0); % Level 3 as DC1+GI; Level=3, Refine=0
                         d2aprime=d2ind+Nd2_eff*(a1primeindexes-1)+Nd2_eff*Na1_eff*a2ind; % [N_d,maxgap+1,1,N_a2]; linear index into DiscountedEV_z [Nd2_eff,Na1_eff,1,N_a2]
-                        entireRHS_ii_ze=ReturnMatrix_ii_z+DiscountedEV_z(d2aprime);
+                        entireRHS_ii_ze=ReturnMatrix_ii_z+DiscountedEV_ze(d2aprime);
                         [~,maxindex]=max(entireRHS_ii_ze,[],2);
                         midpoint(:,1,curraindex,:)=maxindex+(loweredge-1);
                     else
@@ -815,7 +817,7 @@ for reverse_j=1:N_j-1
                 % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2
                 ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1, n_d2, n2long, n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,2,0); % [N_d,Na1_effprime,Na1_eff,N_a2]; Level=2, Refine=0
                 da1primea2=d2ind+Nd2_eff*(a1primeindexesfine-1)+Nd2_eff*Na1_effprime*a2ind; % [N_d,n2long,Na1_eff,N_a2]; linear index into DiscountedEVinterp_z [Nd2_eff,Na1_effprime,1,N_a2]
-                entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_z(da1primea2),[Nd_eff*n2long,Na1_eff*N_a2]);
+                entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_ze(da1primea2),[Nd_eff*n2long,Na1_eff*N_a2]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
                 V(:,z_c,e_c,jj)=shiftdim(Vtempii,1);
                 d_ind=rem(maxindexL2-1,Nd_eff)+1;
