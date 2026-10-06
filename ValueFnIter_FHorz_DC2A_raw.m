@@ -2,9 +2,12 @@ function [V,Policy]=ValueFnIter_FHorz_DC2A_raw(n_d,n_a,n_z,N_j, d_gridvals, a_gr
 % divide-and-conquer in the first endo state
 % lowmemory: =0 vectorize over z, =1 loop over z
 
-N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
+has_d = ~isempty(n_d) && prod(n_d) > 0;
+has_z = ~isempty(n_z) && prod(n_z) > 0;
+
+N_d = max(1, prod(n_d));
+N_a = prod(n_a);
+N_z = max(1, prod(n_z));
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_j,'gpuArray'); %first dim indexes the optimal choice for d and aprime rest of dimensions a,z
@@ -61,6 +64,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 a1primeindexes=loweredge+(0:1:maxgap(ii));
                 % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z]);
                 [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
                 V(curraindex,:,N_j)=shiftdim(Vtempii,1);
                 % maxindex needs to be reworked:
@@ -76,6 +80,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 loweredge=maxindex1(:,1,:,ii,:,:);
                 % Just use aprime(ii) for everything
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*1*N_a2, level1iidiff(ii)*N_a2, N_z]);
                 [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
                 V(curraindex,:,N_j)=shiftdim(Vtempii,1);
                 % maxindex needs to be reworked:
@@ -116,6 +121,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                     a1primeindexes=loweredge+(0:1:maxgap(ii));
                     % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2
                     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(z_c,:,N_j), ReturnFnParamsVec,2,0);
+                    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2]);
                     [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
                     V(curraindex,z_c,N_j)=shiftdim(Vtempii,1);
                     % maxindex needs to be reworked:
@@ -131,6 +137,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                     loweredge=maxindex1(:,1,:,ii,:);
                     % Just use aprime(ii) for everything
                     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(z_c,:,N_j), ReturnFnParamsVec,2,0);
+                    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*1*N_a2, level1iidiff(ii)*N_a2]);
                     [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
                     V(curraindex,z_c,N_j)=shiftdim(Vtempii,1);
                     % maxindex needs to be reworked:
@@ -186,6 +193,7 @@ else
                 a1primeindexes=loweredge+(0:1:maxgap(ii));
                 % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z]);
                 aprimez=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
                 entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2,N_z]));
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -203,6 +211,7 @@ else
                 loweredge=maxindex1(:,1,:,ii,:,:);
                 % Just use aprime(ii) for everything
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*1*N_a2, level1iidiff(ii)*N_a2, N_z]);
                 aprimez=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
                 entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*1*N_a2,level1iidiff(ii)*N_a2,N_z]));
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -249,6 +258,7 @@ else
                     a1primeindexes=loweredge+(0:1:maxgap(ii));
                     % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2
                     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(z_c,:,N_j), ReturnFnParamsVec,2,0);
+                    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2]);
                     aprime=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
                     entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z(reshape(aprime,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2]));
                     [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -266,6 +276,7 @@ else
                     loweredge=maxindex1(:,1,:,ii,:);
                     % Just use aprime(ii) for everything
                     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(z_c,:,N_j), ReturnFnParamsVec,2,0);
+                    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*1*N_a2, level1iidiff(ii)*N_a2]);
                     aprime=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
                     entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z(reshape(aprime,[N_d*1*N_a2,level1iidiff(ii)*N_a2]));
                     [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -332,6 +343,7 @@ for reverse_j=1:N_j-1
                 a1primeindexes=loweredge+(0:1:maxgap(ii));
                 % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z]);
                 aprimez=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
                 entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2,N_z]));
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -349,6 +361,7 @@ for reverse_j=1:N_j-1
                 loweredge=maxindex1(:,1,:,ii,:,:);
                 % Just use aprime(ii) for everything
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*1*N_a2, level1iidiff(ii)*N_a2, N_z]);
                 aprimez=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
                 entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*1*N_a2,level1iidiff(ii)*N_a2,N_z]));
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -395,6 +408,7 @@ for reverse_j=1:N_j-1
                     a1primeindexes=loweredge+(0:1:maxgap(ii));
                     % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2
                     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(z_c,:,jj), ReturnFnParamsVec,2,0);
+                    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2]);
                     aprime=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
                     entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z(reshape(aprime,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2]));
                     [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -412,6 +426,7 @@ for reverse_j=1:N_j-1
                     loweredge=maxindex1(:,1,:,ii,:);
                     % Just use aprime(ii) for everything
                     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(z_c,:,jj), ReturnFnParamsVec,2,0);
+                    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d*1*N_a2, level1iidiff(ii)*N_a2]);
                     aprime=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
                     entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z(reshape(aprime,[N_d*1*N_a2,level1iidiff(ii)*N_a2]));
                     [Vtempii,maxindex]=max(entireRHS_ii,[],1);
@@ -435,5 +450,14 @@ end
 
 %%
 Policy=shiftdim(Policy,-1);
+
+sz_V = N_a;
+if has_z
+    sz_V = [sz_V, N_z];
+end
+sz_V = [sz_V, N_j];
+
+V = reshape(V, sz_V);
+Policy = reshape(Policy, [1, sz_V]); % Prepended singleton for UnKron
 
 end

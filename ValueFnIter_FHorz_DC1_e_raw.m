@@ -510,7 +510,7 @@ if has_z; sz_V = [sz_V, N_z]; end
 sz_V = [sz_V, N_e, N_j];
 
 V = reshape(V, sz_V);
-Policy = reshape(Policy, sz_V);
+Policy = reshape(Policy, [1, sz_V]);
 
 
 end
