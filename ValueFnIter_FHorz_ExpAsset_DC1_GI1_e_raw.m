@@ -7,19 +7,35 @@ has_d2 = (N_d2 > 0); Nd2_eff = max(N_d2, 1);
 has_d = has_d1 | has_d2;
 Nd_eff = Nd1_eff * Nd2_eff;
 d_offset = double(has_d); % 1 if true, 0 if false
+% ensures CreateReturnFnMatrix handles it correctly as having no d1
+if ~has_d1; d_gridvals = d2_gridvals; n_d1 = 0; end
 
-N_a1 = prod(n_a1);
-has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
+N_a1 = prod(n_a1); has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
 N_a2 = prod(n_a2);
 N_a = Na1_eff * N_a2;
 
-N_z = prod(n_z);
-has_z = (N_z > 0); Nz_eff = max(N_z, 1);
-N_e = prod(n_e);
+% Check explicit vfoptions flags to see which exogenous states are passed to aprimeFn
+has_exp_z = vfoptions.experienceassetz == 1 || vfoptions.experienceassetze == 1;
+has_exp_e = vfoptions.experienceassete == 1 || vfoptions.experienceassetze == 1;
+has_exp_u = vfoptions.experienceassetu == 1;
 
-if ~has_d1
-    d_gridvals = d2_gridvals;
-    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
+N_z = prod(n_z); Nz_eff = max(N_z, 1);
+if N_z == 0
+    pi_z_J = ones(1, 1, N_j);
+    z_gridvals_J = zeros(1, 1, N_j);
+    pass_n_z = 0; pass_z_grid = [];
+elseif has_exp_z
+    pass_n_z = n_z;
+end
+
+N_e = prod(vfoptions.n_e);
+if N_e == 0
+    pi_e_J = ones(1, 1, N_j);
+    e_gridvals_J = zeros(1, 1, N_j);
+    pass_n_e = 0; pass_e_grid = [];
+elseif has_exp_e
+    e_gridvals_J = vfoptions.e_gridvals_J;
+    pass_n_e = vfoptions.n_e;
 end
 
 V=zeros(N_a,Nz_eff,N_e,N_j,'gpuArray');
@@ -249,7 +265,13 @@ else
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,Nz_eff,N_e]),3); % First, switch V_Jplus1 into Kron form
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if has_exp_z
+        pass_z_grid = z_gridvals_J(:,:,N_j);
+    end
+    if has_exp_e
+        pass_e_grid = e_gridvals_J(:,:,N_j);
+    end
+    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2, pass_n_z, pass_z_grid, pass_n_e, pass_e_grid); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
@@ -527,19 +549,38 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if has_exp_z
+        pass_z_grid = z_gridvals_J(:,:,jj);
+    end
+    if has_exp_e
+        pass_e_grid = e_gridvals_J(:,:,jj);
+    end
+    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2, pass_n_z, pass_z_grid, pass_n_e, pass_e_grid); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
 
     if length(n_a2)==1
-        aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
+        a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
+        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1,1); % Expands correctly across 3D
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1);
 
+        aprimeIndex_full=a1_offsets+Na1_eff*(a2_idx_exp-1);
+        aprimeplus1Index_full=a1_offsets+Na1_eff*a2_idx_exp;
 
-        Vlower=reshape(EVpre(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        Vupper=reshape(EVpre(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        % aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        % aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        % aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
+
+        % Vlower=reshape(EV(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        % Vupper=reshape(EV(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+
+        z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
+        e_offset = shiftdim((0:N_e-1) * (N_a * Nz_eff), -2); % Notice the extra dimension multiplier
+
+        Vlower = EVpre(aprimeIndex_full + z_offset + e_offset);
+        Vupper = EVpre(aprimeplus1Index_full + z_offset + e_offset);
+
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -553,20 +594,25 @@ for reverse_j=1:N_j-1
         % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
         % a1prime offset, then nested 2-corner interp with skipinterp at each level and
         % per-contribution NaN cleanup for 0*(-Inf).
-        n_a2_1=n_a2(1);
-        loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
-        loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,Nz_eff);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,Nz_eff);
-        a1prime_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
-        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
-        V_ll=reshape(EVpre(aprime_ll(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_hl=reshape(EVpre(aprime_hl(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_lh=reshape(EVpre(aprime_lh(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_hh=reshape(EVpre(aprime_hh(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+                n_a2_1=n_a2(1);
+        loIdx_1=squeeze(a2primeIndex(1,:,:,:));
+        loIdx_2=squeeze(a2primeIndex(2,:,:,:));
+        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1,1);
+        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1,1);
+
+        a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
+        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
+        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
+        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+
+        z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
+        e_offset = shiftdim((0:N_e-1) * (N_a * Nz_eff), -2); % Notice the extra dimension multiplier
+
+        V_ll = EV(aprime_ll + z_offset + e_offset);
+        V_hl = EV(aprime_hl + z_offset + e_offset);
+        V_lh = EV(aprime_lh + z_offset + e_offset);
+        V_hh = EV(aprime_hh + z_offset + e_offset);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;

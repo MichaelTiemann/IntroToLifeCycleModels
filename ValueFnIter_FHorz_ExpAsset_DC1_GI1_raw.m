@@ -9,15 +9,15 @@ d_offset = has_d1 + has_d2;
 if ~has_d1; d_gridvals = d2_gridvals; n_d1 = 0; end
 
 N_a1 = prod(n_a1); has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
-N_a2 = prod(n_a2); N_a = Na1_eff * N_a2;
+N_a2 = prod(n_a2);
+N_a = Na1_eff * N_a2;
 
 % Check explicit vfoptions flags to see which exogenous states are passed to aprimeFn
 has_exp_z = vfoptions.experienceassetz == 1 || vfoptions.experienceassetze == 1;
 has_exp_e = vfoptions.experienceassete == 1 || vfoptions.experienceassetze == 1;
 has_exp_u = vfoptions.experienceassetu == 1;
 
-N_z = prod(n_z);
-Nz_eff = max(N_z, 1);
+N_z = prod(n_z); Nz_eff = max(N_z, 1);
 if N_z == 0
     pi_z_J = ones(1, 1, N_j);
     z_gridvals_J = zeros(1, 1, N_j);
@@ -26,8 +26,7 @@ elseif has_exp_z
     pass_n_z = n_z;
 end
 
-N_e = prod(vfoptions.n_e);
-Ne_eff = max(N_e, 1);
+N_e = prod(vfoptions.n_e); Ne_eff = max(N_e, 1);
 if N_e == 0
     pi_e_J = ones(1, 1, N_j);
     e_gridvals_J = zeros(1, 1, N_j);
