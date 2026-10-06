@@ -9,11 +9,11 @@ function [a2primeIndexes,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n
 %
 % Output sizes:
 %   l_a2==1 (legacy):
-%     a2primeIndexes - col=1 => [N_d*N_a2, 1]; col=2 => [N_d, N_a2]
-%     a2primeProbs   - [N_d, N_a2]; upper idx = lower+1, prob upper = 1-prob lower
+%     a2primeIndexes - col=1 => [N_all, 1]; col=2 => [Nd_eff, N_a2]
+%     a2primeProbs   - [Nd_eff, N_a2]; upper idx = lower+1, prob upper = 1-prob lower
 %   l_a2==2 (multi-dim, per-dim factored -- NOT Kron-folded corners):
-%     a2primeIndexes - col=1 => [l_a2, N_d*N_a2]; col=2 => [l_a2, N_d, N_a2]
-%     a2primeProbs   - [l_a2, N_d, N_a2] ALWAYS (unlike a2primeIndexes, its shape does not
+%     a2primeIndexes - col=1 => [l_a2, N_all]; col=2 => [l_a2, Nd_eff, N_a2]
+%     a2primeProbs   - [l_a2, Nd_eff, N_a2] ALWAYS (unlike a2primeIndexes, its shape does not
 %                      depend on aprimeIndexAsColumn)
 %     Row k is the a2_k dimension on its own: a2primeIndexes(k,...) is the lower-grid index
 %     within that dimension (1..n_a2(k)) and a2primeProbs(k,...) the probability of that lower
@@ -34,7 +34,17 @@ for ii=1:length(aprimeFnParams)
 end
 
 N_d=prod(n_d);
+Nd_eff = max(N_d, 1);
+
 N_a2=prod(n_a2);
+
+N_z = prod(n_z);
+Nz_eff = max(N_z, 1);
+
+N_e = prod(n_e);
+Ne_eff = max(N_e, 1);
+
+N_all = Nd_eff * N_a2 * Nz_eff * Ne_eff; % The new dynamic total number of elements
 
 l_d=length(n_d);
 if N_d==0
@@ -48,8 +58,10 @@ if l_a2>2
     error('experienceasset currently supports length(n_a2) in {1,2}')
 end
 
-if nargin(aprimeFn)~=l_d+l_a2+(l_a2>=2)+length(aprimeFnParams)
-    % When l_a2>=2, aprimeFn takes an extra 'whicha' integer selector slot after the a2 inputs.
+l_z = 0; if N_z > 0; l_z = length(n_z); end
+l_e = 0; if N_e > 0; l_e = length(n_e); end
+
+if nargin(aprimeFn) ~= l_d + l_a2 + (l_a2 >= 2) + l_z + l_e + length(aprimeFnParams)
     error('Number of inputs to aprimeFn does not fit with size of aprimeFnParams')
 end
 
@@ -128,16 +140,16 @@ end
 if l_a2==1
 
     %% Calculate grid indexes and probs from the values
-    a2primeVals=reshape(a2primeVals,[1,N_d*N_a2]);
+    a2primeVals=reshape(a2primeVals,[1,N_all]);
 
     a2_griddiff=a2_grid(2:end)-a2_grid(1:end-1); % Distance between point and the next point
 
     % For small aprimeVals and a_grid, max() is faster than discretize()
-    if N_d*N_a2*N_a2<1000000
+    if N_all*N_a2<1000000
         [~,a2primeIndexes]=max((a2_grid>a2primeVals),[],1);
         a2primeIndexes=a2primeIndexes-1;
         a2primeIndexes(a2primeIndexes==0)=1;
-        a2primeIndexes=reshape(a2primeIndexes,[N_d*N_a2,1]);
+        a2primeIndexes=reshape(a2primeIndexes,[N_all,1]);
 
         aprime_residual=a2primeVals'-a2_grid(a2primeIndexes);
         a2primeProbs=1-aprime_residual./a2_griddiff(a2primeIndexes);
@@ -161,10 +173,12 @@ if l_a2==1
 
     if aprimeIndexAsColumn==1 % value fn codes want column when no z
         a2primeIndexes=a2primeIndexes';
+    elseif aprimeIndexAsColumn==3 % value fn with another asset uses 3
+        a2primeIndexes=reshape(a2primeIndexes,[N_all,Nz_eff,Ne_eff]);
     else % aprimeIndexAsColumn==2 % value fn with z, or simulation, want matrix
-        a2primeIndexes=reshape(a2primeIndexes,[N_d,N_a2]);
+        a2primeIndexes=reshape(a2primeIndexes,[Nd_eff,N_a2,Nz_eff,Ne_eff]);
     end
-    a2primeProbs=reshape(a2primeProbs,[N_d,N_a2]);
+    a2primeProbs=reshape(a2primeProbs,[Nd_eff,N_a2,Nz_eff,Ne_eff]);
 
 elseif l_a2==2
     %% Multi-dim a2 (l_a2=2): bilinear interp, returned PER-DIM FACTORED (the caller folds the 4 corners)
@@ -173,13 +187,13 @@ elseif l_a2==2
     a2_grid_2=a2_grid(n_a2_1+1:n_a2_1+n_a2_2);
 
     %% Per-dim grid indexes and probs (inlined 1D linear-interp; mirrors l_a2==1 above)
-    a2primeVals_1=reshape(a2primeVals_1,[1,N_d*N_a2]);
-    a2primeVals_2=reshape(a2primeVals_2,[1,N_d*N_a2]);
+    a2primeVals_1=reshape(a2primeVals_1,[1,N_all]);
+    a2primeVals_2=reshape(a2primeVals_2,[1,N_all]);
     a2_griddiff_1=a2_grid_1(2:end)-a2_grid_1(1:end-1);
     a2_griddiff_2=a2_grid_2(2:end)-a2_grid_2(1:end-1);
 
     % --- a2 dim 1 ---
-    if N_d*N_a2*n_a2_1<1000000
+    if N_all*n_a2_1<1000000
         [~,loIdx_1]=max((a2_grid_1>a2primeVals_1),[],1);
         loIdx_1=loIdx_1-1;
         loIdx_1(loIdx_1==0)=1;
@@ -203,7 +217,7 @@ elseif l_a2==2
     end
 
     % --- a2 dim 2 ---
-    if N_d*N_a2*n_a2_2<1000000
+    if N_all*n_a2_2<1000000
         [~,loIdx_2]=max((a2_grid_2>a2primeVals_2),[],1);
         loIdx_2=loIdx_2-1;
         loIdx_2(loIdx_2==0)=1;
@@ -230,19 +244,19 @@ elseif l_a2==2
     %   a2primeIndexes(k,:) = lower-grid index in a2_k dim (1..n_a2(k))
     %   a2primeProbs(k,:)   = probability of lower grid point in a2_k dim
     % Caller does nested 2-corner interp with skipinterp at each level (bit-exact when V is flat).
-    a2primeIndexes=zeros(l_a2,N_d*N_a2,'gpuArray');
-    a2primeProbs=zeros(l_a2,N_d*N_a2,'gpuArray');
+    a2primeIndexes=zeros(l_a2,N_all,'gpuArray');
+    a2primeProbs=zeros(l_a2,N_all,'gpuArray');
     a2primeIndexes(1,:)=loIdx_1(:);
     a2primeIndexes(2,:)=loIdx_2(:);
     a2primeProbs(1,:)=prob_1(:);
     a2primeProbs(2,:)=prob_2(:);
 
     if aprimeIndexAsColumn==1 % column-flat layout
-        % already [l_a2, N_d*N_a2]
+        % already [l_a2, N_all]
     else % aprimeIndexAsColumn==2 % matrix layout
-        a2primeIndexes=reshape(a2primeIndexes,[l_a2,N_d,N_a2]);
+        a2primeIndexes=reshape(a2primeIndexes,[l_a2,Nd_eff,N_a2,Nz_eff,Ne_eff]);
     end
-    a2primeProbs=reshape(a2primeProbs,[l_a2,N_d,N_a2]);
+    a2primeProbs=reshape(a2primeProbs,[l_a2,Nd_eff,N_a2,Nz_eff,Ne_eff]);
 end
 
 

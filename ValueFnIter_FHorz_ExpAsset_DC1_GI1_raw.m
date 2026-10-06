@@ -11,11 +11,30 @@ if ~has_d1; d_gridvals = d2_gridvals; n_d1 = 0; end
 N_a1 = prod(n_a1); has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
 N_a2 = prod(n_a2); N_a = Na1_eff * N_a2;
 
+% Check explicit vfoptions flags to see which exogenous states are passed to aprimeFn
+has_exp_z = vfoptions.experienceassetz == 1 || vfoptions.experienceassetze == 1;
+has_exp_e = vfoptions.experienceassete == 1 || vfoptions.experienceassetze == 1;
+has_exp_u = vfoptions.experienceassetu == 1;
+
 N_z = prod(n_z);
 Nz_eff = max(N_z, 1);
 if N_z == 0
     pi_z_J = ones(1, 1, N_j);
     z_gridvals_J = zeros(1, 1, N_j);
+    pass_n_z = 0; pass_z_grid = [];
+elseif has_exp_z
+    pass_n_z = n_z;
+end
+
+N_e = prod(vfoptions.n_e);
+Ne_eff = max(N_e, 1);
+if N_e == 0
+    pi_e_J = ones(1, 1, N_j);
+    e_gridvals_J = zeros(1, 1, N_j);
+    pass_n_e = 0; pass_e_grid = [];
+elseif has_exp_e
+    e_gridvals_J = vfoptions.e_gridvals_J;
+    pass_n_e = vfoptions.n_e;
 end
 
 V=zeros(N_a,Nz_eff,N_j,'gpuArray');
@@ -177,7 +196,13 @@ else
     EV=reshape(vfoptions.V_Jplus1,[N_a,Nz_eff]); % First, switch V_Jplus1 into Kron form
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if has_exp_z
+        pass_z_grid = z_gridvals_J(:,:,N_j);
+    end
+    if has_exp_e
+        pass_e_grid = e_gridvals_J(:,:,N_j);
+    end
+    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2, pass_n_z, pass_z_grid, pass_n_e, pass_e_grid); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
@@ -384,7 +409,13 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if has_exp_z
+        pass_z_grid = z_gridvals_J(:,:,jj);
+    end
+    if has_exp_e
+        pass_e_grid = e_gridvals_J(:,:,jj);
+    end
+    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2, pass_n_z, pass_z_grid, pass_n_e, pass_e_grid); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1

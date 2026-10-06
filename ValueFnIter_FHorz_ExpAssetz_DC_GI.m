@@ -21,6 +21,11 @@ if ~isfield(vfoptions,'level1n')
 end
 vfoptions.level1n=min(vfoptions.level1n,n_a1);
 
+% Check explicit vfoptions flags to see which exogenous states are passed to aprimeFn
+has_exp_z = vfoptions.experienceassetz == 1 || vfoptions.experienceassetze == 1;
+has_exp_e = vfoptions.experienceassete == 1 || vfoptions.experienceassetze == 1;
+has_exp_u = vfoptions.experienceassetu == 1;
+
 %% DC2A+GI2A path: two (or more) standard endogenous states. a is divided into a1 (first standard endogenous state, divide-and-conquer and grid interpolation layer), a2 (remaining standard endogenous states, folded) and a3 (experience asset)
 if length(n_a1)>1
     % a1_gridvals holds all the standard endogenous states (rows cycle the first fastest); n_a2/a2_grid hold the experience asset
