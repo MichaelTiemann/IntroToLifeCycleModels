@@ -52,6 +52,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
 if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
+        ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
         % Calc the max and it's index
         [~,maxindex]=max(ReturnMatrix,[],2);
 
@@ -61,6 +62,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j),ReturnFnParamsVec,2);
+        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
         [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
@@ -85,6 +87,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
             ReturnMatrix_e=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1);
+            ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
             % Calc the max and it's index
             [~,maxindex]=max(ReturnMatrix_e,[],2);
 
@@ -94,6 +97,7 @@ if ~isfield(vfoptions,'V_Jplus1')
             aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_val,ReturnFnParamsVec,2);
+            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
             [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
 
             % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
@@ -121,6 +125,7 @@ if ~isfield(vfoptions,'V_Jplus1')
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
                 ReturnMatrix_ze=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec,1);
+                ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
                 % Calc the max and it's index
                 [~,maxindex]=max(ReturnMatrix_ze,[],2);
 
@@ -130,6 +135,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
                 % aprime possibilities are n_d-by-n2long-by-n_a
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,special_n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_val,e_val,ReturnFnParamsVec,2);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
                 [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
 
                 % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
@@ -169,6 +175,7 @@ else
 
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
+        ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
         % (d,aprime,a,z,e)
 
         entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -182,6 +189,7 @@ else
         aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j),ReturnFnParamsVec,2);
+        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
         aprimez=aprimeindexes+n2aprime*zBind;
         entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z,N_e]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
@@ -208,6 +216,7 @@ else
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
             ReturnMatrix_e=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1);
+            ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
             % (d,aprime,a,z)
 
             entireRHS_e=ReturnMatrix_e+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -221,6 +230,7 @@ else
             aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
             ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_val,ReturnFnParamsVec,2);
+            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
             aprimez=aprimeindexes+n2aprime*zBind;
             entireRHS_ii_e=ReturnMatrix_ii_e+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii_e,[],1);
@@ -253,6 +263,7 @@ else
                 e_val=e_gridvals_J(e_c,:,N_j);
 
                 ReturnMatrix_ze=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec,1);
+                ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
 
                 entireRHS_ze=ReturnMatrix_ze+DiscountFactorParamsVec*shiftdim(EV_z,-1);
 
@@ -265,6 +276,7 @@ else
                 aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
                 % aprime possibilities are n_d-by-n2long-by-n_a
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,special_n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_val,e_val,ReturnFnParamsVec,2);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
                 entireRHS_ii_ze=ReturnMatrix_ii_ze+DiscountFactorParamsVec*reshape(EVinterp_z(aprimeindexes(:)),[N_d*n2long,N_a]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii_ze,[],1);
 
@@ -316,6 +328,7 @@ for reverse_j=1:N_j-1
 
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1);
+        ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
         % (d,aprime,a,z,e)
 
         entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -329,6 +342,7 @@ for reverse_j=1:N_j-1
         aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,jj),e_gridvals_J(:,:,jj),ReturnFnParamsVec,2);
+        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
         aprimez=aprimeindexes+n2aprime*zBind;
         entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z,N_e]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
@@ -355,6 +369,7 @@ for reverse_j=1:N_j-1
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
             ReturnMatrix_e=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1);
+            ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
             % (d,aprime,a,z)
 
             entireRHS_e=ReturnMatrix_e+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -368,6 +383,7 @@ for reverse_j=1:N_j-1
             aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
             ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,jj),e_val,ReturnFnParamsVec,2);
+            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
             aprimez=aprimeindexes+n2aprime*zBind;
             entireRHS_ii_e=ReturnMatrix_ii_e+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii_e,[],1);
@@ -400,6 +416,7 @@ for reverse_j=1:N_j-1
                 e_val=e_gridvals_J(e_c,:,jj);
 
                 ReturnMatrix_ze=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec,1);
+                ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
 
                 entireRHS_ze=ReturnMatrix_ze+DiscountFactorParamsVec*shiftdim(EV_z,-1);
 
@@ -412,6 +429,7 @@ for reverse_j=1:N_j-1
                 aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
                 % aprime possibilities are n_d-by-n2long-by-n_a
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,special_n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_val,e_val,ReturnFnParamsVec,2);
+                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
                 entireRHS_ii_ze=ReturnMatrix_ii_ze+DiscountFactorParamsVec*reshape(EVinterp_z(aprimeindexes(:)),[N_d*n2long,N_a]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii_ze,[],1);
 
