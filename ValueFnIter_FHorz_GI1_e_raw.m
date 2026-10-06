@@ -1,9 +1,12 @@
 function [V,Policy]=ValueFnIter_FHorz_GI1_e_raw(n_d,n_a,n_z,n_e,N_j, d_gridvals, a_grid, z_gridvals_J, e_gridvals_J,pi_z_J, pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
-N_e=prod(n_e);
+has_d = ~isempty(n_d) && prod(n_d) > 0;
+has_z = ~isempty(n_z) && prod(n_z) > 0;
+
+N_d = max(1, prod(n_d));
+N_a = prod(n_a);
+N_z = max(1, prod(n_z));
+N_e = prod(n_e);
 
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
@@ -444,6 +447,19 @@ Policy(2,:,:,:,:)=Policy(2,:,:,:,:)-adjust; % lower grid point
 Policy(3,:,:,:,:)=Policy(3,:,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid point) to 1+n2short+1 (upper grid point)
 
 % Policy=Policy(1,:,:,:,:)+N_d*(Policy(2,:,:,:,:)-1)+N_d*N_a*(Policy(3,:,:,:,:)-1)+N_d*N_a*(n2short+2)*(Policy(4,:,:,:,:)-1);
+
+% --- SHRINK-WRAP OUTPUTS ---
+sz_V = N_a;
+if has_z; sz_V = [sz_V, N_z]; end
+sz_V = [sz_V, N_e, N_j];
+
+V = reshape(V, sz_V);
+
+if has_d
+    Policy = reshape(Policy, [4, sz_V]);
+else
+    Policy = reshape(Policy(2:4, :), [3, sz_V]); % Strip dummy d row
+end
 
 
 end

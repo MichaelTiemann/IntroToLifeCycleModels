@@ -1,8 +1,11 @@
 function [V,Policy]=ValueFnIter_FHorz_DC1_raw(n_d,n_a,n_z,N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
+has_d = ~isempty(n_d) && prod(n_d) > 0;
+has_z = ~isempty(n_z) && prod(n_z) > 0;
+
+N_d = max(1, prod(n_d));
+N_a = prod(n_a);
+N_z = max(1, prod(n_z));
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_j,'gpuArray'); %first dim indexes the optimal choice for d and aprime rest of dimensions a,z
@@ -343,6 +346,13 @@ end
 
 %%
 Policy=shiftdim(Policy,-1);
+
+sz_V = N_a;
+if has_z; sz_V = [sz_V, N_z]; end
+sz_V = [sz_V, N_j];
+
+V = reshape(V, sz_V);
+Policy = reshape(Policy, sz_V); % DC1 Policy is just a combined index block
 
 
 end
