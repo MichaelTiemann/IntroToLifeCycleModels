@@ -75,9 +75,9 @@ else
     end
 
     EV = reshape(EV, [N_a, 1, Nz_eff]);
+    if has_d; entireEV = repelem(EV, N_d, 1); else; entireEV = EV; end
 
     if vfoptions.lowmemory == 0
-        if has_d; entireEV = repelem(entireEV, N_d, 1); else; entireEV = EV; end
         ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
         if ~has_z
             sz = size(ReturnMatrix);
@@ -138,7 +138,7 @@ for reverse_j = 1:N_j-1
     end
 
     EV = reshape(EV, [N_a, 1, Nz_eff]);
-    if has_d; entireEV = repelem(EV, N_d, 1, 1); else; entireEV = EV; end
+    if has_d; entireEV = repelem(EV, N_d, 1); else; entireEV = EV; end
 
     z_gridvals_jj = [];
     if has_z; z_gridvals_jj = z_gridvals_J(:,:,jj); end
