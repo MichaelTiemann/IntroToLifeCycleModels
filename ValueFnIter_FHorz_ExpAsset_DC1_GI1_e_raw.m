@@ -343,12 +343,12 @@ else
 
     EV(isnan(EV))=0; % NOT SURE THIS IS NEEDED??? EV is over (d2,a1prime,a2)
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
-    % Interpolate EV over aprime_grid
-    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff,N_e]
-    % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
-
     if vfoptions.lowmemory==0
+
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
+        % Interpolate EV over aprime_grid
+        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff,N_e]
+        % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
 
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
@@ -413,8 +413,8 @@ else
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
-            DiscountedEV_e = DiscountedEV(:,:,:,:,:,e_c);
-            DiscountedEVinterp_e = DiscountedEVinterp(:,:,:,:,:,e_c);
+            DiscountedEV_e = DiscountFactorParamsVec * reshape(EV(:,:,:,e_c), [Nd2_eff, Na1_eff, 1, N_a2, Nz_eff]);
+            DiscountedEVinterp_e = permute(interp1(a1_gridvals, permute(DiscountedEV_e, [2,1,3,4,5]), a1prime_grid), [2,1,3,4,5]);
 
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
@@ -482,8 +482,8 @@ else
             if N_z>0; z_val = z_gridvals_J(z_c, :, N_j); else; z_val = []; end
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
-                DiscountedEV_ze = DiscountedEV(:,:,:,:,z_c,e_c);
-                DiscountedEVinterp_ze = DiscountedEVinterp(:,:,:,:,z_c,e_c);
+                DiscountedEV_ze = DiscountFactorParamsVec * reshape(EV(:,:,z_c,e_c), [Nd2_eff, Na1_eff, 1, N_a2]);
+                DiscountedEVinterp_ze = permute(interp1(a1_gridvals, permute(DiscountedEV_ze, [2,1,3,4]), a1prime_grid), [2,1,3,4]);
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
@@ -583,13 +583,6 @@ for reverse_j=1:N_j-1
         aprimeIndex_full=a1_offsets+Na1_eff*(a2_idx_exp-1);
         aprimeplus1Index_full=a1_offsets+Na1_eff*a2_idx_exp;
 
-        % aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        % aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        % aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
-
-        % Vlower=reshape(EV(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        % Vupper=reshape(EV(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-
         z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
 
         Vlower = EVpre(aprimeIndex_full + z_offset);
@@ -608,7 +601,7 @@ for reverse_j=1:N_j-1
         % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
         % a1prime offset, then nested 2-corner interp with skipinterp at each level and
         % per-contribution NaN cleanup for 0*(-Inf).
-                n_a2_1=n_a2(1);
+        n_a2_1=n_a2(1);
         loIdx_1=squeeze(a2primeIndex(1,:,:,:));
         loIdx_2=squeeze(a2primeIndex(2,:,:,:));
         prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1,1);
@@ -643,13 +636,12 @@ for reverse_j=1:N_j-1
 
     EV(isnan(EV))=0; % NOT SURE THIS IS NEEDED? EV is over (d2,a1prime,a2)
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
-    % Interpolate EV over aprime_grid
-    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff,N_e]
-    % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
-
-
     if vfoptions.lowmemory==0
+
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
+        % Interpolate EV over aprime_grid
+        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [Nd2_eff,Na1_effprime,1,N_a2,Nz_eff,N_e]
+        % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
 
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0); % Level=1, Refine=0
@@ -714,8 +706,8 @@ for reverse_j=1:N_j-1
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
-            DiscountedEV_e = DiscountedEV(:,:,:,:,:,e_c);
-            DiscountedEVinterp_e = DiscountedEVinterp(:,:,:,:,:,e_c);
+            DiscountedEV_e = DiscountFactorParamsVec * reshape(EV(:,:,:,e_c), [Nd2_eff, Na1_eff, 1, N_a2, Nz_eff]);
+            DiscountedEVinterp_e = permute(interp1(a1_gridvals, permute(DiscountedEV_e, [2,1,3,4,5]), a1prime_grid), [2,1,3,4,5]);
 
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
@@ -783,8 +775,8 @@ for reverse_j=1:N_j-1
             if N_z>0; z_val = z_gridvals_J(z_c, :, jj); else; z_val = []; end
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);
-                DiscountedEV_ze = DiscountedEV(:,:,:,:,z_c,e_c);
-                DiscountedEVinterp_ze = DiscountedEVinterp(:,:,:,:,z_c,e_c);
+                DiscountedEV_ze = DiscountFactorParamsVec * reshape(EV(:,:,z_c,e_c), [Nd2_eff, Na1_eff, 1, N_a2]);
+                DiscountedEVinterp_ze = permute(interp1(a1_gridvals, permute(DiscountedEV_ze, [2,1,3,4]), a1prime_grid), [2,1,3,4]);
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
