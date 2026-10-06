@@ -1,8 +1,23 @@
 function [V, Policy]=ValueFnIter_FHorz_GI2A_raw(n_d,n_a,n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
+N_d_raw = prod(n_d);
+has_d = (N_d_raw > 0);
+N_d = max(N_d_raw, 1);
+
+N_a = prod(n_a);
+
+N_z_raw = prod(n_z);
+has_z = (N_z_raw > 0);
+N_z = max(N_z_raw, 1);
+
+if ~has_z
+    z_gridvals_J = zeros(1, 1, N_j);
+    n_z = 0; % Tell CreateReturnFnMatrix to omit z
+    pi_z_J = ones(1, 1, N_j); % Pad with 1s so EV * 1 = EV
+elseif size(z_gridvals_J, 3) < N_j
+    z_gridvals_J = repmat(z_gridvals_J, 1, 1, N_j);
+    pi_z_J = repmat(pi_z_J, 1, 1, N_j);
+end
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(5,N_a,N_z,N_j,'gpuArray'); % first dim is (d,a1prime midpoint,a2prime,a1prime L2)
@@ -39,6 +54,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames, N_j);
 
 if ~isfield(vfoptions,'V_Jplus1')
     ReturnMatrix=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals,a1_grid, a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
+    ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a1, N_a2, N_a1, N_a2, N_z]);
 
     % Calc the max and it's index: a1prime(d,1,a2prime,a1,a2,z)
     [~,maxindex]=max(ReturnMatrix,[],2);
@@ -49,6 +65,7 @@ if ~isfield(vfoptions,'V_Jplus1')
     a1primeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
     % aprime possibilities are n_d-by-n2long-by-n_a2-by-n_a1-by-n_a2
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals,a1prime_grid(a1primeindexes),a2_grid,a1_grid,a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z]);
     [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
     maxindexL2d=rem(maxindexL2-1,N_d)+1;
     maxindexL2a=ceil(maxindexL2/N_d);
@@ -84,6 +101,7 @@ else
     EVinterp=interp1(a1_grid,EV,a1prime_grid);
 
     ReturnMatrix=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals, a1_grid, a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
+    ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a1, N_a2, N_a1, N_a2, N_z]);
     entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
 
     % Calc the max and it's index: a1prime(d,1,a2prime,a1,a2,z)
@@ -95,6 +113,7 @@ else
     a1primeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
     % aprime possibilities are n_d-by-n2long-by-n_a2-by-n_a1-by-n_a2-by-n_z
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals,a1prime_grid(a1primeindexes),a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z]);
     aprime=a1primeindexes+N_a1fine*a2ind+N_a1fine*N_a2*zBind;
     entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprime),[N_d*n2long*N_a2,N_a,N_z]);
     [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
@@ -145,6 +164,7 @@ for reverse_j=1:N_j-1
     EVinterp=interp1(a1_grid,EV,a1prime_grid);
 
     ReturnMatrix=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals, a1_grid, a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
+    ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a1, N_a2, N_a1, N_a2, N_z]);
     entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
 
     % Calc the max and it's index: a1prime(d,1,a2prime,a1,a2,z)
@@ -156,8 +176,10 @@ for reverse_j=1:N_j-1
     a1primeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
     % aprime possibilities are n_d-by-n2long-by-n_a2-by-n_a1-by-n_a2-by-n_z
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals,a1prime_grid(a1primeindexes),a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
+    ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z]);
     aprime=a1primeindexes+N_a1fine*a2ind+N_a1fine*N_a2*zBind;
     entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprime),[N_d*n2long*N_a2,N_a,N_z]);
+    entireRHS_ii = reshape(entireRHS_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z]);
     [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
     maxindexL2d=rem(maxindexL2-1,N_d)+1;
     maxindexL2a=ceil(maxindexL2/N_d);

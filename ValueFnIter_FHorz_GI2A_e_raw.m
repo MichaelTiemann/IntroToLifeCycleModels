@@ -1,9 +1,25 @@
 function [V, Policy]=ValueFnIter_FHorz_GI2A_e_raw(n_d,n_a,n_z,n_e, N_j, d_gridvals, a_grid, z_gridvals_J, e_gridvals_J, pi_z_J, pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-N_d=prod(n_d);
+N_d_raw=prod(n_d);
+has_d=(N_d_raw > 0);
+N_d=max(N_d_raw, 1);
+
 N_a=prod(n_a);
-N_z=prod(n_z);
+
+N_z_raw=prod(n_z);
+has_z=(N_z_raw > 0);
+N_z=max(N_z_raw, 1);
+
 N_e=prod(n_e);
+
+if ~has_z
+    z_gridvals_J=zeros(1, 1, N_j);
+    n_z=0;
+    pi_z_J=ones(1, 1, N_j);
+elseif size(z_gridvals_J, 3) < N_j
+    z_gridvals_J=repmat(z_gridvals_J, 1, 1, N_j);
+    pi_z_J=repmat(pi_z_J, 1, 1, N_j);
+end
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(5,N_a,N_z,N_e,N_j,'gpuArray'); % first dim is (d,a1prime midpoint,a2prime,a1prime L2)
@@ -43,6 +59,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames, N_j);
 
 if ~isfield(vfoptions,'V_Jplus1')
     ReturnMatrix=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn,n_d,n_z,n_e,d_gridvals,a1_grid, a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
+    ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a1, N_a2, N_a1, N_a2, N_z, N_e]);
 
     % Calc the max and it's index: a1prime(d,1,a2prime,a1,a2,z,e)
     [~,maxindex]=max(ReturnMatrix,[],2);
@@ -53,6 +70,7 @@ if ~isfield(vfoptions,'V_Jplus1')
     a1primeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
     % aprime possibilities are n_d-by-n2long-by-n_a2-by-n_a1-by-n_a2-by-n_z-by-n_e
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn,n_d,n_z,n_e,d_gridvals,a1prime_grid(a1primeindexes),a2_grid,a1_grid,a2_grid, z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+    ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z, N_e]);
     [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
     maxindexL2d=rem(maxindexL2-1,N_d)+1;
     maxindexL2a=ceil(maxindexL2/N_d);
@@ -60,13 +78,13 @@ if ~isfield(vfoptions,'V_Jplus1')
     maxindexL2a2=ceil(maxindexL2a/n2long);
 
     % L2 flag: detect -Inf on the coarse a1 neighbour we'd put weight on (at chosen d, a2prime)
-    linidx_lower  = maxindexL2d                  + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
-    linidx_upper  = maxindexL2d + N_d*(n2long-1) + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
-    isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-    isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-    inLowerStrict = (maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
-    inUpperStrict = (maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
-    Policy(5,:,:,:,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+    linidx_lower =maxindexL2d                  + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
+    linidx_upper =maxindexL2d + N_d*(n2long-1) + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
+    isInfLower   =(ReturnMatrix_ii(linidx_lower) == -Inf);
+    isInfUpper   =(ReturnMatrix_ii(linidx_upper) == -Inf);
+    inLowerStrict=(maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
+    inUpperStrict=(maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
+    Policy(5,:,:,:,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
     V(:,:,:,N_j)=shiftdim(Vtempii,1);
     Policy(1,:,:,:,N_j)=maxindexL2d; % d
@@ -88,17 +106,19 @@ else
     EVinterp=interp1(a1_grid,EV,a1prime_grid);
 
     ReturnMatrix=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn,n_d,n_z,n_e,d_gridvals, a1_grid, a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
+    ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a1, N_a2, N_a1, N_a2, N_z, N_e]);
+
     entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
 
     % Calc the max and it's index: a1prime(d,1,a2prime,a1,a2,z,e)
     [~,maxindex]=max(entireRHS,[],2);
-
     % Turn this into the 'midpoint'
     midpoint=max(min(maxindex,n_a1-1),2); % avoid the top end (inner), and avoid the bottom end (outer)
     % midpoint is n_d-by-1-by-n_a2-by-n_a1-by-n_a2-by-n_z-by-n_e
     a1primeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
     % aprime possibilities are n_d-by-n2long-by-n_a2-by-n_a1-by-n_a2-by-n_z-by-n_e
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn,n_d,n_z,n_e,d_gridvals,a1prime_grid(a1primeindexes),a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+    ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z, N_e]);
     aprime=a1primeindexes+N_a1fine*a2ind+N_a1fine*N_a2*zBind;
     entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprime),[N_d*n2long*N_a2,N_a,N_z,N_e]);
     [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
@@ -108,13 +128,13 @@ else
     maxindexL2a2=ceil(maxindexL2a/n2long);
 
     % L2 flag: detect -Inf on the coarse a1 neighbour we'd put weight on (at chosen d, a2prime)
-    linidx_lower  = maxindexL2d                  + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
-    linidx_upper  = maxindexL2d + N_d*(n2long-1) + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
-    isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-    isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-    inLowerStrict = (maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
-    inUpperStrict = (maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
-    Policy(5,:,:,:,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+    linidx_lower =maxindexL2d                  + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
+    linidx_upper =maxindexL2d + N_d*(n2long-1) + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
+    isInfLower   =(ReturnMatrix_ii(linidx_lower) == -Inf);
+    isInfUpper   =(ReturnMatrix_ii(linidx_upper) == -Inf);
+    inLowerStrict=(maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
+    inUpperStrict=(maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
+    Policy(5,:,:,:,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
     V(:,:,:,N_j)=shiftdim(Vtempii,1);
     Policy(1,:,:,:,N_j)=maxindexL2d; % d
@@ -149,6 +169,7 @@ for reverse_j=1:N_j-1
     EVinterp=interp1(a1_grid,EV,a1prime_grid);
 
     ReturnMatrix=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn,n_d,n_z,n_e,d_gridvals, a1_grid, a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,jj),e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
+    ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a1, N_a2, N_a1, N_a2, N_z, N_e]);
     entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
 
     % Calc the max and it's index: a1prime(d,1,a2prime,a1,a2,z,e)
@@ -160,8 +181,10 @@ for reverse_j=1:N_j-1
     a1primeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
     % aprime possibilities are n_d-by-n2long-by-n_a2-by-n_a1-by-n_a2-by-n_z-by-n_e
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn,n_d,n_z,n_e,d_gridvals,a1prime_grid(a1primeindexes),a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,jj),e_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
+    ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z, N_e]);
     aprime=a1primeindexes+N_a1fine*a2ind+N_a1fine*N_a2*zBind;
     entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprime),[N_d*n2long*N_a2,N_a,N_z,N_e]);
+    entireRHS_ii=reshape(entireRHS_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z, N_e]);
     [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
     maxindexL2d=rem(maxindexL2-1,N_d)+1;
     maxindexL2a=ceil(maxindexL2/N_d);
@@ -169,13 +192,13 @@ for reverse_j=1:N_j-1
     maxindexL2a2=ceil(maxindexL2a/n2long);
 
     % L2 flag: detect -Inf on the coarse a1 neighbour we'd put weight on (at chosen d, a2prime)
-    linidx_lower  = maxindexL2d                  + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
-    linidx_upper  = maxindexL2d + N_d*(n2long-1) + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
-    isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-    isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-    inLowerStrict = (maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
-    inUpperStrict = (maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
-    Policy(5,:,:,:,jj) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+    linidx_lower =maxindexL2d                  + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
+    linidx_upper =maxindexL2d + N_d*(n2long-1) + N_d*n2long*(maxindexL2a2-1) + N_d*n2long*N_a2*a12ind + N_d*n2long*N_a2*N_a*zind + N_d*n2long*N_a2*N_a*N_z*eind;
+    isInfLower   =(ReturnMatrix_ii(linidx_lower) == -Inf);
+    isInfUpper   =(ReturnMatrix_ii(linidx_upper) == -Inf);
+    inLowerStrict=(maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
+    inUpperStrict=(maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
+    Policy(5,:,:,:,jj)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
     V(:,:,:,jj)=shiftdim(Vtempii,1);
     Policy(1,:,:,:,jj)=maxindexL2d; % d
