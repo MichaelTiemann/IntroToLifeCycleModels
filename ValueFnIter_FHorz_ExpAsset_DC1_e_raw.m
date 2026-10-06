@@ -1,13 +1,22 @@
 function [V,Policy]=ValueFnIter_FHorz_ExpAsset_DC1_e_raw(n_d1,n_d2,n_a1,n_a2,n_z,n_e,N_j, d_gridvals, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, e_gridvals_J, pi_z_J, pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions)
 
-N_d1=prod(n_d1);
-N_d2=prod(n_d2);
-N_d=N_d1*N_d2;
+N_d1_raw=prod(n_d1); 
+N_d2_raw=prod(n_d2);
+has_d1=(N_d1_raw > 0);
+N_d1 = max(N_d1_raw, 1);
+N_d2 = max(N_d2_raw, 1);
+N_d = N_d1 * N_d2;
+
 N_a1=prod(n_a1);
 N_a2=prod(n_a2);
 N_a=N_a1*N_a2;
 N_z=prod(n_z);
 N_e=prod(n_e);
+
+if ~has_d1
+    d_gridvals = d2_gridvals;
+    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
+end
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_e,N_j,'gpuArray'); %first dim indexes the optimal choice for d and a1prime rest of dimensions a,z
