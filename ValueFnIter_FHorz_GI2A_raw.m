@@ -41,11 +41,10 @@ N_a1fine=length(a1prime_grid);
 % aprime_grid=[a1prime_grid; a2_grid];
 
 % precompute
-a2ind=shiftdim(gpuArray(0:1:N_a2-1),-1); % already includes -1
-zind=shiftdim(gpuArray(0:1:N_z-1),-1); % already includes -1
-zBind=shiftdim(gpuArray(0:1:N_z-1),-4); % already includes -1
-
-a12ind=repmat(gpuArray(0:1:N_a1-1),1,N_a2)+N_a1*repelem(gpuArray(0:1:N_a2-1),1,N_a1);
+a2ind  = reshape(gpuArray(0:1:N_a2-1), [1, 1, N_a2]);
+zind   = reshape(gpuArray(0:1:N_z-1), [1, 1, 1, N_z]);
+zBind  = reshape(gpuArray(0:1:N_z-1), [1, 1, 1, 1, 1, N_z]); % For 6D aprime alignment
+a12ind = reshape(gpuArray(0:1:N_a-1), [1, N_a1, N_a2]);
 
 %% j=N_j
 
@@ -79,13 +78,13 @@ if ~isfield(vfoptions,'V_Jplus1')
     isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
     inLowerStrict = (maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
     inUpperStrict = (maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
-    Policy(5,:,:,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+    Policy(5,:,:,N_j) = reshape(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), [1, N_a, N_z]);
 
-    V(:,:,N_j)=shiftdim(Vtempii,1);
-    Policy(1,:,:,N_j)=maxindexL2d; % d
-    Policy(2,:,:,N_j)=midpoint(maxindexL2d+N_d*(maxindexL2a2-1)+N_d*N_a2*a12ind+N_d*N_a2*N_a*zind); % a1prime midpoint
-    Policy(3,:,:,N_j)=maxindexL2a2; % a2prime
-    Policy(4,:,:,N_j)=maxindexL2a1; % a1primeL2ind
+    V(:,:,N_j)=reshape(Vtempii, [1, N_a, N_z]);
+    Policy(1,:,:,N_j)=reshape(maxindexL2d, [1, N_a, N_z]); % d
+    Policy(2,:,:,N_j)=reshape(midpoint(maxindexL2d+N_d*(maxindexL2a2-1)+N_d*N_a2*a12ind+N_d*N_a2*N_a*zind), [1, N_a, N_z]); % a1prime midpoint
+    Policy(3,:,:,N_j)=reshape(maxindexL2a2, [1, N_a, N_z]); % a2prime
+    Policy(4,:,:,N_j)=reshape(maxindexL2a1, [1, N_a, N_z]); % a1primeL2ind
 else
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
@@ -129,13 +128,13 @@ else
     isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
     inLowerStrict = (maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
     inUpperStrict = (maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
-    Policy(5,:,:,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+    Policy(5,:,:,N_j) = reshape(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), [1, N_a, N_z]);
 
-    V(:,:,N_j)=shiftdim(Vtempii,1);
-    Policy(1,:,:,N_j)=maxindexL2d; % d
-    Policy(2,:,:,N_j)=midpoint(maxindexL2d+N_d*(maxindexL2a2-1)+N_d*N_a2*a12ind+N_d*N_a2*N_a*zind); % a1prime midpoint
-    Policy(3,:,:,N_j)=maxindexL2a2; % a2prime
-    Policy(4,:,:,N_j)=maxindexL2a1; % a1primeL2ind
+    V(:,:,N_j)=reshape(Vtempii, [1, N_a, N_z]);
+    Policy(1,:,:,N_j)=reshape(maxindexL2d, [1, N_a, N_z]); % d
+    Policy(2,:,:,N_j)=reshape(midpoint(maxindexL2d+N_d*(maxindexL2a2-1)+N_d*N_a2*a12ind+N_d*N_a2*N_a*zind), [1, N_a, N_z]); % a1prime midpoint
+    Policy(3,:,:,N_j)=reshape(maxindexL2a2, [1, N_a, N_z]); % a2prime
+    Policy(4,:,:,N_j)=reshape(maxindexL2a1, [1, N_a, N_z]); % a1primeL2ind
 end
 
 
@@ -178,8 +177,7 @@ for reverse_j=1:N_j-1
     ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn,n_d,n_z,d_gridvals,a1prime_grid(a1primeindexes),a2_grid, a1_grid, a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
     ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z]);
     aprime=a1primeindexes+N_a1fine*a2ind+N_a1fine*N_a2*zBind;
-    entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprime),[N_d*n2long*N_a2,N_a,N_z]);
-    entireRHS_ii = reshape(entireRHS_ii, [N_d * n2long * N_a2, N_a1, N_a2, N_z]);
+    entireRHS_ii = ReturnMatrix_ii + DiscountFactorParamsVec * reshape(EVinterp(aprime), [N_d*n2long*N_a2, N_a1, N_a2, N_z]);
     [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
     maxindexL2d=rem(maxindexL2-1,N_d)+1;
     maxindexL2a=ceil(maxindexL2/N_d);
@@ -193,13 +191,13 @@ for reverse_j=1:N_j-1
     isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
     inLowerStrict = (maxindexL2a1 >= 2)         & (maxindexL2a1 <= n2short+1);
     inUpperStrict = (maxindexL2a1 >= n2short+3) & (maxindexL2a1 <= n2long-1);
-    Policy(5,:,:,jj) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+    Policy(5,:,:,jj) = reshape(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), [1, N_a, N_z]);
 
-    V(:,:,jj)=shiftdim(Vtempii,1);
-    Policy(1,:,:,jj)=maxindexL2d; % d
-    Policy(2,:,:,jj)=midpoint(maxindexL2d+N_d*(maxindexL2a2-1)+N_d*N_a2*a12ind+N_d*N_a2*N_a*zind); % a1prime midpoint
-    Policy(3,:,:,jj)=maxindexL2a2; % a2prime
-    Policy(4,:,:,jj)=maxindexL2a1; % a1primeL2ind
+    V(:,:,jj)=reshape(Vtempii, [1, N_a, N_z]);
+    Policy(1,:,:,jj)=reshape(maxindexL2d, [1, N_a, N_z]); % d
+    Policy(2,:,:,jj)=reshape(midpoint(maxindexL2d+N_d*(maxindexL2a2-1)+N_d*N_a2*a12ind+N_d*N_a2*N_a*zind), [1, N_a, N_z]); % a1prime midpoint
+    Policy(3,:,:,jj)=reshape(maxindexL2a2, [1, N_a, N_z]); % a2prime
+    Policy(4,:,:,jj)=reshape(maxindexL2a1, [1, N_a, N_z]); % a1primeL2ind
 end
 
 
