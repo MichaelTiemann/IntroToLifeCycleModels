@@ -15,17 +15,6 @@ l_d = length(n_d); if N_d == 0; l_d = 0; end
 l_a = length(n_a);
 l_z = length(n_z); if N_z == 0; l_z = 0; end
 
-% Validation checks
-if l_d > 4
-    error('Using GPU for the return fn does not allow for more than four of d variable (you have length(n_d)>4)');
-end
-if l_a > 4
-    error('Using GPU for the return fn does not allow for more than four of a variable (you have length(n_a)>4)');
-end
-if l_z > 5
-    error('Using GPU for the return fn does not allow for more than five of z variable (you have length(n_z)>5)');
-end
-
 % Collect 'a' and 'a_prime' values dynamically
 a_prime_vals = cell(1, l_a);
 a_vals = cell(1, l_a);
