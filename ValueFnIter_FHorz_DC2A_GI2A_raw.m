@@ -167,17 +167,18 @@ else
 
     EV=reshape(vfoptions.V_Jplus1,[N_a,N_z]); % Using V_Jplus1
 
-    EV=EV.*shiftdim(pi_z_J(:,:,N_j)',-1);
+    if N_z > 0; EV = EV .* shiftdim(pi_z_J(:,:,N_j)', -1); end
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
-    % Interpolate EV over aprime_grid
-    DiscountedEVinterp=interp1(a1_grid,DiscountedEV,a1prime_grid);
-    DiscountedEV=shiftdim(DiscountedEV,-1); % will autoexand d in 1st-dim
-    DiscountedEVinterp=shiftdim(DiscountedEVinterp,-1); % will autoexand d in 1st-dim
-
     if vfoptions.lowmemory==0
+
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
+        % Interpolate EV over aprime_grid
+        DiscountedEVinterp=interp1(a1_grid,DiscountedEV,a1prime_grid);
+        DiscountedEV=shiftdim(DiscountedEV,-1); % will autoexand d in 1st-dim
+        DiscountedEVinterp=shiftdim(DiscountedEVinterp,-1); % will autoexand d in 1st-dim
+
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
 
@@ -240,8 +241,10 @@ else
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z=DiscountedEV(:,:,:,:,:,z_c);
-            DiscountedEVinterp_z=DiscountedEVinterp(:,:,:,:,:,z_c);
+            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [N_a1, N_a2, 1, 1]);
+            DiscountedEVinterp_z = interp1(a1_grid, DiscountedEV_z, a1prime_grid);
+            DiscountedEV_z = shiftdim(DiscountedEV_z, -1);
+            DiscountedEVinterp_z = shiftdim(DiscountedEVinterp_z, -1);
 
             % n-Monotonicity
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_val, ReturnFnParamsVec,1,0);
@@ -319,7 +322,11 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    EV=V(:,:,jj+1).*shiftdim(pi_z_J(:,:,jj)',-1);
+    if N_z>0
+        EV=V(:,:,jj+1).*shiftdim(pi_z_J(:,:,jj)',-1);
+    else
+        EV=V(:,:,jj+1);
+    end
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
