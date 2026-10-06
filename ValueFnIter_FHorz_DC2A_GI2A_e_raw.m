@@ -2,10 +2,13 @@ function [V, Policy]=ValueFnIter_FHorz_DC2A_GI2A_e_raw(n_d,n_a,n_z,n_e, N_j, d_g
 % divide-and-conquer in the first endo state
 % lowmemory: =0 vectorize, =1 loop over e, =2 loop over e and z
 
-N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
-N_e=prod(n_e);
+has_z = ~isempty(n_z) && prod(n_z) > 0;
+has_e = ~isempty(n_e) && prod(n_e) > 0;
+
+N_d = max(1, prod(n_d));
+N_a = prod(n_a);
+N_z = max(1, prod(n_z));
+N_e = max(1, prod(n_e));
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(5,N_a,N_z,N_e,N_j,'gpuArray'); % first dim is (d,a1prime midpoint,a2prime,a1prime L2)
@@ -467,9 +470,10 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    if N_z > 0; EV = V(:,:,:,jj+1).*shiftdim(pi_z_J(:,:,jj)', -1); end
+    EV = sum(V(:,:,:,jj+1) .* pi_e_J(1,1,:,jj+1), 3); % Integrate out e_prime
+    if N_z > 0; EV = EV.*shiftdim(pi_z_J(:,:,jj)', -1); end % Apply z_prime transition
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
-    EV=sum(EV,3); % sum over z', leaving a singular third dimension
+    EV=sum(EV,2); % sum over z', leaving [N_a, 1, N_z]
 
     if vfoptions.lowmemory==0
 
@@ -694,6 +698,14 @@ Policy(4,:,:,:,:)=Policy(4,:,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid 
 
 % Policy=Policy(1,:,:,:,:)+N_d*(Policy(2,:,:,:,:)-1)+N_d*N_a1*(Policy(3,:,:,:,:)-1)+N_d*N_a1*N_a2*(Policy(4,:,:,:,:)-1)+N_d*N_a1*N_a2*(n2short+2)*(Policy(5,:,:,:,:)-1);
 
+% Dynamically construct the expected output dimensions
+sz_V = N_a;
+if has_z; sz_V = [sz_V, N_z]; end
+if has_e; sz_V = [sz_V, N_e]; end
+sz_V = [sz_V, N_j];
+
+V = reshape(V, sz_V);
+Policy = reshape(Policy, [5, sz_V]);
 
 
 end

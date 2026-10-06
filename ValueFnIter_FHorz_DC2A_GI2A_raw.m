@@ -2,9 +2,11 @@ function [V, Policy]=ValueFnIter_FHorz_DC2A_GI2A_raw(n_d,n_a,n_z, N_j, d_gridval
 % divide-and-conquer in the first endo state
 % lowmemory: =0 vectorize over z, =1 loop over z
 
-N_d=prod(n_d);
-N_a=prod(n_a);
-N_z=prod(n_z);
+has_z = ~isempty(n_z) && prod(n_z) > 0;
+
+N_d = max(1, prod(n_d));
+N_a = prod(n_a);
+N_z = max(1, prod(n_z));
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(5,N_a,N_z,N_j,'gpuArray'); % first dim is (d,a1prime midpoint,a2prime,a1prime L2)
@@ -167,7 +169,7 @@ else
 
     EV=reshape(vfoptions.V_Jplus1,[N_a,N_z]); % Using V_Jplus1
 
-    if N_z > 0; EV = EV .* shiftdim(pi_z_J(:,:,N_j)', -1); end
+    if N_z > 0; EV = EV.*shiftdim(pi_z_J(:,:,N_j)', -1); end
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
@@ -322,13 +324,10 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    if N_z>0
-        EV=V(:,:,jj+1).*shiftdim(pi_z_J(:,:,jj)',-1);
-    else
-        EV=V(:,:,jj+1);
-    end
+    EV = V(:,:,jj+1);
+    if N_z>0; EV=EV.*shiftdim(pi_z_J(:,:,jj)',-1); end
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
-    EV=sum(EV,2); % sum over z', leaving a singular second dimension
+    EV=sum(EV,2); % sum over z', leaving [N_a, 1]
 
     DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
     % Interpolate EV over aprime_grid
@@ -474,6 +473,14 @@ Policy(2,:,:,:)=Policy(2,:,:,:)-adjust; % lower grid point
 Policy(4,:,:,:)=Policy(4,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid point) to 1+n2short+1 (upper grid point)
 
 % Policy=Policy(1,:,:,:)+N_d*(Policy(2,:,:,:)-1)+N_d*N_a1*(Policy(3,:,:,:)-1)+N_d*N_a1*N_a2*(Policy(4,:,:,:)-1)+N_d*N_a1*N_a2*(n2short+2)*(Policy(5,:,:,:)-1);
+
+% Dynamically construct the expected output dimensions
+sz_V = N_a;
+if has_z; sz_V = [sz_V, N_z]; end
+sz_V = [sz_V, N_j];
+
+V = reshape(V, sz_V);
+Policy = reshape(Policy, [5, sz_V]);
 
 
 end
