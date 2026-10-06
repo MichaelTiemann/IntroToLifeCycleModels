@@ -158,8 +158,8 @@ else
         aprimeProbs=repmat(a2primeProbs,N_a1,1,1); % [N_d2*N_a1,N_a2,N_z to be filled in with z_offset]
 
         % Add the z_offset to the asset index to do a 1D linear lookup
-        Vlower=reshape(EVpre(aprimeIndex+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        Vupper=reshape(EVpre(aprimeplus1Index+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        Vlower=reshape(EVpre(aprimeIndex+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(EVpre(aprimeplus1Index+z_offset),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -184,10 +184,10 @@ else
         aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
         aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
         aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-        V_ll=reshape(EVpre(aprime_ll+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        V_hl=reshape(EVpre(aprime_hl+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        V_lh=reshape(EVpre(aprime_lh+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        V_hh=reshape(EVpre(aprime_hh+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        V_ll=reshape(EVpre(aprime_ll+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(EVpre(aprime_hl+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(EVpre(aprime_lh+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(EVpre(aprime_hh+z_offset),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -348,8 +348,8 @@ for reverse_j=1:N_j-1
         z_offset = N_a * shiftdim(0:N_z-1, -1);
 
         % Add the z_offset to the asset index to do a 1D linear lookup
-        Vlower=reshape(EVpre(aprimeIndex+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        Vupper=reshape(EVpre(aprimeplus1Index+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        Vlower=reshape(EVpre(aprimeIndex+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(EVpre(aprimeplus1Index+z_offset),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -376,10 +376,10 @@ for reverse_j=1:N_j-1
         aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
         z_offset = N_a * shiftdim(0:N_z-1, -1);
 
-        V_ll=reshape(V(aprime_ll+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        V_hl=reshape(V(aprime_hl+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        V_lh=reshape(V(aprime_lh+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        V_hh=reshape(V(aprime_hh+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        V_ll=reshape(EVpre(aprime_ll+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(EVpre(aprime_hl+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(EVpre(aprime_lh+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(EVpre(aprime_hh+z_offset),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
