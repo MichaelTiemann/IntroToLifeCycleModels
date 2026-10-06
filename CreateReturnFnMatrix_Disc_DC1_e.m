@@ -15,8 +15,8 @@ elseif Level == 2 || Level == 3
 end
 
 % --- DYNAMIC ARRAYFUN EXPANSION ---
-if isempty(d_gridvals); d_args = {}; else; d_args = num2cell(d_gridvals, 1); end
-if isempty(z_gridvals); z_args = {}; else; z_args = cellfun(@(x) shiftdim(x, -3), num2cell(z_gridvals, 1), 'UniformOutput', false); end
+if isempty(d_gridvals) || prod(n_d) == 0; d_args = {}; else; d_args = num2cell(d_gridvals, 1); end
+if isempty(z_gridvals) || prod(n_z) == 0; z_args = {}; else; z_args = cellfun(@(x) shiftdim(x, -3), num2cell(z_gridvals, 1), 'UniformOutput', false); end
 e_args = cellfun(@(x) shiftdim(x, -4), num2cell(e_gridvals, 1), 'UniformOutput', false);
 
 Fmatrix = arrayfun(ReturnFn, d_args{:}, aprime_grid, shiftdim(a_grid, -2), z_args{:}, e_args{:}, ReturnFnParamsCell{:});
