@@ -2,6 +2,7 @@ function [V, Policy]=ValueFnIter_FHorz_DC2A_GI2A_raw(n_d,n_a,n_z, N_j, d_gridval
 % divide-and-conquer in the first endo state
 % lowmemory: =0 vectorize over z, =1 loop over z
 
+has_d = ~isempty(n_d) && prod(n_d) > 0;
 has_z = ~isempty(n_z) && prod(n_z) > 0;
 
 N_d = max(1, prod(n_d));
@@ -486,7 +487,12 @@ if has_z; sz_V = [sz_V, N_z]; end
 sz_V = [sz_V, N_j];
 
 V = reshape(V, sz_V);
-Policy = reshape(Policy, [5, sz_V]);
+if has_d
+    Policy = reshape(Policy, [5, sz_V]);
+else
+    % Strip the dummy 'd' row to perfectly match UnKronPolicyIndexes2
+    Policy = reshape(Policy(2:5, :), [4, sz_V]);
+end
 
 
 end

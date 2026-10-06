@@ -2,13 +2,13 @@ function [V, Policy]=ValueFnIter_FHorz_DC2A_GI2A_e_raw(n_d,n_a,n_z,n_e, N_j, d_g
 % divide-and-conquer in the first endo state
 % lowmemory: =0 vectorize, =1 loop over e, =2 loop over e and z
 
+has_d = ~isempty(n_d) && prod(n_d) > 0;
 has_z = ~isempty(n_z) && prod(n_z) > 0;
-has_e = ~isempty(n_e) && prod(n_e) > 0;
 
 N_d = max(1, prod(n_d));
 N_a = prod(n_a);
 N_z = max(1, prod(n_z));
-N_e = max(1, prod(n_e));
+N_e = prod(n_e);
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(5,N_a,N_z,N_e,N_j,'gpuArray'); % first dim is (d,a1prime midpoint,a2prime,a1prime L2)
@@ -704,11 +704,15 @@ Policy(4,:,:,:,:)=Policy(4,:,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid 
 % Dynamically construct the expected output dimensions
 sz_V = N_a;
 if has_z; sz_V = [sz_V, N_z]; end
-if has_e; sz_V = [sz_V, N_e]; end
-sz_V = [sz_V, N_j];
+sz_V = [sz_V, N_e, N_j];
 
 V = reshape(V, sz_V);
-Policy = reshape(Policy, [5, sz_V]);
+if has_d
+    Policy = reshape(Policy, [5, sz_V]);
+else
+    % Strip the dummy 'd' row to perfectly match UnKronPolicyIndexes2
+    Policy = reshape(Policy(2:5, :), [4, sz_V]);
+end
 
 
 end
