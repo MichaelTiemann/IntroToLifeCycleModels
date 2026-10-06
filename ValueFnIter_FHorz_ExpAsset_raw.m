@@ -11,6 +11,7 @@ N_a2 = prod(n_a2);
 N_a = Na1_eff * N_a2;
 
 N_z=prod(n_z);
+Nz_eff = max(N_z, 1);
 
 if ~has_d1
     d_gridvals = d2_gridvals;
@@ -114,34 +115,32 @@ else
     % EV is over (d2,a1prime,a2,z)
 
     if vfoptions.lowmemory==0
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [Nd2_eff, Na1_eff, 1, N_a2, Nz_eff]);
-
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, Nd2_eff*Na1_eff, 1, N_a2, N_z]);
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
-        % (d,a1prime,a)
 
-        entireRHS=ReturnMatrix+repelem(DiscountedEV, Nd1_eff, 1);
+        % Split ReturnMatrix dimensions so implicit expansion can broadcast d1 and a1 cleanly
+        ReturnMatrix_reshaped = reshape(ReturnMatrix, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2, N_z]);
+        entireRHS = reshape(ReturnMatrix_reshaped + DiscountedEV, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2, N_z]);
 
         %Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
-
         V(:,:,N_j)=shiftdim(Vtemp,1);
         Policy(:,:,N_j)=shiftdim(maxindex,1);
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [Nd2_eff, Na1_eff, 1, N_a2]);
-
+            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, Nd2_eff*Na1_eff, 1, N_a2]);
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2, special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
-            entireRHS_z=ReturnMatrix_z+repelem(DiscountedEV_z, Nd1_eff, 1);
+            ReturnMatrix_reshaped = reshape(ReturnMatrix_z, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2]);
+            entireRHS_z = reshape(ReturnMatrix_reshaped + DiscountedEV_z, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2]);
 
             %Calc the max and its index
             [Vtemp,maxindex]=max(entireRHS_z,[],1);
             V(:,z_c,N_j)=Vtemp;
             Policy(:,z_c,N_j)=maxindex;
         end
-
     end
 end
 
@@ -219,30 +218,27 @@ for reverse_j=1:N_j-1
     % EV is over (d2,a1prime,a2,z)
 
     if vfoptions.lowmemory==0
-
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [Nd2_eff, Na1_eff, 1, N_a2, Nz_eff]);
-
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals,z_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
-        % (d,aprime,a,z)
-
-        entireRHS=ReturnMatrix+repelem(DiscountedEV, Nd1_eff, 1);
-
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, Nd2_eff*Na1_eff, 1, N_a2, N_z]);
+        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
+        
+        % Split ReturnMatrix dimensions so implicit expansion can broadcast d1 and a1 cleanly
+        ReturnMatrix_reshaped = reshape(ReturnMatrix, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2, N_z]);
+        entireRHS = reshape(ReturnMatrix_reshaped + DiscountedEV, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2, N_z]);
+        
         %Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
-
         V(:,:,jj)=shiftdim(Vtemp,1);
         Policy(:,:,jj)=shiftdim(maxindex,1);
-
+        
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
-
-            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [Nd2_eff, Na1_eff, 1, N_a2]);
-
+            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, Nd2_eff*Na1_eff, 1, N_a2]);
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2, special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-            entireRHS_z=ReturnMatrix_z+repelem(DiscountedEV_z, Nd1_eff, 1);
-
+            
+            ReturnMatrix_reshaped = reshape(ReturnMatrix_z, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2]);
+            entireRHS_z = reshape(ReturnMatrix_reshaped + DiscountedEV_z, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2]);
+            
             %Calc the max and its index
             [Vtemp,maxindex]=max(entireRHS_z,[],1);
             V(:,z_c,jj)=Vtemp;
