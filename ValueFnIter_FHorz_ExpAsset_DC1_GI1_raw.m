@@ -206,12 +206,25 @@ else
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
+        a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
+        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1,1); % Expands correctly across 3D
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1); 
 
-        Vlower=reshape(EV(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        Vupper=reshape(EV(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        aprimeIndex_full=a1_offsets+Na1_eff*(a2_idx_exp-1);
+        aprimeplus1Index_full=a1_offsets+Na1_eff*a2_idx_exp;
+
+        % aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        % aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        % aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
+
+        % Vlower=reshape(EV(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        % Vupper=reshape(EV(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+
+        z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
+
+        Vlower = EV(aprimeIndex_full + z_offset);
+        Vupper = EV(aprimeplus1Index_full + z_offset);
+
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -225,20 +238,25 @@ else
         % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
         % a1prime offset, then nested 2-corner interp with skipinterp at each level and
         % per-contribution NaN cleanup for 0*(-Inf).
+
         n_a2_1=n_a2(1);
-        loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
-        loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,Nz_eff);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,Nz_eff);
-        a1prime_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
-        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
-        V_ll=reshape(EV(aprime_ll(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_hl=reshape(EV(aprime_hl(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_lh=reshape(EV(aprime_lh(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_hh=reshape(EV(aprime_hh(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        loIdx_1=squeeze(a2primeIndex(1,:,:,:));
+        loIdx_2=squeeze(a2primeIndex(2,:,:,:));
+        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1,1);
+        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1,1);
+
+        a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
+        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
+        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
+        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+
+        z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
+
+        V_ll = EV(aprime_ll + z_offset);
+        V_hl = EV(aprime_hl + z_offset);
+        V_lh = EV(aprime_lh + z_offset);
+        V_hh = EV(aprime_hh + z_offset);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -419,12 +437,26 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
+        a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
+        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1,1); % Expands correctly across 3D
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
 
-        Vlower=reshape(V(aprimeIndex(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        Vupper=reshape(V(aprimeplus1Index(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        aprimeIndex_full=a1_offsets+Na1_eff*(a2_idx_exp-1);
+        aprimeplus1Index_full=a1_offsets+Na1_eff*a2_idx_exp;
+
+        % aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        % aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        % aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
+
+        % Vlower=reshape(V(aprimeIndex(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        % Vupper=reshape(V(aprimeplus1Index(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+
+        z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
+        V_slice = V(:,:,jj+1);
+
+        Vlower = V_slice(aprimeIndex_full + z_offset);
+        Vupper = V_slice(aprimeplus1Index_full + z_offset);
+
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -439,19 +471,24 @@ for reverse_j=1:N_j-1
         % a1prime offset, then nested 2-corner interp with skipinterp at each level and
         % per-contribution NaN cleanup for 0*(-Inf).
         n_a2_1=n_a2(1);
-        loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
-        loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,Nz_eff);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,Nz_eff);
-        a1prime_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
-        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
-        V_ll=reshape(V(aprime_ll(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_hl=reshape(V(aprime_hl(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_lh=reshape(V(aprime_lh(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        V_hh=reshape(V(aprime_hh(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
+        loIdx_1=squeeze(a2primeIndex(1,:,:,:));
+        loIdx_2=squeeze(a2primeIndex(2,:,:,:));
+        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1,1);
+        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1,1);
+
+        a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
+        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
+        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
+        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+
+        z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
+        V_slice = V(:,:,jj+1);
+
+        V_ll=V_slice(aprime_ll + z_offset);
+        V_hl=V_slice(aprime_hl + z_offset);
+        V_lh=V_slice(aprime_lh + z_offset);
+        V_hh=V_slice(aprime_hh + z_offset);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
