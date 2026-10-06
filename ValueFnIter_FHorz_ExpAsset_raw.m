@@ -113,9 +113,9 @@ else
     EV=squeeze(sum(EV,3));
     % EV is over (d2,a1prime,a2,z)
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff);
-
     if vfoptions.lowmemory==0
+        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff);
+
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
         % (d,a1prime,a)
 
@@ -130,7 +130,7 @@ else
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z=DiscountedEV(:,:,z_c);
+            DiscountedEV_z = DiscountFactorParamsVec * repelem(EV(:,:,z_c), Nd1_eff, Na1_eff);
 
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2, special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
@@ -218,9 +218,10 @@ for reverse_j=1:N_j-1
     EV=squeeze(sum(EV,3));
     % EV is over (d2,a1prime,a2,z)
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff);
-
     if vfoptions.lowmemory==0
+
+        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff);
+
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals,z_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
         % (d,aprime,a,z)
 
@@ -235,7 +236,8 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
-            DiscountedEV_z=DiscountedEV(:,:,z_c);
+
+            DiscountedEV_z = DiscountFactorParamsVec * repelem(EV(:,:,z_c), Nd1_eff, Na1_eff);
 
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2, special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 

@@ -75,10 +75,10 @@ else
     end
 
     EV = reshape(EV, [N_a, 1, Nz_eff]);
-    entireEV = EV;
-    if has_d; entireEV = repelem(EV, N_d, 1, 1); end
 
     if vfoptions.lowmemory == 0
+        entireEV = EV;
+        if has_d; entireEV = repelem(entireEV, N_d, 1, 1); end
         ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
         if ~has_z
             sz = size(ReturnMatrix);
@@ -91,12 +91,14 @@ else
     elseif vfoptions.lowmemory == 1
         for e_c = 1:N_e
             e_val = e_gridvals_J(e_c, :, N_j);
+            entireEV_e = EV(:,:,:,e_c);
+            if has_d; entireEV_e = repelem(entireEV_e(:,:,:,e_c), N_d, 1, 1); end
             ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_N_j, e_val, ReturnFnParamsVec_J, 0);
             if ~has_z
                 sz = size(ReturnMatrix_e);
                 if length(sz) == 2; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, 1]); else; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, sz(3:end)]); end
             end
-            entireRHS_e = ReturnMatrix_e + DiscountFactorParamsVec * entireEV;
+            entireRHS_e = ReturnMatrix_e + DiscountFactorParamsVec * entireEV_e;
             [Vtemp, maxindex] = max(entireRHS_e, [], 1);
             V(:,:,e_c,N_j) = shiftdim(Vtemp, 1);
             Policy(1,:,:,e_c,N_j) = shiftdim(maxindex, 1);
@@ -104,7 +106,8 @@ else
     elseif vfoptions.lowmemory == 2 && has_z
         for z_c = 1:N_z
             z_val = z_gridvals_J(z_c, :, N_j);
-            entireEV_z = entireEV(:,:,z_c);
+            entireEV_z = EV(:,:,z_c);
+            if has_d; entireEV_z = repelem(entireEV_z, N_d, 1, 1); end
             for e_c = 1:N_e
                 e_val = e_gridvals_J(e_c, :, N_j);
                 ReturnMatrix_ze = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec_J, 0);

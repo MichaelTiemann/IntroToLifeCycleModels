@@ -51,12 +51,11 @@ else
     EV(EVinf * (pi_z_J(:,:,N_j)' > 0) > 0) = -Inf;
 
     EV = reshape(EV, [N_a, 1, Nz_eff]);
-    entireEV = EV;
-    if has_d
-        entireEV = repelem(EV, N_d, 1, 1);
-    end
 
     if vfoptions.lowmemory == 0
+        entireEV = EV;
+        if has_d; entireEV = repelem(entireEV, N_d, 1, 1); end
+
         ReturnMatrix = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
         entireRHS = ReturnMatrix + DiscountFactorParamsVec * entireEV;
         [Vtemp, maxindex] = max(entireRHS, [], 1);
@@ -65,7 +64,8 @@ else
     elseif vfoptions.lowmemory == 1
         for z_c = 1:Nz_eff
             z_val = z_gridvals_J(z_c, :, N_j);
-            entireEV_z = entireEV(:,:,z_c);
+            entireEV_z = EV(:,:,z_c);
+            if has_d; entireEV_z = repelem(entireEV_z, N_d, 1, 1); end
             ReturnMatrix_z = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec_J, 0);
             entireRHS_z = ReturnMatrix_z + DiscountFactorParamsVec * entireEV_z;
             [Vtemp, maxindex] = max(entireRHS_z, [], 1);
@@ -93,12 +93,11 @@ for reverse_j = 1:N_j-1
     EV(EVinf * (pi_z_J(:,:,jj)' > 0) > 0) = -Inf;
 
     EV = reshape(EV, [N_a, 1, Nz_eff]);
-    entireEV = EV;
-    if has_d
-        entireEV = repelem(EV, N_d, 1, 1);
-    end
 
     if vfoptions.lowmemory == 0
+        entireEV = EV;
+        if has_d; entireEV = repelem(entireEV, N_d, 1, 1); end
+
         ReturnMatrix = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec, 0);
         entireRHS = ReturnMatrix + DiscountFactorParamsVec * entireEV;
         [Vtemp, maxindex] = max(entireRHS, [], 1);
@@ -107,7 +106,8 @@ for reverse_j = 1:N_j-1
     elseif vfoptions.lowmemory == 1
         for z_c = 1:Nz_eff
             z_val = z_gridvals_J(z_c, :, jj);
-            entireEV_z = entireEV(:,:,z_c);
+            entireEV_z = EV(:,:,z_c);
+            if has_d; entireEV_z = repelem(entireEV_z, N_d, 1, 1); end
             ReturnMatrix_z = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec, 0);
             entireRHS_z = ReturnMatrix_z + DiscountFactorParamsVec * entireEV_z;
             [Vtemp, maxindex] = max(entireRHS_z, [], 1);

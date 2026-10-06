@@ -76,6 +76,7 @@ else
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,Nz_eff,N_e]),3); % First, switch V_Jplus1 into Kron form
+    if N_z > 0; EVpre = EVpre * pi_z_J(:,:,N_j)'; end
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
@@ -130,14 +131,12 @@ else
     end
     % Already applied the probabilities from interpolating onto grid
 
-    EV=EV.*shiftdim(pi_z_J(:,:,N_j)',-2);
-    EV(isnan(EV))=0; % remove nan created where value fn is -Inf but probability is zero
-    EV=squeeze(sum(EV,3));
+    EV(isnan(EV))=0; % SAFETY SCRUB: remove nan created where value fn is -Inf but probability is zero
     % EV is over (d2,a1prime,a2,z)
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
-
     if vfoptions.lowmemory==0
+
+        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
@@ -151,8 +150,11 @@ else
 
     elseif vfoptions.lowmemory==1
 
+        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
+
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
+
             ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
             entireRHS=ReturnMatrix_e+DiscountedEV;
@@ -166,7 +168,9 @@ else
     elseif vfoptions.lowmemory==2
         for z_c=1:Nz_eff
             z_val=z_gridvals_J(z_c,:,N_j);
+
             DiscountedEV_z=DiscountFactorParamsVec*repelem(EV(:,:,z_c),Nd1_eff,Na1_eff);
+
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
                 ReturnMatrix_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
@@ -263,9 +267,9 @@ for reverse_j=1:N_j-1
     EV=squeeze(sum(EV,3));
     % EV is over (d2,a1prime,a2,z)
 
-    DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
-
     if vfoptions.lowmemory==0
+
+        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_jj, e_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
@@ -278,6 +282,8 @@ for reverse_j=1:N_j-1
         Policy(:,:,:,jj)=shiftdim(maxindex,1);
 
     elseif vfoptions.lowmemory==1
+
+        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
@@ -294,7 +300,9 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==2
         for z_c=1:Nz_eff
             z_val=z_gridvals_J(z_c,:,jj);
+
             DiscountedEV_z=DiscountFactorParamsVec*repelem(EV(:,:,z_c),Nd1_eff,Na1_eff);
+
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);
 
