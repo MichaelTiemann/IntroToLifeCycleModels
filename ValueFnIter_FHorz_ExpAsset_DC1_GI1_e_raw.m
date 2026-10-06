@@ -641,13 +641,7 @@ for reverse_j=1:N_j-1
     end
     % Already applied the probabilities from interpolating onto grid
 
-    if N_z>0
-        EV=EV.*shiftdim(pi_z_J(:,:,jj)',-2);
-        EV(isnan(EV))=0; % remove nan created where value fn is -Inf but probability is zero
-        EV=squeeze(sum(EV,3)); % EV is over (d2,a1prime,a2,z)
-    else
-        EV(isnan(EV))=0; % EV is over (d2,a1prime,a2)
-    end
+    EV(isnan(EV))=0; % NOT SURE THIS IS NEEDED? EV is over (d2,a1prime,a2)
 
     DiscountedEV=DiscountFactorParamsVec*reshape(EV,[Nd2_eff,Na1_eff,1,N_a2,Nz_eff,N_e]);
     % Interpolate EV over aprime_grid
