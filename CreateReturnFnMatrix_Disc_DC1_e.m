@@ -24,10 +24,10 @@ elseif Level == 2 || Level == 6
     N_aprime = size(aprime_grid, 2);
 end
 
-if l_d == 0
-    d_vals = {};
-else
-    d_vals = cell(1, l_d); for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
+d_vals = cell(1, l_d);
+for i = 1:l_d
+    if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
+    d_vals{i} = v;
 end
 
 if l_z == 0

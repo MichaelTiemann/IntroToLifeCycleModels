@@ -54,14 +54,10 @@ if l_e>5
 end
 
 % Build dynamic parameters (preserve N-dimensional arrays natively when l_x==1)
-if l_d == 0
-    d_vals = {};
-else
-    d_vals = cell(1, l_d);
-    for i = 1:l_d
-        if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
-        d_vals{i} = v;
-    end
+d_vals = cell(1, l_d);
+for i = 1:l_d
+    if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
+    d_vals{i} = v;
 end
 
 if l_a1 == 0
@@ -91,14 +87,10 @@ for i = 1:l_a2
     a2_vals{i} = shiftdim(v, -3);
 end
 
-if l_z == 0
-    z_vals = {};
-else
-    z_vals = cell(1, l_z);
-    for i = 1:l_z
-        if l_z == 1; v = z_gridvals; else; v = z_gridvals(:, i); end
-        z_vals{i} = shiftdim(v, -4);
-    end
+z_vals = cell(1, l_z);
+for i = 1:l_z
+    if l_z == 1; v = z_gridvals; else; v = z_gridvals(:, i); end
+    z_vals{i} = shiftdim(v, -4);
 end
 
 e_vals = cell(1, l_e);

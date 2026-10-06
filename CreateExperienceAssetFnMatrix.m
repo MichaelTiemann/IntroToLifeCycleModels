@@ -68,16 +68,10 @@ end
 % --- ELEGANT DYNAMIC GRID PACKING ---
 
 % 1. Pack 'd' variables (Dimension 1)
-if l_d == 0
-    d_vals_cell = {};
-else
-    d_vals_cell = cell(1, l_d);
-    if l_d == 1; d_vals_cell{1} = d_gridvals;
-    else
-        for i = 1:l_d
-            d_vals_cell{i} = d_gridvals(:, i);
-        end
-    end
+d_vals = cell(1, l_d);
+for i = 1:l_d
+    if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
+    d_vals{i} = v;
 end
 
 % 2. Pack Exogenous States (z, e)
@@ -117,7 +111,7 @@ if l_a2 == 1
     
     % Combine all inputs positionally: [d, a2, z, e, Params]
     % Note: ParamCell' transposes the column cell to a row cell for horizontal concatenation
-    GridParamsCell = [d_vals_cell, a2vals_cell, z_vals_cell, e_vals_cell, ParamCell'];
+    GridParamsCell = [d_vals, a2vals_cell, z_vals_cell, e_vals_cell, ParamCell'];
     
     a2primeVals = arrayfun(aprimeFn, GridParamsCell{:});
     
@@ -130,8 +124,8 @@ elseif l_a2 == 2
     a2vals_cell = {shiftdim(a2_grid_1, -1), shiftdim(a2_grid_2, -2)};
     
     % For l_a2 == 2, aprimeFn requires a 'whicha' selector (1 or 2) injected immediately after the a2 inputs
-    GridParamsCell_1 = [d_vals_cell, a2vals_cell, {1}, z_vals_cell, e_vals_cell, ParamCell'];
-    GridParamsCell_2 = [d_vals_cell, a2vals_cell, {2}, z_vals_cell, e_vals_cell, ParamCell'];
+    GridParamsCell_1 = [d_vals, a2vals_cell, {1}, z_vals_cell, e_vals_cell, ParamCell'];
+    GridParamsCell_2 = [d_vals, a2vals_cell, {2}, z_vals_cell, e_vals_cell, ParamCell'];
     
     a2primeVals_1 = arrayfun(aprimeFn, GridParamsCell_1{:});
     a2primeVals_2 = arrayfun(aprimeFn, GridParamsCell_2{:});

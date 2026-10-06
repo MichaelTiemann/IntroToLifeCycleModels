@@ -1,6 +1,8 @@
 function Fmatrix = CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, aprime_grid, a_grid, z_gridvals, ReturnFnParamsVec, Level)
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 N_d = prod(n_d);
+Nd_eff = max(N_d, 1);
+
 N_a = length(a_grid);
 N_z = prod(n_z);
 
@@ -19,13 +21,10 @@ elseif Level == 2 || Level == 3 || Level == 6
 end
 
 % Build dynamic parameters
-if l_d == 0
-    d_vals = {};
-    Nd_eff = 1;
-else
-    d_vals = cell(1, l_d);
-    for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
-    Nd_eff = N_d;
+d_vals = cell(1, l_d);
+for i = 1:l_d
+    if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
+    d_vals{i} = v;
 end
 
 if l_z == 0
