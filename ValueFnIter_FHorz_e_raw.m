@@ -77,41 +77,37 @@ else
     EV = reshape(EV, [N_a, 1, Nz_eff]);
 
     if vfoptions.lowmemory == 0
-        entireEV = EV;
-        if has_d; entireEV = repelem(entireEV, N_d, 1, 1); end
+        if has_d; entireEV = repelem(entireEV, N_d, 1); else; entireEV = EV; end
         ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec_J, 0);
         if ~has_z
             sz = size(ReturnMatrix);
             if length(sz) == 2; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, 1]); else; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, sz(3:end)]); end
         end
-        entireRHS = ReturnMatrix + DiscountFactorParamsVec * entireEV;
+        entireRHS = ReturnMatrix + DiscountFactorParamsVec*entireEV;
         [Vtemp, maxindex] = max(entireRHS, [], 1);
         V(:,:,:,N_j) = shiftdim(Vtemp, 1);
         Policy(1,:,:,:,N_j) = shiftdim(maxindex, 1);
     elseif vfoptions.lowmemory == 1
         for e_c = 1:N_e
             e_val = e_gridvals_J(e_c, :, N_j);
-            entireEV_e = EV(:,:,:,e_c);
-            if has_d; entireEV_e = repelem(entireEV_e(:,:,:,e_c), N_d, 1, 1); end
             ReturnMatrix_e = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_N_j, e_val, ReturnFnParamsVec_J, 0);
             if ~has_z
                 sz = size(ReturnMatrix_e);
                 if length(sz) == 2; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, 1]); else; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, sz(3:end)]); end
             end
-            entireRHS_e = ReturnMatrix_e + DiscountFactorParamsVec * entireEV_e;
-            [Vtemp, maxindex] = max(entireRHS_e, [], 1);
+            entireRHS = ReturnMatrix_e + DiscountFactorParamsVec*entireEV;
+            [Vtemp, maxindex] = max(entireRHS, [], 1);
             V(:,:,e_c,N_j) = shiftdim(Vtemp, 1);
             Policy(1,:,:,e_c,N_j) = shiftdim(maxindex, 1);
         end
     elseif vfoptions.lowmemory == 2 && has_z
         for z_c = 1:N_z
-            z_val = z_gridvals_J(z_c, :, N_j);
             entireEV_z = EV(:,:,z_c);
-            if has_d; entireEV_z = repelem(entireEV_z, N_d, 1, 1); end
+            z_val = z_gridvals_J(z_c, :, N_j);
             for e_c = 1:N_e
                 e_val = e_gridvals_J(e_c, :, N_j);
                 ReturnMatrix_ze = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec_J, 0);
-                entireRHS_ze = ReturnMatrix_ze + DiscountFactorParamsVec * entireEV_z;
+                entireRHS_ze = ReturnMatrix_ze + DiscountFactorParamsVec*entireEV_z;
                 [Vtemp, maxindex] = max(entireRHS_ze, [], 1);
                 V(:,z_c,e_c,N_j) = shiftdim(Vtemp, 1);
                 Policy(1,:,z_c,e_c,N_j) = shiftdim(maxindex, 1);
@@ -142,8 +138,7 @@ for reverse_j = 1:N_j-1
     end
 
     EV = reshape(EV, [N_a, 1, Nz_eff]);
-    entireEV = EV;
-    if has_d; entireEV = repelem(EV, N_d, 1, 1); end
+    if has_d; entireEV = repelem(EV, N_d, 1, 1); else; entireEV = EV; end
 
     z_gridvals_jj = [];
     if has_z; z_gridvals_jj = z_gridvals_J(:,:,jj); end
@@ -154,7 +149,7 @@ for reverse_j = 1:N_j-1
             sz = size(ReturnMatrix);
             if length(sz) == 2; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, 1]); else; ReturnMatrix = reshape(ReturnMatrix, [sz(1), sz(2), 1, sz(3:end)]); end
         end
-        entireRHS = ReturnMatrix + DiscountFactorParamsVec * entireEV;
+        entireRHS = ReturnMatrix + DiscountFactorParamsVec*entireEV;
         [Vtemp, maxindex] = max(entireRHS, [], 1);
         V(:,:,:,jj) = shiftdim(Vtemp, 1);
         Policy(1,:,:,:,jj) = shiftdim(maxindex, 1);
@@ -166,19 +161,19 @@ for reverse_j = 1:N_j-1
                 sz = size(ReturnMatrix_e);
                 if length(sz) == 2; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, 1]); else; ReturnMatrix_e = reshape(ReturnMatrix_e, [sz(1), sz(2), 1, sz(3:end)]); end
             end
-            entireRHS_e = ReturnMatrix_e + DiscountFactorParamsVec * entireEV;
-            [Vtemp, maxindex] = max(entireRHS_e, [], 1);
+            entireRHS = ReturnMatrix_e + DiscountFactorParamsVec*entireEV;
+            [Vtemp, maxindex] = max(entireRHS, [], 1);
             V(:,:,e_c,jj) = shiftdim(Vtemp, 1);
             Policy(1,:,:,e_c,jj) = shiftdim(maxindex, 1);
         end
     elseif vfoptions.lowmemory == 2 && has_z
         for z_c = 1:N_z
-            z_val = z_gridvals_J(z_c, :, jj);
             entireEV_z = entireEV(:,:,z_c);
+            z_val = z_gridvals_J(z_c, :, jj);
             for e_c = 1:N_e
                 e_val = e_gridvals_J(e_c, :, jj);
                 ReturnMatrix_ze = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec, 0);
-                entireRHS_ze = ReturnMatrix_ze + DiscountFactorParamsVec * entireEV_z;
+                entireRHS_ze = ReturnMatrix_ze + DiscountFactorParamsVec*entireEV_z;
                 [Vtemp, maxindex] = max(entireRHS_ze, [], 1);
                 V(:,z_c,e_c,jj) = shiftdim(Vtemp, 1);
                 Policy(1,:,z_c,e_c,jj) = shiftdim(maxindex, 1);

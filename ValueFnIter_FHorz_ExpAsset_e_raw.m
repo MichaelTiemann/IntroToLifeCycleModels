@@ -83,8 +83,8 @@ else
     % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
         aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
 
         Vlower=reshape(EVpre(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
@@ -136,11 +136,11 @@ else
 
     if vfoptions.lowmemory==0
 
-        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [Nd2_eff, Na1_eff, 1, N_a2, Nz_eff]);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
-        entireRHS=ReturnMatrix+DiscountedEV; % should autofill e dimension
+        entireRHS=ReturnMatrix+repelem(DiscountedEV, Nd1_eff, 1);
 
         %Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -150,14 +150,14 @@ else
 
     elseif vfoptions.lowmemory==1
 
-        DiscountedEV=DiscountFactorParamsVec*repelem(EV,Nd1_eff,Na1_eff,1);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [Nd2_eff, Na1_eff, 1, N_a2, Nz_eff]);
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
 
             ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
-            entireRHS=ReturnMatrix_e+DiscountedEV;
+            entireRHS=ReturnMatrix_e+repelem(DiscountedEV, Nd1_eff, 1);
 
             % Calc the max and its index
             [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -169,13 +169,13 @@ else
         for z_c=1:Nz_eff
             z_val=z_gridvals_J(z_c,:,N_j);
 
-            DiscountedEV_z=DiscountFactorParamsVec*repelem(EV(:,:,z_c),Nd1_eff,Na1_eff);
+            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c), [Nd2_eff, Na1_eff, 1, N_a2]);
 
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
                 ReturnMatrix_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
-                entireRHS=ReturnMatrix_ze+DiscountedEV_z;
+                entireRHS=ReturnMatrix_ze+repelem(DiscountedEV_z, Nd1_eff, 1);
 
                 % Calc the max and its index
                 [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -213,8 +213,8 @@ for reverse_j=1:N_j-1
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
 
     if length(n_a2)==1
-        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
+        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
         aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
 
 

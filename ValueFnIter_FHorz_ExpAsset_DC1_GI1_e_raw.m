@@ -277,18 +277,11 @@ else
 
     if length(n_a2)==1
         a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1,1); % Expands correctly across 3D
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1);
+        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1); % Expands correctly across 3D
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1);
 
         aprimeIndex_full=a1_offsets+Na1_eff*(a2_idx_exp-1);
         aprimeplus1Index_full=a1_offsets+Na1_eff*a2_idx_exp;
-
-        % aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        % aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [Nd2_eff*Na1_eff,N_a2]
-        % aprimeProbs=repmat(a2primeProbs,Na1_eff,1,Nz_eff); % [Nd2_eff*Na1_eff,N_a2,Nz_eff]
-
-        % Vlower=reshape(EV(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
-        % Vupper=reshape(EV(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff]);
 
         z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
 
@@ -311,14 +304,14 @@ else
         n_a2_1=n_a2(1);
         loIdx_1=squeeze(a2primeIndex(1,:,:,:));
         loIdx_2=squeeze(a2primeIndex(2,:,:,:));
-        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1,1);
-        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1,1);
+        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1);
+        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1);
 
         a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
-        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
-        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1,1);
-        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
+        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
 
         z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
 
@@ -353,7 +346,7 @@ else
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1,1,1,1); % autofill e for DiscountedentireEV
+        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1); % autofill e for DiscountedentireEV
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -419,7 +412,7 @@ else
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,Nd1_eff,1,1,1,1);
+            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,Nd1_eff,1);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -488,7 +481,7 @@ else
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,Nd1_eff,1,1,1);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,Nd1_eff,1);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
@@ -577,8 +570,8 @@ for reverse_j=1:N_j-1
 
     if length(n_a2)==1
         a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1,1); % Expands correctly across 3D
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1);
+        a2_idx_exp=repmat(a2primeIndex,Na1_eff,1); % Expands correctly across 3D
+        aprimeProbs=repmat(a2primeProbs,Na1_eff,1);
 
         aprimeIndex_full=a1_offsets+Na1_eff*(a2_idx_exp-1);
         aprimeplus1Index_full=a1_offsets+Na1_eff*a2_idx_exp;
@@ -604,14 +597,14 @@ for reverse_j=1:N_j-1
         n_a2_1=n_a2(1);
         loIdx_1=squeeze(a2primeIndex(1,:,:,:));
         loIdx_2=squeeze(a2primeIndex(2,:,:,:));
-        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1,1);
-        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1,1);
+        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),Na1_eff,1);
+        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),Na1_eff,1);
 
         a1_offsets=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
-        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1,1);
-        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1,1);
-        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1,1);
+        aprime_ll=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_hl=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
+        aprime_lh=a1_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
+        aprime_hh=a1_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
 
         z_offset = shiftdim((0:Nz_eff-1) * N_a, -1);
 
@@ -646,7 +639,7 @@ for reverse_j=1:N_j-1
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1,1,1,1); % autofill e for DiscountedentireEV
+        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1); % autofill e for DiscountedentireEV
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -712,7 +705,7 @@ for reverse_j=1:N_j-1
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,Nd1_eff,1,1,1,1);
+            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,Nd1_eff,1);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -781,7 +774,7 @@ for reverse_j=1:N_j-1
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,Nd1_eff,1,1,1);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,Nd1_eff,1);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);

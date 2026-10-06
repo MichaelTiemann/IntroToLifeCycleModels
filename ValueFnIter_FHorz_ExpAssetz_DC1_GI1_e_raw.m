@@ -255,8 +255,8 @@ else
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetzFnMatrix(aprimeFn, n_d2, n_a2, n_z, d2_gridvals, a2_grid, z_gridvals_N_j, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2,Nz_eff], whereas aprimeProbs is [N_d2,N_a2,Nz_eff]   (Nz_eff here is the current z)
 
-    aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [N_d2*N_a1,N_a2,Nz_eff]
-    aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [N_d2*N_a1,N_a2,Nz_eff]
+    aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1); % [N_d2*N_a1,N_a2,Nz_eff]
+    aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex,Na1_eff,1); % [N_d2*N_a1,N_a2,Nz_eff]
     aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1,Nz_eff); % [N_d2*N_a1,N_a2,Nz_eff]    (z dim already present, no repmat over z; but need to add zprime)
 
     Vlower=reshape(EVpre(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,Nz_eff,Nz_eff]); % (d2*a1prime,a2,z_cur,zprime)
@@ -286,7 +286,7 @@ else
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1,1,1,1); % autofill e for DiscountedentireEV
+        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1); % autofill e for DiscountedentireEV
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -349,7 +349,7 @@ else
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_N_j, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV,Nd1_eff,1,1,1,1);
+            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV,Nd1_eff,1);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -417,7 +417,7 @@ else
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_z,Nd1_eff,1,1,1);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_z,Nd1_eff,1);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
@@ -499,8 +499,8 @@ for reverse_j=1:N_j-1
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetzFnMatrix(aprimeFn, n_d2, n_a2, n_z, d2_gridvals, a2_grid, z_gridvals_jj, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2,Nz_eff], whereas aprimeProbs is [N_d2,N_a2,Nz_eff]   (Nz_eff here is the current z)
 
-    aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1,1); % [N_d2*N_a1,N_a2,Nz_eff]
-    aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex,Na1_eff,1,1); % [N_d2*N_a1,N_a2,Nz_eff]
+    aprimeIndex=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1); % [N_d2*N_a1,N_a2,Nz_eff]
+    aprimeplus1Index=repelem(gpuArray(1:1:Na1_eff)',Nd2_eff,N_a2,Nz_eff)+Na1_eff*repmat(a2primeIndex,Na1_eff,1); % [N_d2*N_a1,N_a2,Nz_eff]
     aprimeProbs=repmat(a2primeProbs,Na1_eff,1,1,Nz_eff); % [N_d2*N_a1,N_a2,Nz_eff]    (z dim already present, no repmat over z; but need to add zprime)
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % integrate out e
@@ -533,7 +533,7 @@ for reverse_j=1:N_j-1
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_jj, e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1,1,1,1); % autofill e for DiscountedentireEV
+        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,Nd1_eff,1); % autofill e for DiscountedentireEV
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -596,7 +596,7 @@ for reverse_j=1:N_j-1
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_jj, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV,Nd1_eff,1,1,1,1);
+            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV,Nd1_eff,1);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -664,7 +664,7 @@ for reverse_j=1:N_j-1
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
 
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_z,Nd1_eff,1,1,1);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_z,Nd1_eff,1);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
