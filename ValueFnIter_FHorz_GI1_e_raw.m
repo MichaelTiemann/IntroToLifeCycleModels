@@ -1,12 +1,12 @@
 function [V,Policy]=ValueFnIter_FHorz_GI1_e_raw(n_d,n_a,n_z,n_e,N_j, d_gridvals, a_grid, z_gridvals_J, e_gridvals_J,pi_z_J, pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-has_d = ~isempty(n_d) && prod(n_d) > 0;
-has_z = ~isempty(n_z) && prod(n_z) > 0;
+has_d=~isempty(n_d) && prod(n_d) > 0;
+has_z=~isempty(n_z) && prod(n_z) > 0;
 
-N_d = max(1, prod(n_d));
-N_a = prod(n_a);
-N_z = max(1, prod(n_z));
-N_e = prod(n_e);
+N_d=max(1, prod(n_d));
+N_a=prod(n_a);
+N_z=max(1, prod(n_z));
+N_e=prod(n_e);
 
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
@@ -52,7 +52,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
 if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
-        ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
+        ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
         % Calc the max and it's index
         [~,maxindex]=max(ReturnMatrix,[],2);
 
@@ -62,19 +62,19 @@ if ~isfield(vfoptions,'V_Jplus1')
         aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j),ReturnFnParamsVec,2);
-        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
+        ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
         [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-        d_ind = rem(maxindexL2-1,N_d)+1;
-        L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
-        isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
-        isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
-        inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-        inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(4,:,:,:,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+        d_ind=rem(maxindexL2-1,N_d)+1;
+        L2offset=ceil(maxindexL2/N_d);
+        linidx_lower=d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
+        linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
+        isInfLower=(ReturnMatrix_ii(linidx_lower) == -Inf);
+        isInfUpper=(ReturnMatrix_ii(linidx_upper) == -Inf);
+        inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+        inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+        Policy(4,:,:,:,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
         V(:,:,:,N_j)=shiftdim(Vtempii,1);
         allind=d_ind+N_d*aind+N_d*N_a*zind+N_d*N_a*N_z*eind; % midpoint is n_d-by-1-by-n_a-by-n_z-by-n_e
@@ -87,7 +87,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
             ReturnMatrix_e=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1);
-            ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
+            ReturnMatrix_e=reshape(ReturnMatrix_e, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
             % Calc the max and it's index
             [~,maxindex]=max(ReturnMatrix_e,[],2);
 
@@ -97,19 +97,19 @@ if ~isfield(vfoptions,'V_Jplus1')
             aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_val,ReturnFnParamsVec,2);
-            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
+            ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
             [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
 
             % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-            d_ind = rem(maxindexL2-1,N_d)+1;
-            L2offset = ceil(maxindexL2/N_d);
-            linidx_lower = d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind;
-            linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind;
-            isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
-            isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
-            inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(4,:,:,e_c,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+            d_ind=rem(maxindexL2-1,N_d)+1;
+            L2offset=ceil(maxindexL2/N_d);
+            linidx_lower=d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind;
+            linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind;
+            isInfLower=(ReturnMatrix_ii(linidx_lower) == -Inf);
+            isInfUpper=(ReturnMatrix_ii(linidx_upper) == -Inf);
+            inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+            inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+            Policy(4,:,:,e_c,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
             V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
             allind=d_ind+N_d*aind+N_d*N_a*zind; % midpoint is n_d-by-1-by-n_a-by-n_z
@@ -125,7 +125,7 @@ if ~isfield(vfoptions,'V_Jplus1')
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
                 ReturnMatrix_ze=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec,1);
-                ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
+                ReturnMatrix_ze=reshape(ReturnMatrix_ze, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
                 % Calc the max and it's index
                 [~,maxindex]=max(ReturnMatrix_ze,[],2);
 
@@ -135,19 +135,19 @@ if ~isfield(vfoptions,'V_Jplus1')
                 aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
                 % aprime possibilities are n_d-by-n2long-by-n_a
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,special_n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_val,e_val,ReturnFnParamsVec,2);
-                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
+                ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
                 [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
 
                 % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-                d_ind = rem(maxindexL2-1,N_d)+1;
-                L2offset = ceil(maxindexL2/N_d);
-                linidx_lower = d_ind + N_d*n2long*aind;
-                linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind;
-                isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
-                isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
-                inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-                inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-                Policy(4,:,z_c,e_c,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+                d_ind=rem(maxindexL2-1,N_d)+1;
+                L2offset=ceil(maxindexL2/N_d);
+                linidx_lower=d_ind + N_d*n2long*aind;
+                linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind;
+                isInfLower=(ReturnMatrix_ii(linidx_lower) == -Inf);
+                isInfUpper=(ReturnMatrix_ii(linidx_upper) == -Inf);
+                inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+                inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+                Policy(4,:,z_c,e_c,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
                 V(:,z_c,e_c,N_j)=shiftdim(Vtempii,1);
                 allind=d_ind+N_d*aind; % midpoint is n_d-by-1-by-n_a
@@ -175,7 +175,7 @@ else
 
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
-        ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
+        ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
         % (d,aprime,a,z,e)
 
         entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -189,21 +189,21 @@ else
         aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_gridvals_J(:,:,N_j),ReturnFnParamsVec,2);
-        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
+        ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
         aprimez=aprimeindexes+n2aprime*zBind;
         entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z,N_e]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-        d_ind = rem(maxindexL2-1,N_d)+1;
-        L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
-        isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
-        isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
-        inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-        inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(4,:,:,:,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+        d_ind=rem(maxindexL2-1,N_d)+1;
+        L2offset=ceil(maxindexL2/N_d);
+        linidx_lower=d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
+        linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
+        isInfLower=(ReturnMatrix_ii(linidx_lower) == -Inf);
+        isInfUpper=(ReturnMatrix_ii(linidx_upper) == -Inf);
+        inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+        inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+        Policy(4,:,:,:,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
         V(:,:,:,N_j)=shiftdim(Vtempii,1);
         allind=d_ind+N_d*aind+N_d*N_a*zind+N_d*N_a*N_z*eind; % midpoint is n_d-by-1-by-n_a-by-n_z-by-n_e
@@ -216,7 +216,7 @@ else
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
             ReturnMatrix_e=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1);
-            ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
+            ReturnMatrix_e=reshape(ReturnMatrix_e, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
             % (d,aprime,a,z)
 
             entireRHS_e=ReturnMatrix_e+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -230,21 +230,21 @@ else
             aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
             ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,N_j),e_val,ReturnFnParamsVec,2);
-            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
+            ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
             aprimez=aprimeindexes+n2aprime*zBind;
             entireRHS_ii_e=ReturnMatrix_ii_e+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii_e,[],1);
 
             % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-            d_ind = rem(maxindexL2-1,N_d)+1;
-            L2offset = ceil(maxindexL2/N_d);
-            linidx_lower = d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind;
-            linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind;
-            isInfLower = (ReturnMatrix_ii_e(linidx_lower) == -Inf);
-            isInfUpper = (ReturnMatrix_ii_e(linidx_upper) == -Inf);
-            inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(4,:,:,e_c,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+            d_ind=rem(maxindexL2-1,N_d)+1;
+            L2offset=ceil(maxindexL2/N_d);
+            linidx_lower=d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind;
+            linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind;
+            isInfLower=(ReturnMatrix_ii_e(linidx_lower) == -Inf);
+            isInfUpper=(ReturnMatrix_ii_e(linidx_upper) == -Inf);
+            inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+            inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+            Policy(4,:,:,e_c,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
             V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
             allind=d_ind+N_d*aind+N_d*N_a*zind; % midpoint is n_d-by-1-by-n_a-by-n_z
@@ -263,7 +263,7 @@ else
                 e_val=e_gridvals_J(e_c,:,N_j);
 
                 ReturnMatrix_ze=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec,1);
-                ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
+                ReturnMatrix_ze=reshape(ReturnMatrix_ze, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
 
                 entireRHS_ze=ReturnMatrix_ze+DiscountFactorParamsVec*shiftdim(EV_z,-1);
 
@@ -276,20 +276,20 @@ else
                 aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
                 % aprime possibilities are n_d-by-n2long-by-n_a
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,special_n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_val,e_val,ReturnFnParamsVec,2);
-                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
+                ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
                 entireRHS_ii_ze=ReturnMatrix_ii_ze+DiscountFactorParamsVec*reshape(EVinterp_z(aprimeindexes(:)),[N_d*n2long,N_a]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii_ze,[],1);
 
                 % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-                d_ind = rem(maxindexL2-1,N_d)+1;
-                L2offset = ceil(maxindexL2/N_d);
-                linidx_lower = d_ind + N_d*n2long*aind;
-                linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind;
-                isInfLower = (ReturnMatrix_ii_ze(linidx_lower) == -Inf);
-                isInfUpper = (ReturnMatrix_ii_ze(linidx_upper) == -Inf);
-                inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-                inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-                Policy(4,:,z_c,e_c,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+                d_ind=rem(maxindexL2-1,N_d)+1;
+                L2offset=ceil(maxindexL2/N_d);
+                linidx_lower=d_ind + N_d*n2long*aind;
+                linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind;
+                isInfLower=(ReturnMatrix_ii_ze(linidx_lower) == -Inf);
+                isInfUpper=(ReturnMatrix_ii_ze(linidx_upper) == -Inf);
+                inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+                inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+                Policy(4,:,z_c,e_c,N_j)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
                 V(:,z_c,e_c,N_j)=shiftdim(Vtempii,1);
                 allind=d_ind+N_d*aind; % midpoint is n_d-by-1-by-n_a
@@ -328,7 +328,7 @@ for reverse_j=1:N_j-1
 
     if vfoptions.lowmemory==0
         ReturnMatrix=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1);
-        ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
+        ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, N_e]); % Lock the missing 'd' dimension
         % (d,aprime,a,z,e)
 
         entireRHS=ReturnMatrix+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -342,21 +342,21 @@ for reverse_j=1:N_j-1
         aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,jj),e_gridvals_J(:,:,jj),ReturnFnParamsVec,2);
-        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
+        ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, N_e]); % Flatten choice dimensions
         aprimez=aprimeindexes+n2aprime*zBind;
         entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z,N_e]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-        d_ind = rem(maxindexL2-1,N_d)+1;
-        L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
-        isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
-        isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
-        inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-        inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(4,:,:,:,jj) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+        d_ind=rem(maxindexL2-1,N_d)+1;
+        L2offset=ceil(maxindexL2/N_d);
+        linidx_lower=d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
+        linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind + N_d*n2long*N_a*N_z*eind;
+        isInfLower=(ReturnMatrix_ii(linidx_lower) == -Inf);
+        isInfUpper=(ReturnMatrix_ii(linidx_upper) == -Inf);
+        inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+        inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+        Policy(4,:,:,:,jj)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
         V(:,:,:,jj)=shiftdim(Vtempii,1);
         allind=d_ind+N_d*aind+N_d*N_a*zind+N_d*N_a*N_z*eind; % midpoint is n_d-by-1-by-n_a-by-n_z-by-n_e
@@ -369,7 +369,7 @@ for reverse_j=1:N_j-1
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
             ReturnMatrix_e=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, n_z, special_n_e, d_gridvals, a_grid, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1);
-            ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
+            ReturnMatrix_e=reshape(ReturnMatrix_e, [N_d, N_a, N_a, N_z, 1]); % Lock the missing 'd' dimension
             % (d,aprime,a,z)
 
             entireRHS_e=ReturnMatrix_e+DiscountFactorParamsVec*shiftdim(EV,-1);
@@ -383,21 +383,21 @@ for reverse_j=1:N_j-1
             aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a-by-n_z
             ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_gridvals_J(:,:,jj),e_val,ReturnFnParamsVec,2);
-            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
+            ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z, 1]); % Flatten choice dimensions
             aprimez=aprimeindexes+n2aprime*zBind;
             entireRHS_ii_e=ReturnMatrix_ii_e+DiscountFactorParamsVec*reshape(EVinterp(aprimez(:)),[N_d*n2long,N_a,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii_e,[],1);
 
             % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-            d_ind = rem(maxindexL2-1,N_d)+1;
-            L2offset = ceil(maxindexL2/N_d);
-            linidx_lower = d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind;
-            linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind;
-            isInfLower = (ReturnMatrix_ii_e(linidx_lower) == -Inf);
-            isInfUpper = (ReturnMatrix_ii_e(linidx_upper) == -Inf);
-            inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(4,:,:,e_c,jj) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+            d_ind=rem(maxindexL2-1,N_d)+1;
+            L2offset=ceil(maxindexL2/N_d);
+            linidx_lower=d_ind + N_d*n2long*aind + N_d*n2long*N_a*zind;
+            linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zind;
+            isInfLower=(ReturnMatrix_ii_e(linidx_lower) == -Inf);
+            isInfUpper=(ReturnMatrix_ii_e(linidx_upper) == -Inf);
+            inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+            inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+            Policy(4,:,:,e_c,jj)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
             V(:,:,e_c,jj)=shiftdim(Vtempii,1);
             allind=d_ind+N_d*aind+N_d*N_a*zind; % midpoint is n_d-by-1-by-n_a-by-n_z
@@ -416,7 +416,7 @@ for reverse_j=1:N_j-1
                 e_val=e_gridvals_J(e_c,:,jj);
 
                 ReturnMatrix_ze=CreateReturnFnMatrix_Disc_e(ReturnFn, n_d, n_a, special_n_z, special_n_e, d_gridvals, a_grid, z_val, e_val, ReturnFnParamsVec,1);
-                ReturnMatrix = reshape(ReturnMatrix, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
+                ReturnMatrix_ze=reshape(ReturnMatrix_ze, [N_d, N_a, N_a, 1, 1]); % Lock the missing 'd' dimension
 
                 entireRHS_ze=ReturnMatrix_ze+DiscountFactorParamsVec*shiftdim(EV_z,-1);
 
@@ -429,20 +429,20 @@ for reverse_j=1:N_j-1
                 aprimeindexes=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
                 % aprime possibilities are n_d-by-n2long-by-n_a
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn,n_d,special_n_z,special_n_e,d_gridvals,reshape(aprime_grid(aprimeindexes), size(aprimeindexes)),a_grid,z_val,e_val,ReturnFnParamsVec,2);
-                ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
+                ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, 1, 1]); % Flatten choice dimensions
                 entireRHS_ii_ze=ReturnMatrix_ii_ze+DiscountFactorParamsVec*reshape(EVinterp_z(aprimeindexes(:)),[N_d*n2long,N_a]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii_ze,[],1);
 
                 % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
-                d_ind = rem(maxindexL2-1,N_d)+1;
-                L2offset = ceil(maxindexL2/N_d);
-                linidx_lower = d_ind + N_d*n2long*aind;
-                linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind;
-                isInfLower = (ReturnMatrix_ii_ze(linidx_lower) == -Inf);
-                isInfUpper = (ReturnMatrix_ii_ze(linidx_upper) == -Inf);
-                inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-                inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-                Policy(4,:,z_c,e_c,jj) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
+                d_ind=rem(maxindexL2-1,N_d)+1;
+                L2offset=ceil(maxindexL2/N_d);
+                linidx_lower=d_ind + N_d*n2long*aind;
+                linidx_upper=d_ind + N_d*(n2long-1) + N_d*n2long*aind;
+                isInfLower=(ReturnMatrix_ii_ze(linidx_lower) == -Inf);
+                isInfUpper=(ReturnMatrix_ii_ze(linidx_upper) == -Inf);
+                inLowerStrict=(L2offset >= 2)         & (L2offset <= n2short+1);
+                inUpperStrict=(L2offset >= n2short+3) & (L2offset <= n2long-1);
+                Policy(4,:,z_c,e_c,jj)=2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
                 V(:,z_c,e_c,jj)=shiftdim(Vtempii,1);
                 allind=d_ind+N_d*aind; % midpoint is n_d-by-1-by-n_a
@@ -467,16 +467,16 @@ Policy(3,:,:,:,:)=Policy(3,:,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid 
 % Policy=Policy(1,:,:,:,:)+N_d*(Policy(2,:,:,:,:)-1)+N_d*N_a*(Policy(3,:,:,:,:)-1)+N_d*N_a*(n2short+2)*(Policy(4,:,:,:,:)-1);
 
 % --- SHRINK-WRAP OUTPUTS ---
-sz_V = N_a;
-if has_z; sz_V = [sz_V, N_z]; end
-sz_V = [sz_V, N_e, N_j];
+sz_V=N_a;
+if has_z; sz_V=[sz_V, N_z]; end
+sz_V=[sz_V, N_e, N_j];
 
-V = reshape(V, sz_V);
+V=reshape(V, sz_V);
 
 if has_d
-    Policy = reshape(Policy, [4, sz_V]);
+    Policy=reshape(Policy, [4, sz_V]);
 else
-    Policy = reshape(Policy(2:4, :), [3, sz_V]); % Strip dummy d row
+    Policy=reshape(Policy(2:4, :), [3, sz_V]); % Strip dummy d row
 end
 
 
