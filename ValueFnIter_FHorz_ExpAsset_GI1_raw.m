@@ -126,22 +126,20 @@ else
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    EV=reshape(vfoptions.V_Jplus1,[N_a,N_z]); % First, switch V_Jplus1 into Kron form
+    EVpre=reshape(vfoptions.V_Jplus1,[N_a,N_z]); % First, switch V_Jplus1 into Kron form
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
+    z_offset = N_a * shiftdim(0:N_z-1, -1);
     if length(n_a2)==1
         aprimeIndex=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
         aprimeplus1Index=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
         % Drop the trailing N_z from repmat, a2primeProbs already has it!
         aprimeProbs=repmat(a2primeProbs,N_a1,1,1); % [N_d2*N_a1,N_a2,1]
-
-        z_offset = N_a * shiftdim(0:N_z-1, -1);
-
-        Vlower=reshape(EV(aprimeIndex+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        Vupper=reshape(EV(aprimeplus1Index+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        Vlower=reshape(EVpre(aprimeIndex+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(EVpre(aprimeplus1Index+z_offset),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -166,13 +164,10 @@ else
         aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
         aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
         aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-
-        z_offset = N_a * shiftdim(0:N_z-1, -1);
-
-        V_ll=reshape(EV(aprime_ll+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        V_hl=reshape(EV(aprime_hl+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        V_lh=reshape(EV(aprime_lh+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
-        V_hh=reshape(EV(aprime_hh+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        V_ll=reshape(EVpre(aprime_ll+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(EVpre(aprime_hl+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(EVpre(aprime_lh+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(EVpre(aprime_hh+z_offset),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -297,15 +292,15 @@ for reverse_j=1:N_j-1
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,jj)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
-    EVpre = EV; % Cache the 2D slice
+    EVpre=V(:,:,jj+1); % Extract  the 2D slice for this age
     z_offset = N_a * shiftdim(0:N_z-1, -1);
     if length(n_a2)==1
         aprimeIndex=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
         aprimeplus1Index=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
         % Drop the trailing N_z from repmat, a2primeProbs already has it!
         aprimeProbs=repmat(a2primeProbs,N_a1,1,1); % [N_d2*N_a1,N_a2,1]
-        Vlower=reshape(V(aprimeIndex+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        Vupper=reshape(V(aprimeplus1Index+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        Vlower=reshape(EVpre(aprimeIndex+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(EVpre(aprimeplus1Index+z_offset),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -330,10 +325,10 @@ for reverse_j=1:N_j-1
         aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
         aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
         aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-        V_ll=reshape(V(aprime_ll+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        V_hl=reshape(V(aprime_hl+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        V_lh=reshape(V(aprime_lh+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
-        V_hh=reshape(V(aprime_hh+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        V_ll=reshape(EVpre(aprime_ll+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(EVpre(aprime_hl+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(EVpre(aprime_lh+z_offset),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(EVpre(aprime_hh+z_offset),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
