@@ -217,14 +217,10 @@ Policy(4,:,:,:,:)=Policy(4,:,:,:,:)-(n2short+1)*(~adjust); % from 1 (lower grid 
 
 % Policy=Policy(1,:,:,:,:)+N_d*(Policy(2,:,:,:,:)-1)+N_d*N_a1*(Policy(3,:,:,:,:)-1)+N_d*N_a1*N_a2*(Policy(4,:,:,:,:)-1)+N_d*N_a1*N_a2*(n2short+2)*(Policy(5,:,:,:,:)-1);
 
-
-
-
-
-
-
-
-
+if ~has_d
+    % Shrink out the dummy 'd' index (Row 1)
+    Policy = Policy(2:end, :, :, :);
+end
 
 
 end
