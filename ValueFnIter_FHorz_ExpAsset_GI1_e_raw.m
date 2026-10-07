@@ -179,11 +179,11 @@ else
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
+    z_offset = N_a * shiftdim(0:N_z-1, -1);
     if length(n_a2)==1
         aprimeIndex=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1,1); % [N_d2*N_a1,N_a2]
         aprimeplus1Index=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1,1); % [N_d2*N_a1,N_a2]
         aprimeProbs=repmat(a2primeProbs,N_a1,1,N_z); % [N_d2*N_a1,N_a2,N_z]
-
         Vlower=reshape(EV(aprimeIndex+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
         Vupper=reshape(EV(aprimeplus1Index+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
@@ -376,14 +376,13 @@ for reverse_j=1:N_j-1
 
     EV=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
 
+    EVpre = EV; % Cache the 3D slice
+    z_offset = N_a * shiftdim(0:N_z-1, -1);
     if length(n_a2)==1
         aprimeIndex=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
         aprimeplus1Index=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
         % Drop the trailing N_z from repmat, a2primeProbs already has it!
         aprimeProbs=repmat(a2primeProbs,N_a1,1,1); % [N_d2*N_a1,N_a2,1]
-
-        z_offset = N_a * shiftdim(0:N_z-1, -1);
-
         Vlower=reshape(EV(aprimeIndex+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
         Vupper=reshape(EV(aprimeplus1Index+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)

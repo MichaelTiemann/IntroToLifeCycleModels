@@ -135,10 +135,13 @@ else
     if length(n_a2)==1
         aprimeIndex=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
         aprimeplus1Index=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
-        aprimeProbs=repmat(a2primeProbs,N_a1,1,N_z); % [N_d2*N_a1,N_a2,N_z]
+        % Drop the trailing N_z from repmat, a2primeProbs already has it!
+        aprimeProbs=repmat(a2primeProbs,N_a1,1,1); % [N_d2*N_a1,N_a2,1]
 
-        Vlower=reshape(EV(aprimeIndex(:),:),[N_d2*N_a1,N_a2,N_z]);
-        Vupper=reshape(EV(aprimeplus1Index(:),:),[N_d2*N_a1,N_a2,N_z]);
+        z_offset = N_a * shiftdim(0:N_z-1, -1);
+
+        Vlower=reshape(EV(aprimeIndex+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(EV(aprimeplus1Index+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -155,17 +158,21 @@ else
         n_a2_1=n_a2(1);
         loIdx_1=reshape(a2primeIndex(1,:,:),[N_d2,N_a2]);
         loIdx_2=reshape(a2primeIndex(2,:,:),[N_d2,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[N_d2,N_a2]),N_a1,1,N_z);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[N_d2,N_a2]),N_a1,1,N_z);
+        % Drop the trailing N_z from repmat, a2primeProbs already has it!
+        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[N_d2,N_a2]),N_a1,1,1);
+        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[N_d2,N_a2]),N_a1,1,1);
         a1prime_offsets=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
         aprime_ll=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
         aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
         aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
         aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-        V_ll=reshape(EV(aprime_ll(:),:),[N_d2*N_a1,N_a2,N_z]);
-        V_hl=reshape(EV(aprime_hl(:),:),[N_d2*N_a1,N_a2,N_z]);
-        V_lh=reshape(EV(aprime_lh(:),:),[N_d2*N_a1,N_a2,N_z]);
-        V_hh=reshape(EV(aprime_hh(:),:),[N_d2*N_a1,N_a2,N_z]);
+
+        z_offset = N_a * shiftdim(0:N_z-1, -1);
+
+        V_ll=reshape(EV(aprime_ll+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(EV(aprime_hl+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(EV(aprime_lh+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(EV(aprime_hh+z_offset,:),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -291,13 +298,12 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre = EV; % Cache the 2D slice
+    z_offset = N_a * shiftdim(0:N_z-1, -1);
     if length(n_a2)==1
         aprimeIndex=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
         aprimeplus1Index=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
         % Drop the trailing N_z from repmat, a2primeProbs already has it!
         aprimeProbs=repmat(a2primeProbs,N_a1,1,1); % [N_d2*N_a1,N_a2,1]
-        z_offset = N_a * shiftdim(0:N_z-1, -1);
-
         Vlower=reshape(V(aprimeIndex+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
         Vupper=reshape(V(aprimeplus1Index+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
@@ -324,9 +330,6 @@ for reverse_j=1:N_j-1
         aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
         aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
         aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-
-        z_offset = N_a * shiftdim(0:N_z-1, -1);
-
         V_ll=reshape(V(aprime_ll+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
         V_hl=reshape(V(aprime_hl+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
         V_lh=reshape(V(aprime_lh+z_offset,:,jj+1),[N_d2*N_a1,N_a2,N_z]);
