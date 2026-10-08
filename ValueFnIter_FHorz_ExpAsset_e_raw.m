@@ -82,7 +82,7 @@ else
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
     EV=EV.*shiftdim(pi_z_J(:,:,N_j)',-2);
@@ -167,7 +167,7 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
     EV=EV.*shiftdim(pi_z_J(:,:,jj)',-2);

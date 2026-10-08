@@ -192,7 +192,7 @@ else
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
     EV=EV.*shiftdim(pi_z_J(:,:,N_j)',-2);
@@ -259,7 +259,7 @@ else
             a1primeindexesfine=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2-by-n_z
             ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
-            da1primea2z=(1:1:N_d)'+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind+N_d*N_a1prime*N_a2*zind;
+            da1primea2z = d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind + N_d2*N_a1prime*N_a2*zind;
             entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z(:)),[N_d*n2long,N_a1*N_a2,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
             V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
@@ -342,7 +342,7 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
     EV=EV.*shiftdim(pi_z_J(:,:,jj)',-2);
@@ -371,7 +371,7 @@ for reverse_j=1:N_j-1
         a1primeindexesfine=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
         % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2-by-n_z-by-n_e
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z,n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z,N_e]; Level=2, Refine=0
-        da1primea2z=(1:1:N_d)'+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind+N_d*N_a1prime*N_a2*zind;
+        da1primea2z = d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind + N_d2*N_a1prime*N_a2*zind;
         entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z(:)),[N_d*n2long,N_a1*N_a2,N_z,N_e]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,:,jj)=shiftdim(Vtempii,1);
@@ -413,7 +413,7 @@ for reverse_j=1:N_j-1
             a1primeindexesfine=(midpoint+(midpoint-1)*n2short)+(-n2short-1:1:1+n2short); % aprime points either side of midpoint
             % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2-by-n_z
             ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
-            da1primea2z=(1:1:N_d)'+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind+N_d*N_a1prime*N_a2*zind;
+            da1primea2z = d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind + N_d2*N_a1prime*N_a2*zind;
             entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z(:)),[N_d*n2long,N_a1*N_a2,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
             V(:,:,e_c,jj)=shiftdim(Vtempii,1);

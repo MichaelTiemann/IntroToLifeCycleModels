@@ -154,7 +154,7 @@ else
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=reshape(vfoptions.V_Jplus1,[N_a,N_z]); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
 
     % Already applied the probabilities from interpolating onto grid
 
@@ -293,7 +293,7 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=V(:,:,jj+1); % Extract  the 2D slice for this age
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
 
     % Already applied the probabilities from interpolating onto grid
 

@@ -1,4 +1,4 @@
-function EV = InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs)
+function EV = InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs)
 % Interpolates the expected value function for experience assets based on 
 % optimal continuous policy choices. Handles 1 or 2 experience dimensions.
 

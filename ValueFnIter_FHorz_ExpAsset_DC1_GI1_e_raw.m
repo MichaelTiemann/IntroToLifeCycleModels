@@ -278,7 +278,7 @@ else
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
     EV=EV.*shiftdim(pi_z_J(:,:,N_j)',-2);
@@ -288,15 +288,14 @@ else
 
     if vfoptions.lowmemory==0
 
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z,N_e]);
-        % Interpolate EV over aprime_grid
-        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
-        % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
-
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
-
-        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,N_d1,1); % autofill e for DiscountedentireEV
+        ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+        % Interpolate EV over aprime_grid
+        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+        entireRHS_ii = ReturnMatrix + shiftdim(DiscountedEV, -1);
+        entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -356,13 +355,15 @@ else
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
-            DiscountedEV_e = DiscountFactorParamsVec * reshape(EV(:,:,:,e_c), [N_d2, N_a1, 1, N_a2, N_z]);
-            DiscountedEVinterp_e = permute(interp1(a1_gridvals, permute(DiscountedEV_e, [2,1,3,4,5]), a1prime_grid), [2,1,3,4,5]);
 
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
-
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,N_d1,1);
+            ReturnMatrix_ii_e=reshape(ReturnMatrix_ii_e, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
+            DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+            % Interpolate EV over aprime_grid
+            DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+            entireRHS_ii_e = ReturnMatrix_ii_e + shiftdim(DiscountedEV, -1);
+            entireRHS_ii_e = reshape(entireRHS_ii_e, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -430,8 +431,12 @@ else
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
-
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,N_d1,1);
+                ReturnMatrix_ii_ze=reshape(ReturnMatrix_ii_ze, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, 1, 1]);
+                DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+                % Interpolate EV over aprime_grid
+                DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+                entireRHS_ii_ze = ReturnMatrix_ii_ze + shiftdim(DiscountedEV, -1);
+                entireRHS_ii_ze = reshape(entireRHS_ii_ze, [N_d, N_a1, vfoptions.level1n, N_a2, 1, 1]);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
@@ -509,7 +514,7 @@ for reverse_j=1:N_j-1
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
-    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
+    EV=InterpolateExpAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
     EV=EV.*shiftdim(pi_z_J(:,:,jj)',-2);
@@ -519,15 +524,14 @@ for reverse_j=1:N_j-1
 
     if vfoptions.lowmemory==0
 
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z,N_e]);
-        % Interpolate EV over aprime_grid
-        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]);   % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
-        % d1-dim is implicit singleton in DiscountedEV/DiscountedEVinterp, broadcasts at use sites
-
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0); % Level=1, Refine=0
-
-        entireRHS_ii=ReturnMatrix_ii+repelem(DiscountedEV,N_d1,1); % autofill e for DiscountedentireEV
+        ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+        % Interpolate EV over aprime_grid
+        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+        entireRHS_ii = ReturnMatrix_ii + shiftdim(DiscountedEV, -1);
+        entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -587,13 +591,15 @@ for reverse_j=1:N_j-1
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
-            DiscountedEV_e = DiscountFactorParamsVec * reshape(EV(:,:,:,e_c), [N_d2, N_a1, 1, N_a2, N_z]);
-            DiscountedEVinterp_e = permute(interp1(a1_gridvals, permute(DiscountedEV_e, [2,1,3,4,5]), a1prime_grid), [2,1,3,4,5]);
 
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
-
-            entireRHS_ii_e=ReturnMatrix_ii_e+repelem(DiscountedEV_e,N_d1,1);
+            ReturnMatrix_ii_e=reshape(ReturnMatrix_ii_e, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
+            DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+            % Interpolate EV over aprime_grid
+            DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+            entireRHS_ii_e = ReturnMatrix_ii_e + shiftdim(DiscountedEV, -1);
+            entireRHS_ii_e = reshape(entireRHS_ii_e, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_e,[],2);
@@ -656,13 +662,15 @@ for reverse_j=1:N_j-1
             if N_z>0; z_val = z_gridvals_J(z_c, :, jj); else; z_val = []; end
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);
-                DiscountedEV_ze = DiscountFactorParamsVec * reshape(EV(:,:,z_c,e_c), [N_d2, N_a1, 1, N_a2]);
-                DiscountedEVinterp_ze = permute(interp1(a1_gridvals, permute(DiscountedEV_ze, [2,1,3,4]), a1prime_grid), [2,1,3,4]);
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
-
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+repelem(DiscountedEV_ze,N_d1,1);
+                ReturnMatrix_ii_ze=reshape(ReturnMatrix_ii_ze, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, 1, 1]);
+                DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+                % Interpolate EV over aprime_grid
+                DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+                entireRHS_ii_e = ReturnMatrix_ii_ze + shiftdim(DiscountedEV, -1);
+                entireRHS_ii_e = reshape(entireRHS_ii_e, [N_d, N_a1, vfoptions.level1n, N_a2, 1, 1]);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
