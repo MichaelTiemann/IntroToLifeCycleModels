@@ -166,9 +166,9 @@ else
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % autoexpand d into 1st-dim
 
     if vfoptions.lowmemory==0
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % autoexpand d into 1st-dim
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
 
@@ -208,6 +208,7 @@ else
         end
 
     elseif vfoptions.lowmemory==1
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % autoexpand d into 1st-dim
         for e_c=1:N_e
             e_vals=e_gridvals_J(e_c,:,N_j);
             % n-Monotonicity
@@ -252,7 +253,7 @@ else
     elseif vfoptions.lowmemory==2
         for z_c=1:N_z
             z_vals=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z=DiscountedEV(:,:,:,:,:,z_c);
+            DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_a1, N_a2, 1, 1]);
             for e_c=1:N_e
                 e_vals=e_gridvals_J(e_c,:,N_j);
                 % n-Monotonicity
@@ -318,9 +319,8 @@ for reverse_j=1:N_j-1
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % autoexpand d into 1st-dim
-
     if vfoptions.lowmemory==0
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % autoexpand d into 1st-dim
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
 
@@ -360,6 +360,7 @@ for reverse_j=1:N_j-1
         end
 
     elseif vfoptions.lowmemory==1
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % autoexpand d into 1st-dim
         for e_c=1:N_e
             e_vals=e_gridvals_J(e_c,:,jj);
             % n-Monotonicity
@@ -404,7 +405,7 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==2
         for z_c=1:N_z
             z_vals=z_gridvals_J(z_c,:,jj);
-            DiscountedEV_z=DiscountedEV(:,:,:,:,:,z_c);
+            DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_a1, N_a2, 1, 1]);
             for e_c=1:N_e
                 e_vals=e_gridvals_J(e_c,:,jj);
                 % n-Monotonicity

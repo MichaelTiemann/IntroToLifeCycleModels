@@ -75,8 +75,10 @@ if ~isfield(vfoptions,'V_Jplus1')
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
+            z_vals=z_gridvals_J(z_c,:,N_j);
+
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(z_c,:,N_j), ReturnFnParamsVec,1,0);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_vals, ReturnFnParamsVec,1,0);
 
             % First, we want a1prime conditional on (d,1,a2prime,a,z)
             [~,maxindex1]=max(ReturnMatrix_ii,[],2);
@@ -120,9 +122,10 @@ else
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
 
     if vfoptions.lowmemory==0
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
+
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
 
@@ -163,10 +166,11 @@ else
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
-            DiscountedEV_z=DiscountedEV(:,:,:,:,:,z_c);
+            z_vals=z_gridvals_J(z_c,:,N_j);
+            DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_a1, N_a2, 1, 1]);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(z_c,:,N_j), ReturnFnParamsVec,1,0);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_vals, ReturnFnParamsVec,1,0);
 
             entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z;
 
@@ -225,9 +229,8 @@ for reverse_j=1:N_j-1
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving a singular second dimension
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
-
     if vfoptions.lowmemory==0
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[1,N_a1,N_a2,1,1,N_z]); % will autoexand d in 1st-dim
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
 
@@ -268,10 +271,11 @@ for reverse_j=1:N_j-1
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
-            DiscountedEV_z=DiscountedEV(:,:,:,:,:,z_c);
+            z_vals=z_gridvals_J(z_c,:,N_j);
+            DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_a1, N_a2, 1, 1]);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_gridvals_J(z_c,:,jj), ReturnFnParamsVec,1,0);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_vals, ReturnFnParamsVec,1,0);
 
             entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z;
 
