@@ -5,6 +5,7 @@ N_d2_raw=prod(n_d2);
 has_d1=(N_d1_raw > 0);
 N_d1=max(N_d1_raw, 1);
 N_d2=max(N_d2_raw, 1);
+N_d=N_d1*N_d2;
 
 if ~has_d1
     d_gridvals = d2_gridvals;
@@ -78,7 +79,12 @@ else
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if vfoptions.experienceassete | vfoptions.experienceassetze
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j),n_e,e_gridvals_J(:,:,N_j));
+    else
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2);
+    end
+    % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
@@ -163,7 +169,12 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,jj)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if vfoptions.experienceassete | vfoptions.experienceassetze
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,jj),n_e,e_gridvals_J(:,:,jj));
+    else
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2);
+    end
+    % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form

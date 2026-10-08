@@ -210,7 +210,12 @@ else
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if vfoptions.experienceassete | vfoptions.experienceassetze
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j),n_e,e_gridvals_J(:,:,N_j));
+    else
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2);
+    end
+    % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
@@ -228,8 +233,7 @@ else
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
         ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
         DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
-        % Interpolate EV over aprime_grid
-        DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+
         entireRHS_ii = ReturnMatrix_ii + shiftdim(DiscountedEV, -1);
         entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
 
@@ -289,8 +293,7 @@ else
             ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
             ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
             DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
-            % Interpolate EV over aprime_grid
-            DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+
             entireRHS_ii = ReturnMatrix_ii + shiftdim(DiscountedEV, -1);
             entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
 
@@ -345,8 +348,7 @@ else
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
             DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,:,:,z_c),[N_d2,N_a1,1,N_a2,1]);
-            % Interpolate EV over aprime_grid
-            DiscountedEVinterp_z=permute(interp1(a1_gridvals,permute(DiscountedEV_z,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
+
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
 
@@ -421,7 +423,13 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,jj)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    if vfoptions.experienceassete | vfoptions.experienceassetze
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,jj),n_e,e_gridvals_J(:,:,jj));
+    else
+        [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2);
+    end
+    % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
@@ -551,8 +559,6 @@ for reverse_j=1:N_j-1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
             DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,:,:,z_c),[N_d2,N_a1,1,N_a2,1]);
-            % Interpolate EV over aprime_grid
-            DiscountedEVinterp_z=permute(interp1(a1_gridvals,permute(DiscountedEV_z,[2,1,3,4,5,6]),a1prime_grid),[2,1,3,4,5,6]); % [N_d2,N_a1prime,1,N_a2,N_z,N_e]
 
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);

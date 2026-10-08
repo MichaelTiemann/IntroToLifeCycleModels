@@ -10,6 +10,11 @@ if length(n_a2)==1
 
     aprimeProbs=repmat(a2primeProbs,N_a1,1);
 
+    if size(aprimeProbs, 3) == 1 && N_z > 1
+        % Tile aprimeProbs to match the N_z dimension if it doesn't depend on z
+        aprimeProbs = repmat(aprimeProbs, 1, 1, N_z);
+    end
+
     Vlower=reshape(EVpre(aprimeIndex+z_offset),[N_d2*N_a1,N_a2,N_z]);
     Vupper=reshape(EVpre(aprimeplus1Index+z_offset),[N_d2*N_a1,N_a2,N_z]);
 
@@ -22,11 +27,21 @@ if length(n_a2)==1
 else
     n_a2_1=n_a2(1);
 
-    loIdx_1=reshape(a2primeIndex(1,:,:,:),[N_d2,N_a2,N_z]);
-    loIdx_2=reshape(a2primeIndex(2,:,:,:),[N_d2,N_a2,N_z]);
+    % Safely extract slices using shiftdim, avoiding strict reshape crashes if z is absent
+    loIdx_1 = shiftdim(a2primeIndex(1,:,:,:), 1);
+    loIdx_2 = shiftdim(a2primeIndex(2,:,:,:), 1);
 
-    prob_1_exp=repmat(reshape(a2primeProbs(1,:,:,:),[N_d2,N_a2,N_z]),N_a1,1);
-    prob_2_exp=repmat(reshape(a2primeProbs(2,:,:,:),[N_d2,N_a2,N_z]),N_a1,1);
+    prob_1 = shiftdim(a2primeProbs(1,:,:,:), 1);
+    prob_2 = shiftdim(a2primeProbs(2,:,:,:), 1);
+
+    prob_1_exp=repmat(prob_1,N_a1,1);
+    prob_2_exp=repmat(prob_2,N_a1,1);
+
+    % Tile probabilities to N_z if they don't depend on z
+    if size(prob_1_exp, 3) == 1 && N_z > 1
+        prob_1_exp = repmat(prob_1_exp, 1, 1, N_z);
+        prob_2_exp = repmat(prob_2_exp, 1, 1, N_z);
+    end
 
     a1prime_offsets=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
     aprime_ll=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
