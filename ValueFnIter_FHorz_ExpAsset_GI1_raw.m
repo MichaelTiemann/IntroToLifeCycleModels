@@ -300,7 +300,7 @@ for reverse_j=1:N_j-1
         % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2-by-n_z
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
         ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z]);
-        da1primea2z=d2_for_l2'+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind+N_d*N_a1prime*N_a2*zind;
+        da1primea2z=d2_for_l2+N_d2*(a1primeindexesfine-1)+N_d2*N_a1prime*a2ind+N_d*N_a1prime*N_a2*zind;
         entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z(:)),[N_d*n2long,N_a1*N_a2,N_z]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,jj)=shiftdim(Vtempii,1);
@@ -341,7 +341,7 @@ for reverse_j=1:N_j-1
             % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,special_n_z, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
             ReturnMatrix_ii_z=reshape(ReturnMatrix_ii_z, [N_d * n2long, N_a, 1]);
-            da1primea2=d2_for_l2+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind;
+            da1primea2=d2_for_l2+N_d2*(a1primeindexesfine-1)+N_d2*N_a1prime*a2ind;
             entireRHS_ii=ReturnMatrix_ii_z+reshape(DiscountedEVinterp_z(da1primea2(:)),[N_d*n2long,N_a1*N_a2]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
             V(:,z_c,jj)=shiftdim(Vtempii,1);
