@@ -63,40 +63,24 @@ if ~isfield(vfoptions,'V_Jplus1')
         % Attempt for improved version
         maxgap=squeeze(max(max(max(max(max(maxindex1(:,1,:,2:end,:,:,:)-maxindex1(:,1,:,1:end-1,:,:,:),[],7),[],6),[],5),[],3),[],1));
         for ii=1:(vfoptions.level1n-1)
-            curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,:,ii,:,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                a1primeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
-                [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex needs to be reworked:
-                %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                dind=(rem(maxindex-1,N_d)+1);
-                a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind+N_d*N_a2*N_a2*N_z*eind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,:,ii,:,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
-                [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex needs to be reworked:
-                %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                dind=(rem(maxindex-1,N_d)+1);
-                a1primeind=0; %1-1; % already includes -1
-                a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind+N_d*N_a2*N_a2*N_z*eind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-            end
+            curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+            loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii)); 
+            
+            % 1. Package the handle and shape
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+            reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+            
+            % 2. Extract the relevant Expected Value subset
+            aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+            EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+            
+            % 3. Call your new helper!
+            [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+            
+            % 4. Assign results
+            V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+            allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind + N_d*N_a2*N_a2*N_z*eind; 
+            Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -118,40 +102,24 @@ if ~isfield(vfoptions,'V_Jplus1')
             % Attempt for improved version
             maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
-                curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,:,ii,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    a1primeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z
-                    ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec,2,0);
-                    [Vtempii,maxindex]=max(ReturnMatrix_ii_e,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex needs to be reworked:
-                    %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                    dind=(rem(maxindex-1,N_d)+1);
-                    a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                    a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                    maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,:,ii,:,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec,2,0);
-                    [Vtempii,maxindex]=max(ReturnMatrix_ii_e,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex needs to be reworked:
-                    %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                    dind=(rem(maxindex-1,N_d)+1);
-                    a1primeind=0; %1-1; % already includes -1
-                    a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                    maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                end
+                curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+                loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+
+                % 1. Package the handle and shape
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec, 2, 0);
+                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+
+                % 2. Extract the relevant Expected Value subset
+                aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+                EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+
+                % 3. Call your new helper!
+                [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+                allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind;
+                Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
 
@@ -176,40 +144,24 @@ if ~isfield(vfoptions,'V_Jplus1')
                 % Attempt for improved version
                 maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
                 for ii=1:(vfoptions.level1n-1)
-                    curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-                    if maxgap(ii)>0
-                        loweredge=min(maxindex1(:,1,:,ii,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                        % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        a1primeindexes=loweredge+(0:1:maxgap(ii));
-                        % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2
-                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec,2,0);
-                        [Vtempii,maxindex]=max(ReturnMatrix_ii_ze,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        % maxindex needs to be reworked:
-                        %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                        dind=(rem(maxindex-1,N_d)+1);
-                        a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                        a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                        maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                        %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                        allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                    else
-                        loweredge=maxindex1(:,1,:,ii,:);
-                        % Just use aprime(ii) for everything
-                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec,2,0);
-                        [Vtempii,maxindex]=max(ReturnMatrix_ii_ze,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        % maxindex needs to be reworked:
-                        %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                        dind=(rem(maxindex-1,N_d)+1);
-                        a1primeind=0; %1-1; % already includes -1
-                        a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                        maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                        %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                        allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                    end
+                    curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+                    loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+
+                    % 1. Package the handle and shape
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec, 2, 0);
+                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1, 1];
+
+                    % 2. Extract the relevant Expected Value subset
+                    aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+                    EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+
+                    % 3. Call your new helper!
+                    [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+
+                    % 4. Assign results
+                    V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+                    allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
+                    Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
                 end
             end
         end
@@ -247,44 +199,24 @@ else
         % Attempt for improved version
         maxgap=squeeze(max(max(max(max(max(maxindex1(:,1,:,2:end,:,:,:)-maxindex1(:,1,:,1:end-1,:,:,:),[],7),[],6),[],5),[],3),[],1));
         for ii=1:(vfoptions.level1n-1)
-            curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,:,ii,:,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                a1primeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
-                aprimez=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2,N_z,N_e]));
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex needs to be reworked:
-                %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                dind=(rem(maxindex-1,N_d)+1);
-                a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind+N_d*N_a2*N_a2*N_z*eind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,:,ii,:,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
-                aprimez=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*1*N_a2,level1iidiff(ii)*N_a2,N_z,N_e]));
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex needs to be reworked:
-                %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                dind=(rem(maxindex-1,N_d)+1);
-                a1primeind=0; %1-1; % already includes -1
-                a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind+N_d*N_a2*N_a2*N_z*eind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-            end
+            curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+            loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii)); 
+            
+            % 1. Package the handle and shape
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+            reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+            
+            % 2. Extract the relevant Expected Value subset
+            aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+            EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+            
+            % 3. Call your new helper!
+            [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+            
+            % 4. Assign results
+            V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+            allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind + N_d*N_a2*N_a2*N_z*eind; 
+            Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -308,44 +240,24 @@ else
             % Attempt for improved version
             maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
-                curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,:,ii,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    a1primeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z
-                    ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec,2,0);
-                    aprimez=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii_e+DiscountedEV(reshape(aprimez,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2,N_z]));
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex needs to be reworked:
-                    %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                    dind=(rem(maxindex-1,N_d)+1);
-                    a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                    a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                    maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,:,ii,:,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec,2,0);
-                    aprimez=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii_e+DiscountedEV(reshape(aprimez,[N_d*1*N_a2,level1iidiff(ii)*N_a2,N_z]));
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex needs to be reworked:
-                    %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                    dind=(rem(maxindex-1,N_d)+1);
-                    a1primeind=0; %1-1; % already includes -1
-                    a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                    maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                end
+                curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+                loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+
+                % 1. Package the handle and shape
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+
+                % 2. Extract the relevant Expected Value subset
+                aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+                EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+
+                % 3. Call your new helper!
+                [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+                allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind;
+                Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
 
@@ -373,44 +285,24 @@ else
                 % Attempt for improved version
                 maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
                 for ii=1:(vfoptions.level1n-1)
-                    curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-                    if maxgap(ii)>0
-                        loweredge=min(maxindex1(:,1,:,ii,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                        % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        a1primeindexes=loweredge+(0:1:maxgap(ii));
-                        % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2
-                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec,2,0);
-                        aprime=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
-                        entireRHS_ii=ReturnMatrix_ii_ze+DiscountedEV_z(reshape(aprime,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2]));
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        % maxindex needs to be reworked:
-                        %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                        dind=(rem(maxindex-1,N_d)+1);
-                        a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                        a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                        maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                        %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                        allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                    else
-                        loweredge=maxindex1(:,1,:,ii,:);
-                        % Just use aprime(ii) for everything
-                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec,2,0);
-                        aprime=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
-                        entireRHS_ii=ReturnMatrix_ii_ze+DiscountedEV_z(reshape(aprime,[N_d*1*N_a2,level1iidiff(ii)*N_a2]));
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        % maxindex needs to be reworked:
-                        %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                        dind=(rem(maxindex-1,N_d)+1);
-                        a1primeind=0; %1-1; % already includes -1
-                        a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                        maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                        %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                        allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                    end
+                    curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+                    loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+
+                    % 1. Package the handle and shape
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+
+                    % 2. Extract the relevant Expected Value subset
+                    aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+                    EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+
+                    % 3. Call your new helper!
+                    [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+
+                    % 4. Assign results
+                    V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+                    allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
+                    Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
                 end
             end
         end
@@ -459,44 +351,24 @@ for reverse_j=1:N_j-1
         % Attempt for improved version
         maxgap=squeeze(max(max(max(max(max(maxindex1(:,1,:,2:end,:,:,:)-maxindex1(:,1,:,1:end-1,:,:,:),[],7),[],6),[],5),[],3),[],1));
         for ii=1:(vfoptions.level1n-1)
-            curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,:,ii,:,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                a1primeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
-                aprimez=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2,N_z,N_e]));
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,jj)=shiftdim(Vtempii,1);
-                % maxindex needs to be reworked:
-                %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                dind=(rem(maxindex-1,N_d)+1);
-                a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind+N_d*N_a2*N_a2*N_z*eind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                Policy(curraindex,:,:,jj)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,:,ii,:,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
-                aprimez=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountedEV(reshape(aprimez,[N_d*1*N_a2,level1iidiff(ii)*N_a2,N_z,N_e]));
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,jj)=shiftdim(Vtempii,1);
-                % maxindex needs to be reworked:
-                %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                dind=(rem(maxindex-1,N_d)+1);
-                a1primeind=0; %1-1; % already includes -1
-                a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind+N_d*N_a2*N_a2*N_z*eind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z-by-n_e
-                Policy(curraindex,:,:,jj)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-            end
+            curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+            loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii)); 
+            
+            % 1. Package the handle and shape
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2, 0);
+            reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+            
+            % 2. Extract the relevant Expected Value subset
+            aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+            EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+            
+            % 3. Call your new helper!
+            [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+            
+            % 4. Assign results
+            V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
+            allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind + N_d*N_a2*N_a2*N_z*eind; 
+            Policy(curraindex,:,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -520,44 +392,24 @@ for reverse_j=1:N_j-1
             % Attempt for improved version
             maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
-                curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,:,ii,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    a1primeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2-by-n_z
-                    ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_vals, ReturnFnParamsVec,2,0);
-                    aprimez=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii_e+DiscountedEV(reshape(aprimez,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2,N_z]));
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,jj)=shiftdim(Vtempii,1);
-                    % maxindex needs to be reworked:
-                    %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                    dind=(rem(maxindex-1,N_d)+1);
-                    a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                    a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                    maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    Policy(curraindex,:,e_c,jj)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,:,ii,:,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii_e=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_vals, ReturnFnParamsVec,2,0);
-                    aprimez=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii_e+DiscountedEV(reshape(aprimez,[N_d*1*N_a2,level1iidiff(ii)*N_a2,N_z]));
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,jj)=shiftdim(Vtempii,1);
-                    % maxindex needs to be reworked:
-                    %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                    dind=(rem(maxindex-1,N_d)+1);
-                    a1primeind=0; %1-1; % already includes -1
-                    a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                    maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii))+N_d*N_a2*N_a2*zind; % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                    Policy(curraindex,:,e_c,jj)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                end
+                curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+                loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+
+                % 1. Package the handle and shape
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2, 0);
+                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+
+                % 2. Extract the relevant Expected Value subset
+                aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+                EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+
+                % 3. Call your new helper!
+                [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
+                allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind;
+                Policy(curraindex,:,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
 
@@ -585,44 +437,24 @@ for reverse_j=1:N_j-1
                 % Attempt for improved version
                 maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
                 for ii=1:(vfoptions.level1n-1)
-                    curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem(a2ind',level1iidiff(ii),1);
-                    if maxgap(ii)>0
-                        loweredge=min(maxindex1(:,1,:,ii,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                        % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        a1primeindexes=loweredge+(0:1:maxgap(ii));
-                        % aprime possibilities are n_d-by-maxgap(ii)+1-by-n_a2-by-1-by-n_a2
-                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1primeindexes), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec,2,0);
-                        aprime=repelem(a1primeindexes,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
-                        entireRHS_ii=ReturnMatrix_ii_ze+DiscountedEV_z(reshape(aprime,[N_d*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2]));
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,jj)=shiftdim(Vtempii,1);
-                        % maxindex needs to be reworked:
-                        %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                        dind=(rem(maxindex-1,N_d)+1);
-                        a1primeind=rem(ceil(maxindex/N_d)-1,maxgap(ii)+1)+1-1; % already includes -1
-                        a2primeind=ceil(maxindex/(N_d*(maxgap(ii)+1)))-1; % already includes -1
-                        maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                        %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                        allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        Policy(curraindex,z_c,e_c,jj)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                    else
-                        loweredge=maxindex1(:,1,:,ii,:);
-                        % Just use aprime(ii) for everything
-                        ReturnMatrix_ii_ze=CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(loweredge), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec,2,0);
-                        aprime=repelem(loweredge,1,1,1,level1iidiff(ii),1,1)+N_a1*a2Bind;
-                        entireRHS_ii=ReturnMatrix_ii_ze+DiscountedEV_z(reshape(aprime,[N_d*1*N_a2,level1iidiff(ii)*N_a2]));
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,jj)=shiftdim(Vtempii,1);
-                        % maxindex needs to be reworked:
-                        %  the a2prime is only an 'after maxgap(ii)+1, but needs to be after N_a1'
-                        dind=(rem(maxindex-1,N_d)+1);
-                        a1primeind=0; %1-1; % already includes -1
-                        a2primeind=ceil(maxindex/N_d)-1; % already includes -1 % divide by (N_d*1)
-                        maxindexfix=dind+N_d*a1primeind+N_d*N_a1*a2primeind; % put maxindex back together, using N_a1 to determine a2prime, rather than using (maxgap(ii)+1) which is what it originally was in maxindex
-                        %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                        allind=dind+N_d*a2primeind+N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                        Policy(curraindex,z_c,e_c,jj)=shiftdim(maxindexfix+N_d*(loweredge(allind)-1),1);
-                    end
+                    curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
+                    loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+
+                    % 1. Package the handle and shape
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2, 0);
+                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+
+                    % 2. Extract the relevant Expected Value subset
+                    aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
+                    EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+
+                    % 3. Call your new helper!
+                    [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
+
+                    % 4. Assign results
+                    V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
+                    allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
+                    Policy(curraindex,:,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
                 end
             end
         end
