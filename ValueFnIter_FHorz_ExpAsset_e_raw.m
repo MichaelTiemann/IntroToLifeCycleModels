@@ -101,8 +101,8 @@ else
         DiscountedEV=DiscountFactorParamsVec*reshape(EV, [N_d2, N_a1, 1, N_a2, N_z]);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-        entireRHS=ReturnMatrix+repelem(DiscountedEV, N_d1, 1);
+        ReturnMatrix = reshape(ReturnMatrix, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z, N_e]);
+        entireRHS = reshape(ReturnMatrix + DiscountedEV, [N_d1*N_d2*N_a1, N_a1*N_a2, N_z, N_e]);
 
         %Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -118,11 +118,11 @@ else
             e_val=e_gridvals_J(e_c,:,N_j);
 
             ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-            entireRHS=ReturnMatrix_e+repelem(DiscountedEV, N_d1, 1);
+            ReturnMatrix_e = reshape(ReturnMatrix_e, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z, 1]);
+            entireRHS_e = reshape(ReturnMatrix_e + DiscountedEV, [N_d1*N_d2*N_a1, N_a1*N_a2, N_z, 1]);
 
             % Calc the max and its index
-            [Vtemp,maxindex]=max(entireRHS,[],1);
+            [Vtemp,maxindex]=max(entireRHS_e,[],1);
 
             V(:,:,e_c,N_j)=shiftdim(Vtemp,1);
             Policy(:,:,e_c,N_j)=shiftdim(maxindex,1);
@@ -136,11 +136,11 @@ else
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
                 ReturnMatrix_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-                entireRHS=ReturnMatrix_ze+repelem(DiscountedEV_z, N_d1, 1);
+                ReturnMatrix_ze = reshape(ReturnMatrix_ze, [N_d1, N_d2*N_a1, N_a1, N_a2, 1, 1]);
+                entireRHS_ze = reshape(ReturnMatrix_ze + DiscountedEV_z, [N_d1*N_d2*N_a1, N_a1*N_a2, 1, 1]);
 
                 % Calc the max and its index
-                [Vtemp,maxindex]=max(entireRHS,[],1);
+                [Vtemp,maxindex]=max(entireRHS_ze,[],1);
 
                 V(:,z_c,e_c,N_j)=shiftdim(Vtemp,1);
                 Policy(:,z_c,e_c,N_j)=shiftdim(maxindex,1);
@@ -191,8 +191,8 @@ for reverse_j=1:N_j-1
         DiscountedEV=DiscountFactorParamsVec*repelem(EV,N_d1,N_a1,1);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_jj, e_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-        entireRHS=ReturnMatrix+DiscountedEV; % should autofill e dimension
+        ReturnMatrix = reshape(ReturnMatrix, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z, N_e]);
+        entireRHS = reshape(ReturnMatrix + DiscountedEV, [N_d1*N_d2*N_a1, N_a1*N_a2, N_z, N_e]);
 
         % Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -207,8 +207,8 @@ for reverse_j=1:N_j-1
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
             ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_jj, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-            entireRHS=ReturnMatrix_e+DiscountedEV;
+            ReturnMatrix_e = reshape(ReturnMatrix_e, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z, 1]);
+            entireRHS_e = reshape(ReturnMatrix_e + DiscountedEV, [N_d1*N_d2*N_a1, N_a1*N_a2, N_z, 1]);
 
             % Calc the max and its index
             [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -226,11 +226,11 @@ for reverse_j=1:N_j-1
                 e_val=e_gridvals_J(e_c,:,jj);
 
                 ReturnMatrix_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
-
-                entireRHS=ReturnMatrix_ze+DiscountedEV_z;
+                ReturnMatrix_ze = reshape(ReturnMatrix_ze, [N_d1, N_d2*N_a1, N_a1, N_a2, 1, 1]);
+                entireRHS_ze = reshape(ReturnMatrix_ze + DiscountedEV_z, [N_d1*N_d2*N_a1, N_a1*N_a2, 1, 1]);
 
                 %Calc the max and its index
-                [Vtemp,maxindex]=max(entireRHS,[],1);
+                [Vtemp,maxindex]=max(entireRHS_ze,[],1);
 
                 V(:,z_c,e_c,jj)=shiftdim(Vtemp,1);
                 Policy(:,z_c,e_c,jj)=shiftdim(maxindex,1);
