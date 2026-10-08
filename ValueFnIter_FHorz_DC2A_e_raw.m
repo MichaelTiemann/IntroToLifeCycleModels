@@ -70,14 +70,10 @@ if ~isfield(vfoptions,'V_Jplus1')
             ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
             reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
             
-            % 2. Extract the relevant Expected Value subset
-            aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
-            EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+            % 2. Call your new helper!
+            [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size);
             
-            % 3. Call your new helper!
-            [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
-            
-            % 4. Assign results
+            % 3. Assign results
             V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
             allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind + N_d*N_a2*N_a2*N_z*eind; 
             Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
@@ -103,20 +99,16 @@ if ~isfield(vfoptions,'V_Jplus1')
             maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+                loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
                 ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec, 2, 0);
-                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, 1];
 
-                % 2. Extract the relevant Expected Value subset
-                aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
-                EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+                % 2. Call your new helper!
+                [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size);
 
-                % 3. Call your new helper!
-                [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
-
-                % 4. Assign results
+                % 3. Assign results
                 V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind;
                 Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
@@ -145,20 +137,16 @@ if ~isfield(vfoptions,'V_Jplus1')
                 maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
                 for ii=1:(vfoptions.level1n-1)
                     curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                    loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+                    loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                     % 1. Package the handle and shape
                     ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec, 2, 0);
                     reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1, 1];
 
-                    % 2. Extract the relevant Expected Value subset
-                    aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
-                    EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+                    % 2. Call your new helper!
+                    [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size);
 
-                    % 3. Call your new helper!
-                    [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
-
-                    % 4. Assign results
+                    % 3. Assign results
                     V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
                     allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
                     Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
@@ -241,10 +229,10 @@ else
             maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+                loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec, 2, 0);
                 reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
 
                 % 2. Extract the relevant Expected Value subset
@@ -286,15 +274,15 @@ else
                 maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
                 for ii=1:(vfoptions.level1n-1)
                     curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                    loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+                    loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                     % 1. Package the handle and shape
-                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec, 2, 0);
                     reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
 
                     % 2. Extract the relevant Expected Value subset
-                    aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
-                    EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+                    aprime = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;
+                    EV_RHS_slice = DiscountedEV_z(reshape(aprime, reshape_size));
 
                     % 3. Call your new helper!
                     [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
@@ -393,10 +381,10 @@ for reverse_j=1:N_j-1
             maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+                loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_vals, ReturnFnParamsVec, 2, 0);
                 reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
 
                 % 2. Extract the relevant Expected Value subset
@@ -438,15 +426,15 @@ for reverse_j=1:N_j-1
                 maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
                 for ii=1:(vfoptions.level1n-1)
                     curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                    loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
+                    loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                     % 1. Package the handle and shape
-                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2, 0);
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec, 2, 0);
                     reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
 
                     % 2. Extract the relevant Expected Value subset
-                    aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
-                    EV_RHS_slice = DiscountedEV(reshape(aprimez, reshape_size));
+                    aprime = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;
+                    EV_RHS_slice = DiscountedEV_z(reshape(aprime, reshape_size));
 
                     % 3. Call your new helper!
                     [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
