@@ -183,7 +183,7 @@ else
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
         ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z]);
         % Use d2_for_l2 instead of (1:1:N_d)' to wrap indexing for DiscountedEVinterp
-        da1primea2z = d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind + N_d2*N_a1prime*N_a2*zind;
+        da1primea2z=d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind + N_d2*N_a1prime*N_a2*zind;
         entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z(:)),[N_d*n2long,N_a1*N_a2,N_z]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
