@@ -336,9 +336,5 @@ end
 %%
 Policy=shiftdim(Policy,-1);
 
-if ~has_d
-    Policy = Policy(2:end, :, :, :, :);
-end
-
 
 end
