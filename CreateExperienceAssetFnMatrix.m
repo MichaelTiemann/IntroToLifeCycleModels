@@ -9,11 +9,11 @@ function [a2primeIndexes,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n
 %
 % Output sizes:
 %   l_a2==1 (legacy):
-%     a2primeIndexes - col=1 => [N_all, 1]; col=2 => [Nd_eff, N_a2]
-%     a2primeProbs   - [Nd_eff, N_a2]; upper idx = lower+1, prob upper = 1-prob lower
+%     a2primeIndexes - col=1 => [N_all, 1]; col=2 => [N_d, N_a2]
+%     a2primeProbs   - [N_d, N_a2]; upper idx = lower+1, prob upper = 1-prob lower
 %   l_a2==2 (multi-dim, per-dim factored -- NOT Kron-folded corners):
-%     a2primeIndexes - col=1 => [l_a2, N_all]; col=2 => [l_a2, Nd_eff, N_a2]
-%     a2primeProbs   - [l_a2, Nd_eff, N_a2] ALWAYS (unlike a2primeIndexes, its shape does not
+%     a2primeIndexes - col=1 => [l_a2, N_all]; col=2 => [l_a2, N_d, N_a2]
+%     a2primeProbs   - [l_a2, N_d, N_a2] ALWAYS (unlike a2primeIndexes, its shape does not
 %                      depend on aprimeIndexAsColumn)
 %     Row k is the a2_k dimension on its own: a2primeIndexes(k,...) is the lower-grid index
 %     within that dimension (1..n_a2(k)) and a2primeProbs(k,...) the probability of that lower
@@ -33,18 +33,18 @@ for ii=1:length(aprimeFnParams)
     ParamCell(ii,1)={aprimeFnParams(ii)};
 end
 
-N_d=prod(n_d);
-Nd_eff = max(N_d, 1);
+N_d_raw=prod(n_d);
+N_d = max(N_d_raw, 1);
 
 N_a2=prod(n_a2);
 
-N_z = prod(n_z);
-Nz_eff = max(N_z, 1);
+N_z_raw = prod(n_z);
+N_z = max(N_z_raw, 1);
 
-N_e = prod(n_e);
-Ne_eff = max(N_e, 1);
+N_e_raw = prod(n_e);
+N_e = max(N_e_raw, 1);
 
-N_all = Nd_eff * N_a2 * Nz_eff * Ne_eff; % The new dynamic total number of elements
+N_all = N_d * N_a2 * N_z * N_e; % The new dynamic total number of elements
 
 l_d=length(n_d);
 if N_d==0
@@ -58,8 +58,8 @@ if l_a2>2
     error('experienceasset currently supports length(n_a2) in {1,2}')
 end
 
-l_z = 0; if N_z > 0; l_z = length(n_z); end
-l_e = 0; if N_e > 0; l_e = length(n_e); end
+l_z = 0; if N_z_raw > 0; l_z = length(n_z); end
+l_e = 0; if N_e_raw > 0; l_e = length(n_e); end
 
 if nargin(aprimeFn) ~= l_d + l_a2 + (l_a2 >= 2) + l_z + l_e + length(aprimeFnParams)
     error('Number of inputs to aprimeFn does not fit with size of aprimeFnParams')
@@ -168,11 +168,11 @@ if l_a2==1
     if aprimeIndexAsColumn==1 % value fn codes want column when no z
         a2primeIndexes=a2primeIndexes';
     elseif aprimeIndexAsColumn==3 % value fn with another asset uses 3
-        a2primeIndexes=reshape(a2primeIndexes,[N_all,Nz_eff,Ne_eff]);
+        a2primeIndexes=reshape(a2primeIndexes,[N_all,N_z,N_e]);
     else % aprimeIndexAsColumn==2 % value fn with z, or simulation, want matrix
-        a2primeIndexes=reshape(a2primeIndexes,[Nd_eff,N_a2,Nz_eff,Ne_eff]);
+        a2primeIndexes=reshape(a2primeIndexes,[N_d,N_a2,N_z,N_e]);
     end
-    a2primeProbs=reshape(a2primeProbs,[Nd_eff,N_a2,Nz_eff,Ne_eff]);
+    a2primeProbs=reshape(a2primeProbs,[N_d,N_a2,N_z,N_e]);
 
 elseif l_a2==2
     %% Multi-dim a2 (l_a2=2): bilinear interp, returned PER-DIM FACTORED (the caller folds the 4 corners)
@@ -248,9 +248,9 @@ elseif l_a2==2
     if aprimeIndexAsColumn==1 % column-flat layout
         % already [l_a2, N_all]
     else % aprimeIndexAsColumn==2 % matrix layout
-        a2primeIndexes=reshape(a2primeIndexes,[l_a2,Nd_eff,N_a2,Nz_eff,Ne_eff]);
+        a2primeIndexes=reshape(a2primeIndexes,[l_a2,N_d,N_a2,N_z,N_e]);
     end
-    a2primeProbs=reshape(a2primeProbs,[l_a2,Nd_eff,N_a2,Nz_eff,Ne_eff]);
+    a2primeProbs=reshape(a2primeProbs,[l_a2,N_d,N_a2,N_z,N_e]);
 end
 
 

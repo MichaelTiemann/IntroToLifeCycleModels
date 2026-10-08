@@ -2,33 +2,23 @@ function [V,Policy]=ValueFnIter_FHorz_ExpAsset_raw(n_d1,n_d2,n_a1,n_a2,n_z,N_j, 
 
 N_d1_raw=prod(n_d1);
 N_d2_raw=prod(n_d2);
-if N_d1_raw == 0 && N_d2_raw == 0
-    N_d_raw = 0;
-elseif N_d1_raw == 0
-    N_d_raw = N_d2_raw;
-elseif N_d2_raw == 0
-    N_d_raw = N_d1_raw;
-else
-    N_d_raw = N_d1_raw * N_d2_raw;
-end
-has_d=(N_d_raw > 0);
 has_d1=(N_d1_raw > 0);
 N_d1=max(N_d1_raw, 1);
 N_d2=max(N_d2_raw, 1);
-N_d=N_d1 * N_d2;
 
 if ~has_d1
     d_gridvals = d2_gridvals;
     n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
 end
 
-N_a1 = prod(n_a1);
-has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
+N_a1_raw = prod(n_a1);
+% has_a1 = (N_a1 > 0);
+N_a1 = max(N_a1_raw, 1);
 N_a2 = prod(n_a2);
-N_a = Na1_eff * N_a2;
+N_a = N_a1 * N_a2;
 
-N_z=prod(n_z);
-Nz_eff = max(N_z, 1);
+N_z_raw=prod(n_z);
+N_z = max(N_z_raw, 1);
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_j,'gpuArray'); % indexes the optimal choice for d and a1prime rest of dimensions a,z
@@ -70,15 +60,15 @@ else
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
-    % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
+    % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,N_z); % [Nd2_eff*Na1_eff,N_a2,N_z]
+        aprimeIndex=repelem((1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
+        aprimeplus1Index=repelem((1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
+        aprimeProbs=repmat(a2primeProbs,N_a1,1,N_z); % [N_d2*N_a1,N_a2,N_z]
 
-        Vlower=reshape(EVpre(aprimeIndex(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        Vupper=reshape(EVpre(aprimeplus1Index(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        Vlower=reshape(EVpre(aprimeIndex(:),:),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(EVpre(aprimeplus1Index(:),:),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -88,24 +78,24 @@ else
         EV(aprimeProbs==0)=Vupper(aprimeProbs==0); % includes the skipinterp positions; a zero weight against an infinite node gives 0*(-Inf)=NaN
         EV(aprimeProbs==1)=Vlower(aprimeProbs==1);
     else
-        % l_a2==2: a2primeIndex/a2primeProbs are [l_a2,Nd2_eff,N_a2], per-dim factored (lower-grid
+        % l_a2==2: a2primeIndex/a2primeProbs are [l_a2,N_d2,N_a2], per-dim factored (lower-grid
         % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
         % a1prime offset, then nested 2-corner interp with skipinterp at each level and
         % per-contribution NaN cleanup for 0*(-Inf).
         n_a2_1=n_a2(1);
-        loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
-        loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
-        a1prime_offsets=repelem((1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
-        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
-        V_ll=reshape(EVpre(aprime_ll(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        V_hl=reshape(EVpre(aprime_hl(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        V_lh=reshape(EVpre(aprime_lh(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        V_hh=reshape(EVpre(aprime_hh(:),:),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        loIdx_1=reshape(a2primeIndex(1,:,:),[N_d2,N_a2]);
+        loIdx_2=reshape(a2primeIndex(2,:,:),[N_d2,N_a2]);
+        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[N_d2,N_a2]),N_a1,1,N_z);
+        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[N_d2,N_a2]),N_a1,1,N_z);
+        a1prime_offsets=repelem((1:1:N_a1)',N_d2,N_a2);
+        aprime_ll=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
+        aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
+        aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
+        aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
+        V_ll=reshape(EVpre(aprime_ll(:),:),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(EVpre(aprime_hl(:),:),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(EVpre(aprime_lh(:),:),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(EVpre(aprime_hh(:),:),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -127,12 +117,12 @@ else
     % EV is over (d2,a1prime,a2,z)
 
     if vfoptions.lowmemory==0
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, Nd2_eff*Na1_eff, 1, N_a2, N_z]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, N_d2*N_a1, 1, N_a2, N_z]);
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
         % Split ReturnMatrix dimensions so implicit expansion can broadcast d1 and a1 cleanly
-        ReturnMatrix_reshaped = reshape(ReturnMatrix, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2, N_z]);
-        entireRHS = reshape(ReturnMatrix_reshaped + DiscountedEV, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2, N_z]);
+        ReturnMatrix_reshaped = reshape(ReturnMatrix, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z]);
+        entireRHS = reshape(ReturnMatrix_reshaped + DiscountedEV, [N_d1*N_d2*N_a1, N_a1*N_a2, N_z]);
 
         %Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -142,11 +132,11 @@ else
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, Nd2_eff*Na1_eff, 1, N_a2]);
+            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, N_d2*N_a1, 1, N_a2]);
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2, special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
 
-            ReturnMatrix_reshaped = reshape(ReturnMatrix_z, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2]);
-            entireRHS_z = reshape(ReturnMatrix_reshaped + DiscountedEV_z, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2]);
+            ReturnMatrix_reshaped = reshape(ReturnMatrix_z, [N_d1, N_d2*N_a1, N_a1, N_a2]);
+            entireRHS_z = reshape(ReturnMatrix_reshaped + DiscountedEV_z, [N_d1*N_d2*N_a1, N_a1*N_a2]);
 
             %Calc the max and its index
             [Vtemp,maxindex]=max(entireRHS_z,[],1);
@@ -172,15 +162,15 @@ for reverse_j=1:N_j-1
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
     [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
-    % Note: aprimeIndex is [Nd2_eff,N_a2], whereas aprimeProbs is [Nd2_eff,N_a2]
+    % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     if length(n_a2)==1
-        aprimeIndex=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex-1,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeplus1Index=repelem((1:1:Na1_eff)',Nd2_eff,N_a2)+Na1_eff*repmat(a2primeIndex,Na1_eff,1); % [Nd2_eff*Na1_eff,N_a2]
-        aprimeProbs=repmat(a2primeProbs,Na1_eff,1,N_z); % [Nd2_eff*Na1_eff,N_a2,N_z]
+        aprimeIndex=repelem((1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d2*N_a1,N_a2]
+        aprimeplus1Index=repelem((1:1:N_a1)',N_d2,N_a2)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d2*N_a1,N_a2]
+        aprimeProbs=repmat(a2primeProbs,N_a1,1,N_z); % [N_d2*N_a1,N_a2,N_z]
 
-        Vlower=reshape(V(aprimeIndex(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        Vupper=reshape(V(aprimeplus1Index(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        Vlower=reshape(V(aprimeIndex(:),:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        Vupper=reshape(V(aprimeplus1Index(:),:,jj+1),[N_d2*N_a1,N_a2,N_z]);
         % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
         skipinterp=(Vlower==Vupper);
         aprimeProbs(skipinterp)=0; % effectively skips interpolation
@@ -190,24 +180,24 @@ for reverse_j=1:N_j-1
         EV(aprimeProbs==0)=Vupper(aprimeProbs==0); % includes the skipinterp positions; a zero weight against an infinite node gives 0*(-Inf)=NaN
         EV(aprimeProbs==1)=Vlower(aprimeProbs==1);
     else
-        % l_a2==2: a2primeIndex/a2primeProbs are [l_a2,Nd2_eff,N_a2], per-dim factored (lower-grid
+        % l_a2==2: a2primeIndex/a2primeProbs are [l_a2,N_d2,N_a2], per-dim factored (lower-grid
         % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
         % a1prime offset, then nested 2-corner interp with skipinterp at each level and
         % per-contribution NaN cleanup for 0*(-Inf).
         n_a2_1=n_a2(1);
-        loIdx_1=reshape(a2primeIndex(1,:,:),[Nd2_eff,N_a2]);
-        loIdx_2=reshape(a2primeIndex(2,:,:),[Nd2_eff,N_a2]);
-        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
-        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[Nd2_eff,N_a2]),Na1_eff,1,N_z);
-        a1prime_offsets=repelem((1:1:Na1_eff)',Nd2_eff,N_a2);
-        aprime_ll=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_hl=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,Na1_eff,1);
-        aprime_lh=a1prime_offsets+Na1_eff*repmat(loIdx_1+n_a2_1*loIdx_2-1,Na1_eff,1);
-        aprime_hh=a1prime_offsets+Na1_eff*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,Na1_eff,1);
-        V_ll=reshape(V(aprime_ll(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        V_hl=reshape(V(aprime_hl(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        V_lh=reshape(V(aprime_lh(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
-        V_hh=reshape(V(aprime_hh(:),:,jj+1),[Nd2_eff*Na1_eff,N_a2,N_z]);
+        loIdx_1=reshape(a2primeIndex(1,:,:),[N_d2,N_a2]);
+        loIdx_2=reshape(a2primeIndex(2,:,:),[N_d2,N_a2]);
+        prob_1_exp=repmat(reshape(a2primeProbs(1,:,:),[N_d2,N_a2]),N_a1,1,N_z);
+        prob_2_exp=repmat(reshape(a2primeProbs(2,:,:),[N_d2,N_a2]),N_a1,1,N_z);
+        a1prime_offsets=repelem((1:1:N_a1)',N_d2,N_a2);
+        aprime_ll=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
+        aprime_hl=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
+        aprime_lh=a1prime_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
+        aprime_hh=a1prime_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
+        V_ll=reshape(V(aprime_ll(:),:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        V_hl=reshape(V(aprime_hl(:),:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        V_lh=reshape(V(aprime_lh(:),:,jj+1),[N_d2*N_a1,N_a2,N_z]);
+        V_hh=reshape(V(aprime_hh(:),:,jj+1),[N_d2*N_a1,N_a2,N_z]);
         p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
         c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
         c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
@@ -230,12 +220,12 @@ for reverse_j=1:N_j-1
     % EV is over (d2,a1prime,a2,z)
 
     if vfoptions.lowmemory==0
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, Nd2_eff*Na1_eff, 1, N_a2, N_z]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, N_d2*N_a1, 1, N_a2, N_z]);
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
         
         % Split ReturnMatrix dimensions so implicit expansion can broadcast d1 and a1 cleanly
-        ReturnMatrix_reshaped = reshape(ReturnMatrix, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2, N_z]);
-        entireRHS = reshape(ReturnMatrix_reshaped + DiscountedEV, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2, N_z]);
+        ReturnMatrix_reshaped = reshape(ReturnMatrix, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z]);
+        entireRHS = reshape(ReturnMatrix_reshaped + DiscountedEV, [N_d1*N_d2*N_a1, N_a1*N_a2, N_z]);
         
         %Calc the max and its index
         [Vtemp,maxindex]=max(entireRHS,[],1);
@@ -245,11 +235,11 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
-            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, Nd2_eff*Na1_eff, 1, N_a2]);
+            DiscountedEV_z = DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, N_d2*N_a1, 1, N_a2]);
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2, n_a1, n_a1,n_a2, special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,0,0); % Level=0, Refine=0
             
-            ReturnMatrix_reshaped = reshape(ReturnMatrix_z, [Nd1_eff, Nd2_eff*Na1_eff, Na1_eff, N_a2]);
-            entireRHS_z = reshape(ReturnMatrix_reshaped + DiscountedEV_z, [Nd1_eff*Nd2_eff*Na1_eff, Na1_eff*N_a2]);
+            ReturnMatrix_reshaped = reshape(ReturnMatrix_z, [N_d1, N_d2*N_a1, N_a1, N_a2]);
+            entireRHS_z = reshape(ReturnMatrix_reshaped + DiscountedEV_z, [N_d1*N_d2*N_a1, N_a1*N_a2]);
             
             %Calc the max and its index
             [Vtemp,maxindex]=max(entireRHS_z,[],1);

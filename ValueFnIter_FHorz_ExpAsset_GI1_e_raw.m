@@ -39,9 +39,7 @@ elseif size(z_gridvals_J, 3) < N_j
     pi_z_J=repmat(pi_z_J, 1, 1, N_j);
 end
 
-N_e_raw=prod(n_e);
-has_e=(N_e_raw > 0);
-N_e=max(N_e_raw, 1);
+N_e=prod(n_e);
 
 if size(e_gridvals_J, 2) < N_j + 1
     e_gridvals_J=repmat(e_gridvals_J, 1, 1, N_j);

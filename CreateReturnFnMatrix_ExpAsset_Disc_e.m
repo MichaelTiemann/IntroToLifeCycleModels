@@ -22,36 +22,25 @@ else
     n_d = [n_d1, n_d2]; % Almost everything is done without distinguishing d1 and d2, just for some reshapes at the end
 end
 
-Nd_eff = max(prod(n_d), 1);
-Nd1_eff = max(N_d1_raw, 1);
-Nd2_eff = max(N_d2_raw, 1);
+N_d_raw=prod(n_d);
+N_d = max(N_d_raw, 1);
+N_d1 = max(N_d1_raw, 1);
+N_d2 = max(N_d2_raw, 1);
+
 N_a1prime = max(prod(n_a1prime), 1);
 N_a1 = max(prod(n_a1), 1);
 N_a2 = max(prod(n_a2), 1);
-Nz_eff = max(prod(n_z), 1);
+
+N_z_raw=prod(n_z);
+N_z = max(N_z_raw, 1);
+
 N_e = prod(n_e);
 
-l_d = length(n_d); if prod(n_d)==0; l_d=0; end
+l_d = length(n_d); if N_d_raw==0; l_d=0; end
 l_a1 = length(n_a1); if prod(n_a1)==0; l_a1=0; end
 l_a2 = length(n_a2);
-l_z = length(n_z); if prod(n_z)==0; l_z=0; end
-l_e = length(n_e); if prod(n_e)==0; l_e=0; end
-
-if l_d>4
-    error('Using GPU for the return fn does not allow for more than four of d variable (you have length(n_d)>4)')
-end
-if l_a1>4
-    error('Using GPU for the return fn does not allow for more than four of a variable (you have length(n_a)>4)')
-end
-if l_a2>2
-    error('experienceasset currently supports length(n_a2) in {1,2}')
-end
-if l_z>8
-    error('Using GPU for the return fn does not allow for more than eight of semiz and z variables')
-end
-if l_e>5
-    error('Using GPU for the return fn does not allow for more than five of e variable (you have length(n_e)>5)')
-end
+l_z = length(n_z); if N_z_raw==0; l_z=0; end
+l_e = length(n_e);
 
 % Build dynamic parameters (preserve N-dimensional arrays natively when l_x==1)
 d_vals = cell(1, l_d);
@@ -105,15 +94,15 @@ Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 % Reshape
 if Level == 0 || Level == 2
     if Refine == 0 || prod(n_d1) == 0
-        Fmatrix = reshape(Fmatrix, [Nd_eff * N_a1prime, N_a1 * N_a2, Nz_eff, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d * N_a1prime, N_a1 * N_a2, N_z, N_e]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1 * N_a2, Nz_eff, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d1, N_d2 * N_a1prime, N_a1 * N_a2, N_z, N_e]);
     end
 elseif Level == 1 || Level == 3
     if Refine == 0 || prod(n_d1) == 0
-        Fmatrix = reshape(Fmatrix, [Nd_eff, N_a1prime, N_a1, N_a2, Nz_eff, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d, N_a1prime, N_a1, N_a2, N_z, N_e]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1, N_a2, Nz_eff, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d1, N_d2 * N_a1prime, N_a1, N_a2, N_z, N_e]);
     end
 end
 

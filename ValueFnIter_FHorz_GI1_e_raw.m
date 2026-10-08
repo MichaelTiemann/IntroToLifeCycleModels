@@ -1,11 +1,19 @@
 function [V,Policy]=ValueFnIter_FHorz_GI1_e_raw(n_d,n_a,n_z,n_e,N_j, d_gridvals, a_grid, z_gridvals_J, e_gridvals_J,pi_z_J, pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-has_d=~isempty(n_d) && prod(n_d) > 0;
-has_z=~isempty(n_z) && prod(n_z) > 0;
+N_d_raw=prod(n_d);
+has_d = (N_d_raw > 0);
+N_d = max(N_d_raw, 1);
 
-N_d=max(1, prod(n_d));
 N_a=prod(n_a);
-N_z=max(1, prod(n_z));
+
+N_z_raw = prod(n_z);
+if N_z_raw == 0
+    pi_z_J = ones(1, 1, N_j);
+    z_gridvals_J = zeros(1, 1, N_j);
+end
+has_z=N_z_raw>0;
+N_z=max(N_z_raw,1);
+
 N_e=prod(n_e);
 
 

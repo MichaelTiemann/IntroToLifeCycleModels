@@ -2,16 +2,6 @@ function [V,Policy]=ValueFnIter_FHorz_ExpAsset_DC1_e_raw(n_d1,n_d2,n_a1,n_a2,n_z
 
 N_d1_raw=prod(n_d1);
 N_d2_raw=prod(n_d2);
-if N_d1_raw == 0 && N_d2_raw == 0
-    N_d_raw = 0;
-elseif N_d1_raw == 0
-    N_d_raw = N_d2_raw;
-elseif N_d2_raw == 0
-    N_d_raw = N_d1_raw;
-else
-    N_d_raw = N_d1_raw * N_d2_raw;
-end
-has_d=(N_d_raw > 0);
 has_d1=(N_d1_raw > 0);
 N_d1=max(N_d1_raw, 1);
 N_d2=max(N_d2_raw, 1);
@@ -22,16 +12,16 @@ if ~has_d1
     n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
 end
 
-N_a1=prod(n_a1);
-N_a2=prod(n_a2);
+N_a1_raw=prod(n_a1);
+N_a2_raw=prod(n_a2);
+N_a1=max(N_a1_raw,1);
+N_a2=max(N_a2_raw,1);
 N_a=N_a1*N_a2;
-N_z=prod(n_z);
-N_e=prod(n_e);
 
-if ~has_d1
-    d_gridvals = d2_gridvals;
-    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
-end
+N_z_raw=prod(n_z);
+N_z=max(N_z_raw,1);
+
+N_e=prod(n_e);
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_e,N_j,'gpuArray'); %first dim indexes the optimal choice for d and a1prime rest of dimensions a,z

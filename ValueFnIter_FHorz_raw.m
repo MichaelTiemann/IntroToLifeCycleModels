@@ -1,26 +1,28 @@
 function [V, Policy] = ValueFnIter_FHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
-N_d = prod(n_d);
-has_d = (N_d > 0);
+
+N_d_raw = prod(n_d);
+has_d = (N_d_raw > 0);
+N_d=max(N_d_raw,1);
 
 N_a = prod(n_a);
 
-N_z = prod(n_z);
-if N_z == 0
+N_z_raw = prod(n_z);
+if N_z_raw == 0
     pi_z_J = ones(1, 1, N_j);
     z_gridvals_J = zeros(1, 1, N_j);
-    Nz_eff = 1;
+    N_z = 1;
     if vfoptions.lowmemory > 0
         special_n_z = 0;
     end
 else
-    Nz_eff = N_z;
     if vfoptions.lowmemory > 0
         special_n_z = ones(1, length(n_z));
     end
 end
+N_z=max(N_z_raw,1);
 
-V = zeros(N_a, Nz_eff, N_j, 'gpuArray');
-Policy = zeros(1, N_a, Nz_eff, N_j, 'gpuArray');
+V = zeros(N_a, N_z, N_j, 'gpuArray');
+Policy = zeros(1, N_a, N_z, N_j, 'gpuArray');
 
 %% j = N_j
 ReturnFnParamsVec_J = CreateVectorFromParams(Parameters, ReturnFnParamNames, N_j);
@@ -32,7 +34,7 @@ if ~isfield(vfoptions, 'V_Jplus1')
         V(:,:,N_j) = shiftdim(Vtemp, 1);
         Policy(1,:,:,N_j) = shiftdim(maxindex, 1);
     elseif vfoptions.lowmemory == 1
-        for z_c = 1:Nz_eff
+        for z_c = 1:N_z
             z_val = z_gridvals_J(z_c, :, N_j);
             ReturnMatrix_z = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec_J, 0);
             [Vtemp, maxindex] = max(ReturnMatrix_z, [], 1);
@@ -44,13 +46,13 @@ else
     DiscountFactorParamsVec = CreateVectorFromParams(Parameters, DiscountFactorParamNames, N_j);
     DiscountFactorParamsVec = prod(DiscountFactorParamsVec);
 
-    EV = reshape(vfoptions.V_Jplus1, [N_a, Nz_eff]);
+    EV = reshape(vfoptions.V_Jplus1, [N_a, N_z]);
     EVinf = (EV == -Inf);
     EV(EVinf) = -1e250;
     EV = EV * pi_z_J(:,:,N_j)';
     EV(EVinf * (pi_z_J(:,:,N_j)' > 0) > 0) = -Inf;
 
-    EV = reshape(EV, [N_a, 1, Nz_eff]);
+    EV = reshape(EV, [N_a, 1, N_z]);
 
     if vfoptions.lowmemory == 0
         entireEV = EV;
@@ -62,7 +64,7 @@ else
         V(:,:,N_j) = shiftdim(Vtemp, 1);
         Policy(1,:,:,N_j) = shiftdim(maxindex, 1);
     elseif vfoptions.lowmemory == 1
-        for z_c = 1:Nz_eff
+        for z_c = 1:N_z
             z_val = z_gridvals_J(z_c, :, N_j);
             entireEV_z = EV(:,:,z_c);
             if has_d; entireEV_z = repelem(entireEV_z, N_d, 1, 1); end
@@ -92,7 +94,7 @@ for reverse_j = 1:N_j-1
     EV = EV * pi_z_J(:,:,jj)';
     EV(EVinf * (pi_z_J(:,:,jj)' > 0) > 0) = -Inf;
 
-    EV = reshape(EV, [N_a, 1, Nz_eff]);
+    EV = reshape(EV, [N_a, 1, N_z]);
 
     if vfoptions.lowmemory == 0
         entireEV = EV;
@@ -104,7 +106,7 @@ for reverse_j = 1:N_j-1
         V(:,:,jj) = shiftdim(Vtemp, 1);
         Policy(1,:,:,jj) = shiftdim(maxindex, 1);
     elseif vfoptions.lowmemory == 1
-        for z_c = 1:Nz_eff
+        for z_c = 1:N_z
             z_val = z_gridvals_J(z_c, :, jj);
             entireEV_z = EV(:,:,z_c);
             if has_d; entireEV_z = repelem(entireEV_z, N_d, 1, 1); end

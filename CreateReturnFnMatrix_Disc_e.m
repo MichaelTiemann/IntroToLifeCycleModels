@@ -5,10 +5,15 @@ end
 
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
-N_d = prod(n_d);
+N_d_raw = prod(n_d);
 N_a = prod(n_a);
-N_z = prod(n_z);
+N_z_raw = prod(n_z);
 N_e = prod(n_e);
+
+l_d = length(n_d); if N_d_raw == 0; l_d = 0; end
+l_a = length(n_a);
+l_z = length(n_z); if N_z_raw == 0; l_z = 0; end
+l_e = length(n_e);
 
 % 1. Dynamically build a_prime and a
 a_prime_vals = cell(1, l_a);
@@ -50,17 +55,17 @@ end
 GridParamsCell = [d_vals, a_prime_vals, a_vals, z_vals, e_vals];
 Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
-Nd_eff = max(N_d, 1);
-Nz_eff = max(N_z, 1);
+N_d = max(N_d_raw, 1);
+N_z = max(N_z_raw, 1);
 
 % 5. Reshape
 if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_a, N_a, Nz_eff, N_e]);
+    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_z, N_e]);
 else
     if Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd_eff, N_a, N_a, Nz_eff, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_z, N_e]);
     else
-        Fmatrix = reshape(Fmatrix, [Nd_eff * N_a, N_a, Nz_eff, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_z, N_e]);
     end
 end
 

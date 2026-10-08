@@ -1,15 +1,19 @@
 function [V, Policy] = ValueFnIter_FHorz_e_raw(n_d, n_a, n_z, n_e, N_j, d_gridvals, a_grid, z_gridvals_J, e_gridvals_J, pi_z_J, pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
-N_d = prod(n_d);
+
+N_d_raw = prod(n_d);
+has_d = (N_d_raw > 0);
+N_d=max(N_d_raw,1);
+
 N_a = prod(n_a);
-N_z = prod(n_z);
+
+N_z_raw = prod(n_z);
+has_z = (N_z_raw > 0);
+N_z=max(N_z_raw,1);
+
 N_e = prod(n_e);
 
-has_d = (N_d > 0);
-has_z = (N_z > 0);
-Nz_eff = max(N_z, 1);
-
-V = zeros(N_a, Nz_eff, N_e, N_j, 'gpuArray');
-Policy = zeros(1, N_a, Nz_eff, N_e, N_j, 'gpuArray');
+V = zeros(N_a, N_z, N_e, N_j, 'gpuArray');
+Policy = zeros(1, N_a, N_z, N_e, N_j, 'gpuArray');
 
 if vfoptions.lowmemory > 0
     special_n_e = ones(1, length(n_e));
@@ -64,7 +68,7 @@ else
     DiscountFactorParamsVec = CreateVectorFromParams(Parameters, DiscountFactorParamNames, N_j);
     DiscountFactorParamsVec = prod(DiscountFactorParamsVec);
 
-    EV = reshape(vfoptions.V_Jplus1, [N_a, Nz_eff, N_e]);
+    EV = reshape(vfoptions.V_Jplus1, [N_a, N_z, N_e]);
     EV = sum(EV .* pi_e_J(1, 1, :, N_j+1), 3);
 
     if has_z
@@ -74,7 +78,7 @@ else
         EV(EVinf * (pi_z_J(:,:,N_j)' > 0) > 0) = -Inf;
     end
 
-    EV = reshape(EV, [N_a, 1, Nz_eff]);
+    EV = reshape(EV, [N_a, 1, N_z]);
     if has_d; entireEV = repelem(EV, N_d, 1); else; entireEV = EV; end
 
     if vfoptions.lowmemory == 0
@@ -137,7 +141,7 @@ for reverse_j = 1:N_j-1
         EV(EVinf * (pi_z_J(:,:,jj)' > 0) > 0) = -Inf;
     end
 
-    EV = reshape(EV, [N_a, 1, Nz_eff]);
+    EV = reshape(EV, [N_a, 1, N_z]);
     if has_d; entireEV = repelem(EV, N_d, 1); else; entireEV = EV; end
 
     z_gridvals_jj = [];

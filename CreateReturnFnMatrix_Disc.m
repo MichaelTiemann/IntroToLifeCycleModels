@@ -7,13 +7,14 @@ end
 
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
-N_d = prod(n_d);
+N_d_raw = prod(n_d);
+N_d=max(N_d_raw,1);
 N_a = prod(n_a);
-N_z = prod(n_z);
+N_z_raw = prod(n_z);
 
-l_d = length(n_d); if N_d == 0; l_d = 0; end
+l_d = length(n_d); if N_d_raw == 0; l_d = 0; end
 l_a = length(n_a);
-l_z = length(n_z); if N_z == 0; l_z = 0; end
+l_z = length(n_z); if N_z_raw == 0; l_z = 0; end
 
 % Collect 'a' and 'a_prime' values dynamically
 a_prime_vals = cell(1, l_a);
@@ -38,15 +39,14 @@ end
 % Collect 'z' values dynamically
 if l_z == 0
     z_vals = {};
-    Nz_eff = 1;
 else
     z_vals = cell(1, l_z);
     z_shift_base = 2 * l_a;
     for i = 1:l_z
         z_vals{i} = shiftdim(z_gridvals(:, i), -(1 + z_shift_base));
     end
-    Nz_eff = N_z;
 end
+N_z=max(N_z_raw,1);
 
 % Combine all inputs into a single argument cell array for arrayfun
 all_inputs = [d_vals, a_prime_vals, a_vals, z_vals, ReturnFnParamsCell'];
@@ -56,12 +56,12 @@ Fmatrix = arrayfun(ReturnFn, all_inputs{:});
 
 % Reshape output matrix
 if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_a, N_a, Nz_eff]);
+    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_z]);
 else
     if Refine == 1
-        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, Nz_eff]);
+        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_z]);
     else
-        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, Nz_eff]);
+        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_z]);
     end
 end
 end

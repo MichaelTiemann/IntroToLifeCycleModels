@@ -22,18 +22,22 @@ else
     n_d = [n_d1, n_d2];
 end
 
-N_d = max(prod(n_d), 1);
-Nd1_eff = max(N_d1_raw, 1);
-Nd2_eff = max(N_d2_raw, 1);
+N_d_raw=prod(n_d);
+N_d = max(N_d_raw, 1);
+N_d1 = max(N_d1_raw, 1);
+N_d2 = max(N_d2_raw, 1);
+
 N_a1prime = max(prod(n_a1prime), 1);
 N_a1 = max(prod(n_a1), 1);
 N_a2 = max(prod(n_a2), 1);
-N_z = max(prod(n_z), 1);
 
-l_d = length(n_d); if prod(n_d)==0; l_d=0; end
+N_z_raw=prod(n_z);
+N_z = max(N_z_raw, 1);
+
+l_d = length(n_d); if N_d_raw==0; l_d=0; end
 l_a1 = length(n_a1); if prod(n_a1)==0; l_a1=0; end
 l_a2 = length(n_a2);
-l_z = length(n_z); if prod(n_z)==0; l_z=0; end
+l_z = length(n_z); if N_z_raw==0; l_z=0; end
 
 if l_a2 > 2
     error('experienceasset currently supports length(n_a2) in {1,2}');
@@ -82,13 +86,13 @@ if Level == 0 || Level == 2
     if Refine == 0 || prod(n_d1) == 0
         Fmatrix = reshape(Fmatrix, [N_d * N_a1prime, N_a1 * N_a2, N_z]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1 * N_a2, N_z]);
+        Fmatrix = reshape(Fmatrix, [N_d1, N_d2 * N_a1prime, N_a1 * N_a2, N_z]);
     end
 elseif Level == 1 || Level == 3
     if Refine == 0 || prod(n_d1) == 0
         Fmatrix = reshape(Fmatrix, [N_d, N_a1prime, N_a1, N_a2, N_z]);
     elseif Refine == 1
-        Fmatrix = reshape(Fmatrix, [Nd1_eff, Nd2_eff * N_a1prime, N_a1, N_a2, N_z]);
+        Fmatrix = reshape(Fmatrix, [N_d1, N_d2 * N_a1prime, N_a1, N_a2, N_z]);
     end
 end
 
