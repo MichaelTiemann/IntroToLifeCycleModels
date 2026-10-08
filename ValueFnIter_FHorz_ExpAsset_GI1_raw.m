@@ -2,11 +2,25 @@ function [V,Policy]=ValueFnIter_FHorz_ExpAsset_GI1_raw(n_d1,n_d2,n_a1,n_a2,n_z,N
 
 N_d1_raw=prod(n_d1);
 N_d2_raw=prod(n_d2);
-N_d_raw=N_d1_raw * N_d2_raw;
+if N_d1_raw == 0 && N_d2_raw == 0
+    N_d_raw = 0;
+elseif N_d1_raw == 0
+    N_d_raw = N_d2_raw;
+elseif N_d2_raw == 0
+    N_d_raw = N_d1_raw;
+else
+    N_d_raw = N_d1_raw * N_d2_raw;
+end
 has_d=(N_d_raw > 0);
+has_d1=(N_d1_raw > 0);
 N_d1=max(N_d1_raw, 1);
 N_d2=max(N_d2_raw, 1);
 N_d=N_d1 * N_d2;
+
+if ~has_d1
+    d_gridvals = d2_gridvals;
+    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
+end
 
 N_a1=prod(n_a1);
 N_a2=prod(n_a2);
@@ -56,6 +70,8 @@ a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2); % already includes -1
 
 % Create a vector containing all the return function parameters (in order)
 ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
+
+d2_for_l2 = rem(gpuArray(1:1:N_d)' - 1, N_d2) + 1; % For indexing into N_d2 later
 
 if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
@@ -143,15 +159,14 @@ else
     DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
     % Interpolate EV over aprime_grid
     DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5]),a1prime_grid),[2,1,3,4,5]); % [N_d2,N_a1prime,1,N_a2,N_z]
-    DiscountedEV=repelem(DiscountedEV,N_d1,1);% [N_d1*N_d2,N_a1,1,N_a2,N_z]
-    DiscountedEVinterp=repelem(DiscountedEVinterp,N_d1,1); % [N_d1*N_d2,N_a1prime,1,N_a2,N_z]
 
     if vfoptions.lowmemory==0
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=1, Refine=0
         ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a1, N_a1, N_a2, N_z]);
-
-        entireRHS=ReturnMatrix+DiscountedEV; % autofill 3rd dim to N_a1
+        % Use implicit expansion to broadcast across N_d1 without repelem!
+        entireRHS = reshape(ReturnMatrix, [N_d1, N_d2, N_a1, N_a1, N_a2, N_z]) + reshape(DiscountedEV, [1, N_d2, N_a1, 1, N_a2, N_z]);
+        entireRHS = reshape(entireRHS, [N_d, N_a1, N_a1, N_a2, N_z]);
 
         % Calc the max and it's index
         [~,maxindex]=max(entireRHS,[],2);
@@ -163,7 +178,8 @@ else
         % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2-by-n_z
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
         ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d * n2long, N_a, N_z]);
-        da1primea2z=(1:1:N_d)'+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind+N_d*N_a1prime*N_a2*zind;
+        % Use d2_for_l2 instead of (1:1:N_d)' to wrap indexing for DiscountedEVinterp
+        da1primea2z = d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind + N_d2*N_a1prime*N_a2*zind;
         entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp(da1primea2z(:)),[N_d*n2long,N_a1*N_a2,N_z]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
@@ -191,8 +207,9 @@ else
 
             ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,special_n_z, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0); % [N_d,N_a1prime,N_a1,N_a2]; Level=1, Refine=0
             ReturnMatrix_z=reshape(ReturnMatrix_z, [N_d, N_a1, N_a1, N_a2, 1]);
-
-            entireRHS_z=ReturnMatrix_z+DiscountedEV_z; % autofill 3rd dim to N_a1
+            % Implicit expansion across N_d1
+            entireRHS_z = reshape(ReturnMatrix_z, [N_d1, N_d2, N_a1, N_a1, N_a2, 1]) + reshape(DiscountedEV_z, [1, N_d2, N_a1, 1, N_a2, 1]);
+            entireRHS_z = reshape(entireRHS_z, [N_d, N_a1, N_a1, N_a2, 1]);
 
             % Calc the max and it's index
             [~,maxindex]=max(entireRHS_z,[],2);
@@ -204,7 +221,7 @@ else
             % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,special_n_z, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
             ReturnMatrix_ii_z=reshape(ReturnMatrix_ii_z, [N_d * n2long, N_a, 1]);
-            da1primea2=(1:1:N_d)'+N_d*(a1primeindexesfine-1)+N_d*N_a1prime*a2ind;
+            da1primea2 = d2_for_l2 + N_d2*(a1primeindexesfine-1) + N_d2*N_a1prime*a2ind;
             entireRHS_ii=ReturnMatrix_ii_z+reshape(DiscountedEVinterp_z(da1primea2(:)),[N_d*n2long,N_a1*N_a2]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
             V(:,z_c,N_j)=shiftdim(Vtempii,1);
@@ -257,8 +274,7 @@ for reverse_j=1:N_j-1
     DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
     % Interpolate EV over aprime_grid
     DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5]),a1prime_grid),[2,1,3,4,5]); % [N_d2,N_a1prime,1,N_a2,N_z]
-    DiscountedEV=repelem(DiscountedEV,N_d1,1);% [N_d1*N_d2,N_a1,1,N_a2,N_z]
-    DiscountedEVinterp=repelem(DiscountedEVinterp,N_d1,1); % [N_d1*N_d2,N_a1prime,1,N_a2,N_z]
+    d2_for_l2 = rem(gpuArray(1:1:N_d)' - 1, N_d2) + 1; % For indexing into N_d2 later
 
     if vfoptions.lowmemory==0
 

@@ -35,9 +35,6 @@ l_a1 = length(n_a1); if prod(n_a1)==0; l_a1=0; end
 l_a2 = length(n_a2);
 l_z = length(n_z); if prod(n_z)==0; l_z=0; end
 
-if l_d > 4 || l_a1 > 4 || l_z > 8
-    error('Using GPU for the return fn does not allow for more than 4 d, 4 a, or 8 z variables');
-end
 if l_a2 > 2
     error('experienceasset currently supports length(n_a2) in {1,2}');
 end

@@ -5,6 +5,11 @@ N_d2=prod(n_d2);
 has_d1=(N_d1 > 0); Nd1_eff = max(N_d1, 1);
 has_d2=(N_d2 > 0); Nd2_eff = max(N_d2, 1);
 
+if ~has_d1
+    d_gridvals = d2_gridvals;
+    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
+end
+
 N_a1 = prod(n_a1);
 has_a1 = (N_a1 > 0); Na1_eff = max(N_a1, 1);
 N_a2 = prod(n_a2);
@@ -12,11 +17,6 @@ N_a = Na1_eff * N_a2;
 
 N_z=prod(n_z);
 Nz_eff = max(N_z, 1);
-
-if ~has_d1
-    d_gridvals = d2_gridvals;
-    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
-end
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_j,'gpuArray'); % indexes the optimal choice for d and a1prime rest of dimensions a,z

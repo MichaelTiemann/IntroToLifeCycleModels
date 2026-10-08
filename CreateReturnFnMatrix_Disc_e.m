@@ -10,15 +10,6 @@ N_a = prod(n_a);
 N_z = prod(n_z);
 N_e = prod(n_e);
 
-l_d = length(n_d); if N_d == 0; l_d = 0; end
-l_a = length(n_a);
-l_z = length(n_z); if N_z == 0; l_z = 0; end
-l_e = length(n_e);
-
-if l_d > 4 || l_a > 4 || l_z > 5 || l_e > 5
-    error('Variable dimension limits exceeded for GPU return fn evaluation.');
-end
-
 % 1. Dynamically build a_prime and a
 a_prime_vals = cell(1, l_a);
 a_vals = cell(1, l_a);
