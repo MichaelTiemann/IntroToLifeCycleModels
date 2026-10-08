@@ -398,7 +398,7 @@ else
             % aprime possibilities are n_d2-by-n2long-by-n_a1-by-n_a2-by-n_z
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n2long,n_a1,n_a2,n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2,N_z]; Level=2, Refine=0
             da1primea2z=d2ind+N_d2*(a1primeindexesfine-1)+N_d2*N_a1prime*a2ind+N_d2*N_a1prime*N_a2*zind; % [N_d,n2long,N_a1,N_a2,N_z]; linear index into DiscountedEVinterp [N_d2,N_a1prime,1,N_a2,N_z]
-            entireRHS_ii_e=ReturnMatrix_ii_e+reshape(DiscountedEVinterp_e(da1primea2z),[N_d*n2long,N_a1*N_a2,N_z]);
+            entireRHS_ii_e=ReturnMatrix_ii_e+reshape(DiscountedEVinterp(da1primea2z),[N_d*n2long,N_a1*N_a2,N_z]);
             [Vtempii,maxindexL2]=max(entireRHS_ii_e,[],1);
             V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
             d_ind=rem(maxindexL2-1,N_d)+1;
@@ -471,7 +471,7 @@ else
                 % aprime possibilities are n_d-by-n2long-by-n_a1-by-n_a2
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1, n_d2, n2long, n_a1,n_a2,special_n_z,special_n_e, d_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,2,0); % [N_d,N_a1prime,N_a1,N_a2]; Level=2, Refine=0
                 da1primea2=d2ind+N_d2*(a1primeindexesfine-1)+N_d2*N_a1prime*a2ind; % [N_d,n2long,N_a1,N_a2]; linear index into DiscountedEVinterp_z [N_d2,N_a1prime,1,N_a2]
-                entireRHS_ii_ze=ReturnMatrix_ii_ze+reshape(DiscountedEVinterp_z(da1primea2),[N_d*n2long,N_a1*N_a2]);
+                entireRHS_ii_ze=ReturnMatrix_ii_ze+reshape(DiscountedEVinterp(da1primea2),[N_d*n2long,N_a1*N_a2]);
                 [Vtempii,maxindexL2]=max(entireRHS_ii_ze,[],1);
                 V(:,z_c,e_c,N_j)=shiftdim(Vtempii,1);
                 d_ind=rem(maxindexL2-1,N_d)+1;
@@ -669,8 +669,8 @@ for reverse_j=1:N_j-1
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
                 ReturnMatrix_ii_ze=reshape(ReturnMatrix_ii_ze, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, 1, 1]);
 
-                entireRHS_ii_e = ReturnMatrix_ii_ze + shiftdim(DiscountedEV_z, -1);
-                entireRHS_ii_e = reshape(entireRHS_ii_e, [N_d, N_a1, vfoptions.level1n, N_a2, 1, 1]);
+                entireRHS_ii_ze = ReturnMatrix_ii_ze + shiftdim(DiscountedEV_z, -1);
+                entireRHS_ii_ze = reshape(entireRHS_ii_ze, [N_d, N_a1, vfoptions.level1n, N_a2, 1, 1]);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(entireRHS_ii_ze,[],2);
