@@ -98,7 +98,7 @@ else
 
     if vfoptions.lowmemory==0
 
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [N_d2, N_a1, 1, N_a2, N_z]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, N_d2*N_a1, 1, N_a2, N_z, 1]);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_N_j, e_gridvals_J(:,:,N_j), ReturnFnParamsVec,0,0); % Level=0, Refine=0
         ReturnMatrix = reshape(ReturnMatrix, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z, N_e]);
@@ -112,7 +112,7 @@ else
 
     elseif vfoptions.lowmemory==1
 
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [N_d2, N_a1, 1, N_a2, N_z]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV, [1, N_d2*N_a1, 1, N_a2, N_z]);
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,N_j);
@@ -131,7 +131,7 @@ else
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
 
-            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c), [N_d2, N_a1, 1, N_a2]);
+            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c), [1, N_d2*N_a1, 1, N_a2]);
 
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
@@ -188,7 +188,7 @@ for reverse_j=1:N_j-1
 
     if vfoptions.lowmemory==0
 
-        DiscountedEV=DiscountFactorParamsVec*repelem(EV,N_d1,N_a1,1);
+        DiscountedEV = DiscountFactorParamsVec * reshape(EV, [1, N_d2*N_a1, 1, N_a2, N_z, 1]);
 
         ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,n_a1,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_jj, e_gridvals_J(:,:,jj), ReturnFnParamsVec,0,0); % Level=0, Refine=0
         ReturnMatrix = reshape(ReturnMatrix, [N_d1, N_d2*N_a1, N_a1, N_a2, N_z, N_e]);
@@ -202,7 +202,7 @@ for reverse_j=1:N_j-1
 
     elseif vfoptions.lowmemory==1
 
-        DiscountedEV=DiscountFactorParamsVec*repelem(EV,N_d1,N_a1,1);
+        DiscountedEV = DiscountFactorParamsVec * reshape(EV, [1, N_d2*N_a1, 1, N_a2, N_z]);
 
         for e_c=1:N_e
             e_val=e_gridvals_J(e_c,:,jj);
@@ -220,7 +220,7 @@ for reverse_j=1:N_j-1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
 
-            DiscountedEV_z=DiscountFactorParamsVec*repelem(EV(:,:,z_c),N_d1,N_a1);
+            DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_d2*N_a1, 1, N_a2]);
 
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);
