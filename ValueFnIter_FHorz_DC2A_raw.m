@@ -68,9 +68,9 @@ if ~isfield(vfoptions,'V_Jplus1')
             [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size);
             
             % 3. Assign results
-            V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+            V(curraindex,:,N_j) = shiftdim(Vtempii,1);
             allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind; 
-            Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+            Policy(curraindex,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -102,9 +102,9 @@ if ~isfield(vfoptions,'V_Jplus1')
                 [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size);
 
                 % 3. Assign results
-                V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+                V(curraindex,:,N_j) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
-                Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+                Policy(curraindex,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
@@ -142,7 +142,7 @@ else
         maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
         for ii=1:(vfoptions.level1n-1)
             curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-            loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii)); 
+            loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii)); 
             
             % 1. Package the handle and shape
             ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
@@ -156,9 +156,9 @@ else
             [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
             
             % 4. Assign results
-            V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+            V(curraindex,:,N_j) = shiftdim(Vtempii,1);
             allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind; 
-            Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+            Policy(curraindex,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -184,7 +184,7 @@ else
             maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
+                loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
                 ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, ReturnFnParamsVec, 2, 0);
@@ -198,9 +198,9 @@ else
                 [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
 
                 % 4. Assign results
-                V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+                V(curraindex,:,N_j) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
-                Policy(curraindex,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+                Policy(curraindex,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
@@ -247,7 +247,7 @@ for reverse_j=1:N_j-1
         maxgap=squeeze(max(max(max(max(maxindex1(:,1,:,2:end,:,:)-maxindex1(:,1,:,1:end-1,:,:),[],6),[],5),[],3),[],1));
         for ii=1:(vfoptions.level1n-1)
             curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-            loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii)); 
+            loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii)); 
             
             % 1. Package the handle and shape
             ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec, 2, 0);
@@ -261,9 +261,9 @@ for reverse_j=1:N_j-1
             [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
             
             % 4. Assign results
-            V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
+            V(curraindex,:,jj) = shiftdim(Vtempii,1);
             allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii)) + N_d*N_a2*N_a2*zind; 
-            Policy(curraindex,:,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+            Policy(curraindex,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -289,7 +289,7 @@ for reverse_j=1:N_j-1
             maxgap=squeeze(max(max(max(maxindex1(:,1,:,2:end,:)-maxindex1(:,1,:,1:end-1,:),[],5),[],3),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex = repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1) + N_a1*repelem(a2ind',level1iidiff(ii),1);
-                loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
+                loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
                 ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, ReturnFnParamsVec, 2, 0);
@@ -303,9 +303,9 @@ for reverse_j=1:N_j-1
                 [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
 
                 % 4. Assign results
-                V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
+                V(curraindex,:,jj) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
-                Policy(curraindex,:,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+                Policy(curraindex,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
