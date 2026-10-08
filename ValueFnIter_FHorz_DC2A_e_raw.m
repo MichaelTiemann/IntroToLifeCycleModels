@@ -233,7 +233,7 @@ else
 
                 % 1. Package the handle and shape
                 ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,N_j), e_vals, ReturnFnParamsVec, 2, 0);
-                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, 1];
 
                 % 2. Extract the relevant Expected Value subset
                 aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
@@ -278,7 +278,7 @@ else
 
                     % 1. Package the handle and shape
                     ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec, 2, 0);
-                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1, 1];
 
                     % 2. Extract the relevant Expected Value subset
                     aprime = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;
@@ -385,7 +385,7 @@ for reverse_j=1:N_j-1
 
                 % 1. Package the handle and shape
                 ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_gridvals_J(:,:,jj), e_vals, ReturnFnParamsVec, 2, 0);
-                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+                reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, 1];
 
                 % 2. Extract the relevant Expected Value subset
                 aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*zBind;
@@ -430,7 +430,7 @@ for reverse_j=1:N_j-1
 
                     % 1. Package the handle and shape
                     ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, e_vals, ReturnFnParamsVec, 2, 0);
-                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_z, N_e];
+                    reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1, 1];
 
                     % 2. Extract the relevant Expected Value subset
                     aprime = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;
