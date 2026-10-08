@@ -330,7 +330,7 @@ for reverse_j=1:N_j-1
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     EV = V(:,:,jj+1);
-    if N_z>0; EV=EV.*shiftdim(pi_z_J(:,:,jj)',-1); end
+    if N_z > 0; EV=EV.*shiftdim(pi_z_J(:,:,jj)',-1); end
     EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
     EV=sum(EV,2); % sum over z', leaving [N_a, 1]
 

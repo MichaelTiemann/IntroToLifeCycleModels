@@ -273,79 +273,18 @@ else
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
-    EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
-    if N_z > 0; EVpre = EVpre * pi_z_J(:,:,N_j)'; end
-
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
-    if has_exp_z
-        pass_z_grid = z_gridvals_J(:,:,N_j);
-    end
-    if has_exp_e
-        pass_e_grid = e_gridvals_J(:,:,N_j);
-    end
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2, pass_n_z, pass_z_grid, pass_n_e, pass_e_grid); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,N_j)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
-    if length(n_a2)==1
-        a1_offsets=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
-        a2_idx_exp=repmat(a2primeIndex,N_a1,1); % Expands correctly across 3D
-        aprimeProbs=repmat(a2primeProbs,N_a1,1);
-
-        aprimeIndex_full=a1_offsets+N_a1*(a2_idx_exp-1);
-        aprimeplus1Index_full=a1_offsets+N_a1*a2_idx_exp;
-
-        z_offset = shiftdim((0:N_z-1) * N_a, -1);
-
-        Vlower = EVpre(aprimeIndex_full + z_offset);
-        Vupper = EVpre(aprimeplus1Index_full + z_offset);
-
-        % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
-        skipinterp=(Vlower==Vupper);
-        aprimeProbs(skipinterp)=0; % effectively skips interpolation
-
-        % Switch EV from being in terms of a2prime to being in terms of d2 and a2
-        EV=aprimeProbs.*Vlower+(1-aprimeProbs).*Vupper; % (d2,a1prime,a2,u,zprime)
-        EV(aprimeProbs==0)=Vupper(aprimeProbs==0); % includes the skipinterp positions; a zero weight against an infinite node gives 0*(-Inf)=NaN
-        EV(aprimeProbs==1)=Vlower(aprimeProbs==1);
-    else
-        % l_a2==2: a2primeIndex/a2primeProbs are [l_a2,N_d2,N_a2], per-dim factored (lower-grid
-        % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
-        % a1prime offset, then nested 2-corner interp with skipinterp at each level and
-        % per-contribution NaN cleanup for 0*(-Inf).
-        n_a2_1=n_a2(1);
-        loIdx_1=squeeze(a2primeIndex(1,:,:,:));
-        loIdx_2=squeeze(a2primeIndex(2,:,:,:));
-        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),N_a1,1);
-        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),N_a1,1);
-
-        a1_offsets=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
-        aprime_ll=a1_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_hl=a1_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_lh=a1_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
-        aprime_hh=a1_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-
-        z_offset = shiftdim((0:N_z-1) * N_a, -1);
-
-        V_ll = EVpre(aprime_ll + z_offset);
-        V_hl = EVpre(aprime_hl + z_offset);
-        V_lh = EVpre(aprime_lh + z_offset);
-        V_hh = EVpre(aprime_hh + z_offset);
-        p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
-        c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
-        c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
-        EV_loy=c_ll+c_hl;
-        p1_hiy=prob_1_exp; p1_hiy(V_lh==V_hh)=0;
-        c_lh=p1_hiy.*V_lh; c_lh(isnan(c_lh))=0;
-        c_hh=(1-p1_hiy).*V_hh; c_hh(isnan(c_hh))=0;
-        EV_hiy=c_lh+c_hh;
-        p2=prob_2_exp; p2(EV_loy==EV_hiy)=0;
-        c_loy=p2.*EV_loy; c_loy(isnan(c_loy))=0;
-        c_hiy=(1-p2).*EV_hiy; c_hiy(isnan(c_hiy))=0;
-        EV=c_loy+c_hiy;
-    end
+    EVpre=sum(shiftdim(pi_e_J(:,N_j+1),-2).*reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]),3); % First, switch V_Jplus1 into Kron form
+    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
-    EV(isnan(EV))=0; % NOT SURE THIS IS NEEDED??? EV is over (d2,a1prime,a2)
+    EV=EV.*shiftdim(pi_z_J(:,:,N_j)',-2);
+    EV(isnan(EV))=0; % remove nan created where value fn is -Inf but probability is zero
+    EV=squeeze(sum(EV,3));
+    % EV is over (d2,a1prime,a2,z)
 
     if vfoptions.lowmemory==0
 
@@ -560,85 +499,23 @@ for reverse_j=1:N_j-1
         fprintf('Finite horizon: %i of %i \n',jj, N_j)
     end
 
-
     % Create a vector containing all the return function parameters (in order)
     ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,jj);
     DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj);
     DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
 
     aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    if has_exp_z
-        pass_z_grid = z_gridvals_J(:,:,jj);
-    end
-    if has_exp_e
-        pass_e_grid = e_gridvals_J(:,:,jj);
-    end
-    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2, pass_n_z, pass_z_grid, pass_n_e, pass_e_grid); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
+    [a2primeIndex,a2primeProbs]=CreateExperienceAssetFnMatrix(aprimeFn, n_d2, n_a2, d2_gridvals, a2_grid, aprimeFnParamsVec,2,n_z,z_gridvals_J(:,:,jj)); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
     % Note: aprimeIndex is [N_d2,N_a2], whereas aprimeProbs is [N_d2,N_a2]
 
     EVpre=sum(shiftdim(pi_e_J(:,jj+1),-2).*V(:,:,:,jj+1),3); % First, switch V_Jplus1 into Kron form
-    if N_z > 0; EVpre = EVpre * pi_z_J(:,:,jj)'; end
-
-    if length(n_a2)==1
-        a1_offsets=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
-        a2_idx_exp=repmat(a2primeIndex,N_a1,1); % Expands correctly across 3D
-        aprimeProbs=repmat(a2primeProbs,N_a1,1);
-
-        aprimeIndex_full=a1_offsets+N_a1*(a2_idx_exp-1);
-        aprimeplus1Index_full=a1_offsets+N_a1*a2_idx_exp;
-
-        z_offset = shiftdim((0:N_z-1) * N_a, -1);
-
-        Vlower = EVpre(aprimeIndex_full + z_offset);
-        Vupper = EVpre(aprimeplus1Index_full + z_offset);
-
-        % Skip interpolation when upper and lower are equal (otherwise can cause numerical rounding errors)
-        skipinterp=(Vlower==Vupper);
-        aprimeProbs(skipinterp)=0; % effectively skips interpolation
-
-        % Switch EV from being in terms of a2prime to being in terms of d2 and a2
-        EV=aprimeProbs.*Vlower+(1-aprimeProbs).*Vupper; % (d2,a1prime,a2,u,zprime)
-        EV(aprimeProbs==0)=Vupper(aprimeProbs==0); % includes the skipinterp positions; a zero weight against an infinite node gives 0*(-Inf)=NaN
-        EV(aprimeProbs==1)=Vlower(aprimeProbs==1);
-    else
-        % l_a2==2: a2primeIndex/a2primeProbs are [l_a2,N_d2,N_a2], per-dim factored (lower-grid
-        % index and prob of lower, one row per a2 dim). Fold to the four corners keeping the
-        % a1prime offset, then nested 2-corner interp with skipinterp at each level and
-        % per-contribution NaN cleanup for 0*(-Inf).
-        n_a2_1=n_a2(1);
-        loIdx_1=squeeze(a2primeIndex(1,:,:,:));
-        loIdx_2=squeeze(a2primeIndex(2,:,:,:));
-        prob_1_exp=repmat(squeeze(a2primeProbs(1,:,:,:)),N_a1,1);
-        prob_2_exp=repmat(squeeze(a2primeProbs(2,:,:,:)),N_a1,1);
-
-        a1_offsets=repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
-        aprime_ll=a1_offsets+N_a1*repmat(loIdx_1+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_hl=a1_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*(loIdx_2-1)-1,N_a1,1);
-        aprime_lh=a1_offsets+N_a1*repmat(loIdx_1+n_a2_1*loIdx_2-1,N_a1,1);
-        aprime_hh=a1_offsets+N_a1*repmat((loIdx_1+1)+n_a2_1*loIdx_2-1,N_a1,1);
-
-        z_offset = shiftdim((0:N_z-1) * N_a, -1);
-
-        V_ll = EVpre(aprime_ll + z_offset);
-        V_hl = EVpre(aprime_hl + z_offset);
-        V_lh = EVpre(aprime_lh + z_offset);
-        V_hh = EVpre(aprime_hh + z_offset);
-        p1_loy=prob_1_exp; p1_loy(V_ll==V_hl)=0;
-        c_ll=p1_loy.*V_ll; c_ll(isnan(c_ll))=0;
-        c_hl=(1-p1_loy).*V_hl; c_hl(isnan(c_hl))=0;
-        EV_loy=c_ll+c_hl;
-        p1_hiy=prob_1_exp; p1_hiy(V_lh==V_hh)=0;
-        c_lh=p1_hiy.*V_lh; c_lh(isnan(c_lh))=0;
-        c_hh=(1-p1_hiy).*V_hh; c_hh(isnan(c_hh))=0;
-        EV_hiy=c_lh+c_hh;
-        p2=prob_2_exp; p2(EV_loy==EV_hiy)=0;
-        c_loy=p2.*EV_loy; c_loy(isnan(c_loy))=0;
-        c_hiy=(1-p2).*EV_hiy; c_hiy(isnan(c_hiy))=0;
-        EV=c_loy+c_hiy;
-    end
+    EV=InterpolateExperienceAssetEV(EVpre, n_a2, N_d2, N_a1, N_a2, N_z, a2primeIndex, a2primeProbs);
     % Already applied the probabilities from interpolating onto grid
 
-    EV(isnan(EV))=0; % NOT SURE THIS IS NEEDED? EV is over (d2,a1prime,a2)
+    EV=EV.*shiftdim(pi_z_J(:,:,jj)',-2);
+    EV(isnan(EV))=0; % remove nan created where value fn is -Inf but probability is zero
+    EV=squeeze(sum(EV,3));
+    % EV is over (d2,a1prime,a2,z)
 
     if vfoptions.lowmemory==0
 
