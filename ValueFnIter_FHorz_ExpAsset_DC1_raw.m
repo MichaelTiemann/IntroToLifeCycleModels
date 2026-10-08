@@ -1,11 +1,26 @@
 function [V,Policy]=ValueFnIter_FHorz_ExpAsset_DC1_raw(n_d1,n_d2,n_a1,n_a2,n_z,N_j, d_gridvals, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions)
 
-N_d1_raw=prod(n_d1); 
+N_d1_raw=prod(n_d1);
 N_d2_raw=prod(n_d2);
+if N_d1_raw == 0 && N_d2_raw == 0
+    N_d_raw = 0;
+elseif N_d1_raw == 0
+    N_d_raw = N_d2_raw;
+elseif N_d2_raw == 0
+    N_d_raw = N_d1_raw;
+else
+    N_d_raw = N_d1_raw * N_d2_raw;
+end
+has_d=(N_d_raw > 0);
 has_d1=(N_d1_raw > 0);
-N_d1 = max(N_d1_raw, 1);
-N_d2 = max(N_d2_raw, 1);
-N_d = N_d1 * N_d2;
+N_d1=max(N_d1_raw, 1);
+N_d2=max(N_d2_raw, 1);
+N_d=N_d1 * N_d2;
+
+if ~has_d1
+    d_gridvals = d2_gridvals;
+    n_d1 = 0; % ensures CreateReturnFnMatrix handles it correctly as having no d1
+end
 
 N_a1=prod(n_a1);
 N_a2=prod(n_a2);
@@ -517,6 +532,10 @@ end
 
 %%
 Policy=shiftdim(Policy,-1);
+
+if ~has_d
+    Policy = Policy(2:end, :, :, :);
+end
 
 
 end
