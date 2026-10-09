@@ -126,45 +126,55 @@ end
 
 n_a=[n_a1,n_a2];
 
-% Transforming Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
-% N_a1
-if N_d1==0
-    if N_e==0
-        if N_z==0
-            V=reshape(VKron,[n_a,N_j]);
-            Policy=UnKronPolicyIndexes3_FHorz_noz(PolicyKron, n_d2,n_d3,n_a1, n_a, N_j, vfoptions);
-        else
-            V=reshape(VKron,[n_a,n_z,N_j]);
-            Policy=UnKronPolicyIndexes3_FHorz_z(PolicyKron, n_d2,n_d3,n_a1, n_a, n_z, N_j, vfoptions);
-        end
-    else
-        if N_z==0
-            V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-            Policy=UnKronPolicyIndexes3_FHorz_z(PolicyKron, n_d2,n_d3,n_a1, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-        else
-            V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-            Policy=UnKronPolicyIndexes3_FHorz_z_e(PolicyKron, n_d2,n_d3,n_a1, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-        end
-    end
-else % N_d1
-    if N_e==0
-        if N_z==0
-            V=reshape(VKron,[n_a,N_j]);
-            Policy=UnKronPolicyIndexes4_FHorz_noz(PolicyKron, n_d1,n_d2,n_d3,n_a1, n_a, N_j, vfoptions);
-        else
-            V=reshape(VKron,[n_a,n_z,N_j]);
-            Policy=UnKronPolicyIndexes4_FHorz_z(PolicyKron, n_d1,n_d2,n_d3,n_a1, n_a, n_z, N_j, vfoptions);
-        end
-    else
-        if N_z==0
-            V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-            Policy=UnKronPolicyIndexes4_FHorz_z(PolicyKron, n_d1,n_d2,n_d3,n_a1, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-        else
-            V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-            Policy=UnKronPolicyIndexes4_FHorz_z_e(PolicyKron, n_d1,n_d2,n_d3,n_a1, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-        end
-    end
+%% Transform Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
+% 1. Dynamically reconstruct the state-space dimensions
+target_sz = n_a; 
+if N_z > 1, target_sz = [target_sz, n_z]; end
+if N_e > 1, target_sz = [target_sz, vfoptions.n_e]; end
+target_sz = [target_sz, N_j];
+
+% 2. Reshape the Value Function
+V = reshape(VKron, target_sz);
+
+% 3. Extract Policy dynamically
+has_z = (N_z > 1);
+has_e = (N_e > 1);
+has_d1 = (N_d1 > 0);
+
+% The number of policy channels is: 
+% 1 (for d2, d3 bundled logic) + d1 (if present) + number of standard endogenous assets
+num_channels = 1 + has_d1 + length(n_a); 
+
+% Determine suffix
+if has_e && has_z
+    suffix = '_z_e';
+elseif has_z || has_e
+    suffix = '_z';
+else
+    suffix = '_noz';
 end
+
+base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', num_channels);
+UnKronFn = str2func([base_fn, suffix]);
+
+% 4. Dynamically build the arguments list
+args = {PolicyKron};
+if has_d1, args{end+1} = n_d1; end
+args = [args, {n_d2, n_d3}];
+
+% Append the standard asset grids (everything in n_a except the risky asset at the end)
+for i = 1:(length(n_a)-1)
+    args{end+1} = n_a(i);
+end
+
+args{end+1} = n_a; % The full combined asset grid size
+
+if has_z, args{end+1} = n_z; end
+if has_e, args{end+1} = vfoptions.n_e; end
+args = [args, {N_j, vfoptions}];
+
+% 5. Execute
+Policy = UnKronFn(args{:});
 
 
 end
