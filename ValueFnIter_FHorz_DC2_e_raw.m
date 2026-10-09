@@ -140,8 +140,8 @@ if ~isfield(vfoptions,'V_Jplus1')
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
@@ -257,7 +257,7 @@ else
                 loweredge2 = min(maxindex12(:,1,ii,kk,:,:), N_a2-maxgap2(ii,kk));
 
                 % 1. Package the handle
-                ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
+                ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
 
                 % 2. Extract EV Slice
                 a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
@@ -312,11 +312,11 @@ else
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
-                    ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, specian_zl_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
+                    ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
 
                     % 2. Extract EV Slice
                     DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
@@ -380,7 +380,7 @@ else
                         loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                         % 1. Package the handle
-                        ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, e_val, ReturnFnParamsVec, 2);
+                        ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, e_val, ReturnFnParamsVec, 2);
 
                         % 2. Extract EV Slice
                         DiscountedEV_ze = DiscountedEV(:,:,1,1,z_c,e_c);
@@ -512,8 +512,8 @@ for reverse_j=1:N_j-1
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(z_c,:,jj), e_val, ReturnFnParamsVec, 2);
@@ -546,7 +546,7 @@ for reverse_j=1:N_j-1
                 e_val=e_gridvals_J(e_c,:,jj);
 
                 % n-Monotonicity
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_val, e_val, ReturnFnParamsVec, 1);
+                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_val, e_val, ReturnFnParamsVec, 1);
                 % (d,a1a2prime,a1,a2)
 
                 entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z;

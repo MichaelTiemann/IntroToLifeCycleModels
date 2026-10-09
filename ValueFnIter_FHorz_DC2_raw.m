@@ -235,8 +235,8 @@ else
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, ReturnFnParamsVec, 2);
@@ -373,8 +373,8 @@ for reverse_j=1:N_j-1
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, ReturnFnParamsVec, 2);
@@ -385,7 +385,7 @@ for reverse_j=1:N_j-1
                     aprime = a1primeindexes + N_a1*(a2primeindexes-1);
 
                     reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1];
-                    EV_RHS_slice = reshape(DiscountedEV(aprimeze), reshape_size);
+                    EV_RHS_slice = reshape(DiscountedEV(aprime), reshape_size);
 
                     % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
                     [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
