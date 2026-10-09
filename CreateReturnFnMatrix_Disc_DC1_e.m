@@ -7,11 +7,11 @@ N_a = length(a_grid);
 N_z = max(1, prod(n_z));
 N_e = prod(n_e);
 
-if Level == 1
+if Level == 1 || Level == 4 || Level == 5
     N_aprime = length(aprime_grid);
     aprime_grid = shiftdim(aprime_grid, -1);
-elseif Level == 2 || Level == 3
-    N_aprime = size(aprime_grid, 2); 
+elseif Level == 2 || Level == 3 || Level == 6
+    N_aprime = size(aprime_grid, 2);
 end
 
 % --- DYNAMIC ARRAYFUN EXPANSION ---
