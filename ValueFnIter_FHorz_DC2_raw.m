@@ -385,7 +385,7 @@ for reverse_j=1:N_j-1
                     aprime = a1primeindexes + N_a1*(a2primeindexes-1);
 
                     reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1];
-                    EV_RHS_slice = reshape(DiscountedEV(aprime), reshape_size);
+                    EV_RHS_slice = reshape(DiscountedEV_z(aprime), reshape_size);
 
                     % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
                     [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
