@@ -209,7 +209,7 @@ for jj=N_j:-1:1
         if jj==N_j
             EV_base=reshape(vfoptions.V_Jplus1, [N_a,N_z]);
         else
-            EV_base=V(:, :, jj+1);
+            EV_base=V(:,:, jj+1);
         end
         
         % Create standard aprime indices (Strictly (d23*a1, u) - NO z expansion!)
@@ -234,11 +234,11 @@ for jj=N_j:-1:1
     % 3. Core Evaluation Loop
     for z_c=z_iter
         if vfoptions.lowmemory==0
-            z_val=z_gridvals_J(:, :, jj);
+            z_val=z_gridvals_J(:,:, jj);
             z_idx=1:N_z;
             z_offset=zind; % For indexing policy correctly
         else
-            z_val=z_gridvals_J(z_c, :, jj);
+            z_val=z_gridvals_J(z_c,:, jj);
             z_idx=z_c;
             z_offset=0; % Block is a single slice
         end
@@ -253,16 +253,16 @@ for jj=N_j:-1:1
             [Vtemp, maxindex]=max(entireRHS, [],1);
             
             V(:, z_idx, jj)=shiftdim(Vtemp,1);
-            Policy(3, :, z_idx, jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
-            Policy(4, :, z_idx, jj)=shiftdim(ceil(maxindex/N_d3), -1);
-            Policy(1, :, z_idx, jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*z_offset),1);
-            Policy(2, :, z_idx, jj)=1; % d2 is meaningless without continuation
+            Policy(3,:, z_idx, jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
+            Policy(4,:, z_idx, jj)=shiftdim(ceil(maxindex/N_d3), -1);
+            Policy(1,:, z_idx, jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*z_offset),1);
+            Policy(2,:, z_idx, jj)=1; % d2 is meaningless without continuation
         else
             % B. Compute Continuation Value (EV)
             if vfoptions.lowmemory==0
-                EV_z=EV_base .* shiftdim(pi_z_J(:, :, jj)', -1);
+                EV_z=EV_base .* shiftdim(pi_z_J(:,:, jj)', -1);
             else
-                EV_z=EV_base .* pi_z_J(z_c, :, jj);
+                EV_z=EV_base .* pi_z_J(z_c,:, jj);
             end
             EV_z(isnan(EV_z))=0;
             EV_z=sum(EV_z, 2); 
@@ -290,10 +290,10 @@ for jj=N_j:-1:1
             [Vtemp, maxindex]=max(entireRHS, [],1);
             
             V(:, z_idx, jj)=shiftdim(Vtemp,1);
-            Policy(3, :, z_idx, jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
-            Policy(4, :, z_idx, jj)=shiftdim(ceil(maxindex/N_d3), -1);
-            Policy(1, :, z_idx, jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*z_offset),1);
-            Policy(2, :, z_idx, jj)=shiftdim(d2index(maxindex+N_d3*z_offset),1);
+            Policy(3,:, z_idx, jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
+            Policy(4,:, z_idx, jj)=shiftdim(ceil(maxindex/N_d3), -1);
+            Policy(1,:, z_idx, jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*z_offset),1);
+            Policy(2,:, z_idx, jj)=shiftdim(d2index(maxindex+N_d3*z_offset),1);
         end
     end
 end
