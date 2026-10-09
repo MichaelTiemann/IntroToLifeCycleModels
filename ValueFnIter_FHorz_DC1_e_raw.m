@@ -102,7 +102,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, special_e_z, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
+                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
                 reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, 1];
 
                 % 2. Call the helper!
@@ -139,7 +139,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                     loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
 
                     % 1. Package the handle and shape
-                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, special_e_z, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
                     reshape_size = [N_d*(maxgap(ii)+1), 1, 1, 1];
 
                     % 2. Call the helper!
@@ -189,7 +189,7 @@ else
             loweredge = min(maxindex1(:,1,ii,:), n_a-maxgap(ii));
 
             % 1. Package the handle and shape
-            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
+            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
             reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, N_e];
 
             % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
@@ -229,11 +229,11 @@ else
                 loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
+                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
                 reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, 1];
 
                 % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
-                aprimez = loweredge + (0:1:maxgap(ii));
+                aprimez = loweredge + (0:1:maxgap(ii)) + N_a*zBind;
                 EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
 
                 % 3. Call the helper!
@@ -274,7 +274,7 @@ else
                     loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
 
                     % 1. Package the handle and shape
-                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
                     reshape_size = [N_d*(maxgap(ii)+1), 1, 1, 1];
 
                     % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
@@ -338,7 +338,7 @@ for reverse_j=1:N_j-1
             loweredge = min(maxindex1(:,1,ii,:), n_a-maxgap(ii));
             
             % 1. Package the handle and shape
-            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2);
+            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2);
             reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, N_e];
             
             % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
@@ -378,11 +378,11 @@ for reverse_j=1:N_j-1
                 loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 2);
+                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 2);
                 reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, 1];
 
                 % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
-                aprimez = loweredge + (0:1:maxgap(ii));
+                aprimez = loweredge + (0:1:maxgap(ii)) + N_a*zBind;
                 EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
 
                 % 3. Call the helper!
@@ -424,7 +424,7 @@ for reverse_j=1:N_j-1
                     loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
 
                     % 1. Package the handle and shape
-                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
                     reshape_size = [N_d*(maxgap(ii)+1), 1, 1, 1];
 
                     % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
