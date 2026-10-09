@@ -259,10 +259,18 @@ else
                 % 1. Package the handle
                 ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
 
-                % 2. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
-                [Vtempii, maxindexfix, dind] = RefineSearch_DC2_e(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, []);
+                % 2. Extract EV Slice
+                a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
+                a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
+                aprimeze = a1primeindexes + N_a1*(a2primeindexes-1) + N_a*shiftdim((0:1:N_z-1),-3) + N_a*N_z*shiftdim((0:1:N_e-1),-4);
 
-                % 3. Assign results
+                reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1, N_z, N_e];
+                EV_RHS_slice = reshape(DiscountedEV(aprimeze), reshape_size);
+
+                % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
+                [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
+
+                % 4. Assign results
                 V(curra1index,curra2index,:,:,N_j) = shiftdim(Vtempii,1);
                 allind = dind + N_d*zind + N_d*N_z*eind;
                 Policy(curra1index,curra2index,:,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge1(allind)-1) + N_d*N_a1*(loweredge2(allind)-1), 1);
@@ -310,10 +318,19 @@ else
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, specian_zl_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
 
-                    % 2. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
-                    [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, []);
+                    % 2. Extract EV Slice
+                    DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
+                    a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
+                    a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
+                    aprimez = a1primeindexes + N_a1*(a2primeindexes-1) + N_a*shiftdim((0:1:N_z-1),-3);
 
-                    % 3. Assign results
+                    reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1, N_z];
+                    EV_RHS_slice = reshape(DiscountedEV_e(aprimez), reshape_size);
+
+                    % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
+                    [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
+
+                    % 4. Assign results
                     V(curra1index,curra2index,:,e_c,N_j) = shiftdim(Vtempii,1);
                     allind = dind + N_d*zind;
                     Policy(curra1index,curra2index,:,e_c,N_j) = shiftdim(maxindexfix + N_d*(loweredge1(allind)-1) + N_d*N_a1*(loweredge2(allind)-1), 1);
@@ -365,10 +382,19 @@ else
                         % 1. Package the handle
                         ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, e_val, ReturnFnParamsVec, 2);
 
-                        % 2. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
-                        [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, []);
+                        % 2. Extract EV Slice
+                        DiscountedEV_ze = DiscountedEV(:,:,1,1,z_c,e_c);
+                        a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
+                        a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
+                        aprime = a1primeindexes + N_a1*(a2primeindexes-1);
 
-                        % 3. Assign results
+                        reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1];
+                        EV_RHS_slice = reshape(DiscountedEV_ze(aprime), reshape_size);
+
+                        % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
+                        [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
+
+                        % 4. Assign results
                         V(curra1index,curra2index,z_c,e_c,N_j) = shiftdim(Vtempii,1);
                         Policy(curra1index,curra2index,z_c,e_c,N_j) = shiftdim(maxindexfix + N_d*(loweredge1(dind)-1) + N_d*N_a1*(loweredge2(dind)-1), 1);
                     end
@@ -434,10 +460,18 @@ for reverse_j=1:N_j-1
                 % 1. Package the handle
                 ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
 
-                % 2. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
-                [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, []);
+                % 2. Extract EV Slice
+                a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
+                a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
+                aprimeze = a1primeindexes + N_a1*(a2primeindexes-1) + N_a*shiftdim((0:1:N_z-1),-3) + N_a*N_z*shiftdim((0:1:N_e-1),-4);
 
-                % 3. Assign results
+                reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1, N_z, N_e];
+                EV_RHS_slice = reshape(DiscountedEV(aprimeze), reshape_size);
+
+                % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
+                [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
+
+                % 4. Assign results
                 V(curra1index,curra2index,:,:,jj) = shiftdim(Vtempii,1);
                 allind = dind + N_d*zind + N_d*N_z*eind;
                 Policy(curra1index,curra2index,:,:,jj) = shiftdim(maxindexfix + N_d*(loweredge1(allind)-1) + N_d*N_a1*(loweredge2(allind)-1), 1);
@@ -484,13 +518,22 @@ for reverse_j=1:N_j-1
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(z_c,:,jj), e_val, ReturnFnParamsVec, 2);
 
-                    % 2. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
-                    [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, []);
+                    % 2. Extract EV Slice
+                    DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
+                    a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
+                    a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
+                    aprimez = a1primeindexes + N_a1*(a2primeindexes-1) + N_a*shiftdim((0:1:N_z-1),-3);
 
-                    % 3. Assign results
+                    reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1, N_z];
+                    EV_RHS_slice = reshape(DiscountedEV_e(aprimez), reshape_size);
+
+                    % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
+                    [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
+
+                    % 4. Assign results
                     V(curra1index,curra2index,:,e_c,jj) = shiftdim(Vtempii,1);
                     allind = dind + N_d*zind;
-                    Policy(curra1index,curra2index,:,e_c,jj) = shiftdim(maxindexfix + N_d*(loweredge1(dind)-1) + N_d*N_a1*(loweredge2(dind)-1), 1);
+                    Policy(curra1index,curra2index,:,e_c,jj) = shiftdim(maxindexfix + N_d*(loweredge1(allind)-1) + N_d*N_a1*(loweredge2(allind)-1), 1);
                 end
             end
         end
@@ -500,7 +543,7 @@ for reverse_j=1:N_j-1
             z_val=z_gridvals_J(z_c,:,jj);
             DiscountedEV_z=DiscountedEV(:,:,1,1,z_c);
             for e_c=1:N_e
-                e_val=e_gridvals_J(e_c,:,jj)
+                e_val=e_gridvals_J(e_c,:,jj);
 
                 % n-Monotonicity
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_val, e_val, ReturnFnParamsVec, 1);
@@ -537,12 +580,21 @@ for reverse_j=1:N_j-1
                         loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
 
                         % 1. Package the handle
-                        ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, e_val, ReturnFnParamsVec, 2);
+                        ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, e_val, ReturnFnParamsVec, 2);
 
-                        % 2. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
-                        [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, []);
+                        % 2. Extract EV Slice
+                        DiscountedEV_ze = DiscountedEV(:,:,1,1,z_c,e_c);
+                        a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
+                        a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
+                        aprime = a1primeindexes + N_a1*(a2primeindexes-1);
 
-                        % 3. Assign results
+                        reshape_size = [N_d*(maxgap1(ii,kk)+1)*(maxgap2(ii,kk)+1), 1, 1];
+                        EV_RHS_slice = reshape(DiscountedEV(aprime), reshape_size);
+
+                        % 3. Call the helper! (Naturally collapses to 1D or 0D if gaps are 0)
+                        [Vtempii, maxindexfix, dind] = RefineSearch_DC2(ReturnFnHandle, loweredge1, loweredge2, maxgap1(ii,kk), maxgap2(ii,kk), N_d, N_a1, EV_RHS_slice);
+
+                        % 4. Assign results
                         V(curra1index,curra2index,z_c,e_c,jj) = shiftdim(Vtempii,1);
                         Policy(curra1index,curra2index,z_c,e_c,jj) = shiftdim(maxindexfix + N_d*(loweredge1(dind)-1) + N_d*N_a1*(loweredge2(dind)-1), 1);
                     end
