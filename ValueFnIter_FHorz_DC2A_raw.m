@@ -104,9 +104,9 @@ if ~isfield(vfoptions,'V_Jplus1')
                 [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size);
 
                 % 3. Assign results
-                V(curraindex,:,N_j) = shiftdim(Vtempii,1);
+                V(curraindex,z_c,N_j) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
-                Policy(curraindex,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+                Policy(curraindex,z_c,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
@@ -196,15 +196,15 @@ else
 
                 % 2. Extract the relevant Expected Value subset
                 aprime = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;
-                EV_RHS_slice = DiscountedEV(reshape(aprime, reshape_size));
+                EV_RHS_slice = DiscountedEV_z(reshape(aprime, reshape_size));
 
                 % 3. Call your new helper!
                 [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
 
                 % 4. Assign results
-                V(curraindex,:,N_j) = shiftdim(Vtempii,1);
+                V(curraindex,z_c,N_j) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
-                Policy(curraindex,:,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+                Policy(curraindex,z_c,N_j) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
@@ -301,15 +301,15 @@ for reverse_j=1:N_j-1
 
                 % 2. Extract the relevant Expected Value subset
                 aprime = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;
-                EV_RHS_slice = DiscountedEV(reshape(aprime, reshape_size));
+                EV_RHS_slice = DiscountedEV_z(reshape(aprime, reshape_size));
 
                 % 3. Call your new helper!
                 [Vtempii, maxindexfix, dind, a2primeind] = RefineSearch_DC2A(ReturnFnHandle, loweredge, maxgap(ii), N_d, N_a1, reshape_size, EV_RHS_slice);
 
                 % 4. Assign results
-                V(curraindex,:,jj) = shiftdim(Vtempii,1);
+                V(curraindex,z_c,jj) = shiftdim(Vtempii,1);
                 allind = dind + N_d*a2primeind + N_d*N_a2*repelem(a2ind,1,level1iidiff(ii));
-                Policy(curraindex,:,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
+                Policy(curraindex,z_c,jj) = shiftdim(maxindexfix + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
