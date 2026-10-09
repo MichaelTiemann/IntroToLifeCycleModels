@@ -4,8 +4,10 @@ function [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge,
 a1primeindexes = loweredge + (0:1:maxgap);
 ReturnMatrix = ReturnFnHandle(a1primeindexes);
 
-% 2. Apply the dynamic reshape shape passed by the caller
-ReturnMatrix = reshape(ReturnMatrix, reshape_size);
+% 2. Apply reshape if provided by caller
+if nargin > 4 && ~isempty(reshape_size)
+    ReturnMatrix = reshape(ReturnMatrix, reshape_size);
+end
 
 % 3. Add expected value (if not in a terminal period)
 if nargin > 5 && ~isempty(EV_RHS_slice)
