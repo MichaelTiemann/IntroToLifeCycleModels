@@ -69,31 +69,19 @@ if ~isfield(vfoptions,'V_Jplus1')
         maxgap=squeeze(max(max(max(maxindex1(:,1,2:end,:,:)-maxindex1(:,1,1:end-1,:,:),[],5),[],4),[],1));
         for ii=1:(vfoptions.level1n-1)
             curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',level1iidiff(ii),1);
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,ii,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                a1primeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2-by-n_z
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(a1primeindexes), size(a1primeindexes)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0); % Level=2, Refine=0
-                [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                V(curraindex,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex does not need reworking, as with expasset there is no a2prime
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii))+N_d1*N_d2*N_a2*zBind; % loweredge is n_d-by-1-by-1-by-n_a2-by-n_z
-                Policy(curraindex,:,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,ii,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(loweredge), size(loweredge)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0); % Level=2, Refine=0
-                [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                V(curraindex,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex does not need reworking, as with expasset there is no a2prime
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii))+N_d1*N_d2*N_a2*zBind; % loweredge is n_d-by-1-by-1-by-n_a2-by-n_z
-                Policy(curraindex,:,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-            end
+            % Naturally cap the loweredge
+            loweredge = min(maxindex1(:,1,ii,:,:), N_a1-maxgap(ii));
+
+            % 1. Package the handle (Notice Level = 2)
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+
+            % 2. Call the helper!
+            [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, [], []);
+
+            % 3. Assign results
+            V(curraindex,:,N_j) = shiftdim(Vtempii,1);
+            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind;
+            Policy(curraindex,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -119,31 +107,19 @@ if ~isfield(vfoptions,'V_Jplus1')
             maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',level1iidiff(ii),1);
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,ii,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                    a1primeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2
-                    ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(a1primeindexes), size(a1primeindexes)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec,2,0); % Level=2, Refine=0
-                    [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                    V(curraindex,z_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex does not need reworking, as with expasset there is no a2prime
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                    allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-1-by-n_a2
-                    Policy(curraindex,z_c,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,ii,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(loweredge), size(loweredge)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec,2,0); % Level=2, Refine=0
-                    [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                    V(curraindex,z_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex does not need reworking, as with expasset there is no a2prime
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                    allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-1-by-n_a2
-                    Policy(curraindex,z_c,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-                end
+                % Naturally cap the loweredge
+                loweredge = min(maxindex1(:,1,ii,:), N_a1-maxgap(ii));
+
+                % 1. Package the handle (Notice Level = 2)
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec, 2, 0);
+
+                % 2. Call the helper!
+                [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, [], []);
+
+                % 3. Assign results
+                V(curraindex,z_c,N_j) = shiftdim(Vtempii,1);
+                allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii));
+                Policy(curraindex,z_c,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
@@ -189,35 +165,25 @@ else
         maxgap=squeeze(max(max(max(maxindex1(:,1,2:end,:,:)-maxindex1(:,1,1:end-1,:,:),[],5),[],4),[],1));
         for ii=1:(vfoptions.level1n-1)
             curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',level1iidiff(ii),1);
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,ii,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                a1primeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2-by-n_z
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(a1primeindexes), size(a1primeindexes)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                d2aprimez=d2ind+N_d2*(a1primeindexes-1)+N_d2*N_a1*a2ind+N_d2*N_a*zind; % [N_d,maxgap+1,1,N_a2,N_z]; linear index into DiscountedEV [N_d2,N_a1,1,N_a2,N_z]
-                entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d2aprimez),[N_d*(maxgap(ii)+1),level1iidiff(ii)*N_a2,N_z]);
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex does not need reworking, as with expasset there is no a2prime
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii))+N_d1*N_d2*N_a2*zBind; % loweredge is n_d-by-1-by-1-by-n_a2-by-n_z
-                Policy(curraindex,:,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,ii,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(loweredge), size(loweredge)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                d2aprimez=d2ind+N_d2*(loweredge-1)+N_d2*N_a1*a2ind+N_d2*N_a*zind; % [N_d,1,1,N_a2,N_z]; linear index into DiscountedEV [N_d2,N_a1,1,N_a2,N_z]
-                entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d2aprimez),[N_d,level1iidiff(ii)*N_a2,N_z]);
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,N_j)=shiftdim(Vtempii,1);
-                % maxindex does not need reworking, as with expasset there is no a2prime
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii))+N_d1*N_d2*N_a2*zBind; % loweredge is n_d-by-1-by-1-by-n_a2-by-n_z
-                Policy(curraindex,:,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-            end
+            % Naturally cap the loweredge
+            loweredge = min(maxindex1(:,1,ii,:,:), N_a1-maxgap(ii));
+            a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
+
+            % 1. Package the handle (Notice Level = 3)
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec, 3, 0);
+
+            % 2. Extract EV and define reshape
+            d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
+            EV_RHS_slice = DiscountedEV(d2aprimez);
+            reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, N_z];
+
+            % 3. Call the helper!
+            [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+            % 4. Assign results
+            V(curraindex,:,jj) = shiftdim(Vtempii,1);
+            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind;
+            Policy(curraindex,:,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -247,35 +213,25 @@ else
             maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',level1iidiff(ii),1);
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,ii,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                    a1primeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2
-                    ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(a1primeindexes), size(a1primeindexes)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                    d2aprime=d2ind+N_d2*(a1primeindexes-1)+N_d2*N_a1*a2ind; % [N_d,maxgap+1,1,N_a2]; linear index into DiscountedEV_z [N_d2,N_a1,1,N_a2]
-                    entireRHS_ii_z=reshape(ReturnMatrix_ii_z+DiscountedEV_z(d2aprime),[N_d*(maxgap(ii)+1),level1iidiff(ii)*N_a2]);
-                    [Vtempii,maxindex]=max(entireRHS_ii_z,[],1);
-                    V(curraindex,z_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex does not need reworking, as with expasset there is no a2prime
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                    allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-1-by-n_a2
-                    Policy(curraindex,z_c,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,ii,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(loweredge), size(loweredge)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                    d2aprime=d2ind+N_d2*(loweredge-1)+N_d2*N_a1*a2ind; % [N_d,1,1,N_a2]; linear index into DiscountedEV_z [N_d2,N_a1,1,N_a2]
-                    entireRHS_ii_z=reshape(ReturnMatrix_ii_z+DiscountedEV_z(d2aprime),[N_d,level1iidiff(ii)*N_a2]);
-                    [Vtempii,maxindex]=max(entireRHS_ii_z,[],1);
-                    V(curraindex,z_c,N_j)=shiftdim(Vtempii,1);
-                    % maxindex does not need reworking, as with expasset there is no a2prime
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                    allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-1-by-n_a2
-                    Policy(curraindex,z_c,N_j)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-                end
+                % Naturally cap the loweredge
+                loweredge = min(maxindex1(:,1,ii,:), N_a1-maxgap(ii));
+                a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
+
+                % 1. Package the handle (Notice Level = 3)
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec, 3, 0);
+
+                % 2. Extract EV and define reshape
+                d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind;
+                EV_RHS_slice = DiscountedEV(d2aprimez);
+                reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, 1];
+
+                % 3. Call the helper!
+                [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,z_c,jj) = shiftdim(Vtempii,1);
+                allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii));
+                Policy(curraindex,z_c,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
@@ -332,35 +288,25 @@ for reverse_j=1:N_j-1
         maxgap=squeeze(max(max(max(maxindex1(:,1,2:end,:,:)-maxindex1(:,1,1:end-1,:,:),[],5),[],4),[],1));
         for ii=1:(vfoptions.level1n-1)
             curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',level1iidiff(ii),1);
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,ii,:,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2-by-n_z
-                a1primeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2-by-n_z
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(a1primeindexes), size(a1primeindexes)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                d2aprimez=d2ind+N_d2*(a1primeindexes-1)+N_d2*N_a1*a2ind+N_d2*N_a*zind; % [N_d,maxgap+1,1,N_a2,N_z]; linear index into DiscountedEV [N_d2,N_a1,1,N_a2,N_z]
-                entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d2aprimez),[N_d*(maxgap(ii)+1),level1iidiff(ii)*N_a2,N_z]);
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,jj)=shiftdim(Vtempii,1);
-                % maxindex does not need reworking, as with expasset there is no a2prime
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii))+N_d1*N_d2*N_a2*zBind; % loweredge is n_d-by-1-by-1-by-n_a2-by-n_z
-                Policy(curraindex,:,jj)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,ii,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(loweredge), size(loweredge)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                d2aprimez=d2ind+N_d2*(loweredge-1)+N_d2*N_a1*a2ind+N_d2*N_a*zind; % [N_d,1,1,N_a2,N_z]; linear index into DiscountedEV [N_d2,N_a1,1,N_a2,N_z]
-                entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d2aprimez),[N_d,level1iidiff(ii)*N_a2,N_z]);
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,jj)=shiftdim(Vtempii,1);
-                % maxindex does not need reworking, as with expasset there is no a2prime
-                %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii))+N_d1*N_d2*N_a2*zBind; % loweredge is n_d-by-1-by-1-by-n_a2-by-n_z
-                Policy(curraindex,:,jj)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-            end
+            % Naturally cap the loweredge
+            loweredge = min(maxindex1(:,1,ii,:,:), N_a1-maxgap(ii));
+            a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
+
+            % 1. Package the handle (Notice Level = 3)
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec, 3, 0);
+
+            % 2. Extract EV and define reshape
+            d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
+            EV_RHS_slice = DiscountedEV(d2aprimez);
+            reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, N_z];
+
+            % 3. Call the helper!
+            [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+            % 4. Assign results
+            V(curraindex,:,jj) = shiftdim(Vtempii,1);
+            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind;
+            Policy(curraindex,:,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
 
     elseif vfoptions.lowmemory==1
@@ -391,35 +337,25 @@ for reverse_j=1:N_j-1
             maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
             for ii=1:(vfoptions.level1n-1)
                 curraindex=repmat((level1ii(ii)+1:1:level1ii(ii+1)-1)',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',level1iidiff(ii),1);
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,ii,:),N_a1-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-n_a2-by-1-by-n_a2
-                    a1primeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_a2
-                    ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(a1primeindexes), size(a1primeindexes)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                    d2aprime=d2ind+N_d2*(a1primeindexes-1)+N_d2*N_a1*a2ind; % [N_d,maxgap+1,1,N_a2]; linear index into DiscountedEV_z [N_d2,N_a1,1,N_a2]
-                    entireRHS_ii_z=reshape(ReturnMatrix_ii_z+DiscountedEV_z(d2aprime),[N_d*(maxgap(ii)+1),level1iidiff(ii)*N_a2]);
-                    [Vtempii,maxindex]=max(entireRHS_ii_z,[],1);
-                    V(curraindex,z_c,jj)=shiftdim(Vtempii,1);
-                    % maxindex does not need reworking, as with expasset there is no a2prime
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                    allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-1-by-n_a2
-                    Policy(curraindex,z_c,jj)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,ii,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(loweredge), size(loweredge)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec,3,0); % Level=2, Refine=0
-                    d2aprime=d2ind+N_d2*(loweredge-1)+N_d2*N_a1*a2ind; % [N_d,1,1,N_a2]; linear index into DiscountedEV_z [N_d2,N_a1,1,N_a2]
-                    entireRHS_ii_z=reshape(ReturnMatrix_ii_z+DiscountedEV_z(d2aprime),[N_d,level1iidiff(ii)*N_a2]);
-                    [Vtempii,maxindex]=max(entireRHS_ii_z,[],1);
-                    V(curraindex,z_c,jj)=shiftdim(Vtempii,1);
-                    % maxindex does not need reworking, as with expasset there is no a2prime
-                    %  the a1prime is relative to loweredge(allind), need to 'add' the loweredge
-                    dind=(rem(maxindex-1,N_d1*N_d2)+1);
-                    allind=dind+N_d1*N_d2*repelem(a2Bind,1,level1iidiff(ii)); % loweredge is n_d-by-1-by-1-by-n_a2
-                    Policy(curraindex,z_c,jj)=shiftdim(maxindex+N_d1*N_d2*(loweredge(allind)-1),1);
-                end
+                % Naturally cap the loweredge
+                loweredge = min(maxindex1(:,1,ii,:), N_a1-maxgap(ii));
+                a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
+
+                % 1. Package the handle (Notice Level = 3)
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec, 3, 0);
+
+                % 2. Extract EV and define reshape
+                d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind;
+                EV_RHS_slice = DiscountedEV(d2aprimez);
+                reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, 1];
+
+                % 3. Call the helper!
+                [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,z_c,jj) = shiftdim(Vtempii,1);
+                allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii));
+                Policy(curraindex,z_c,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
             end
         end
     end
