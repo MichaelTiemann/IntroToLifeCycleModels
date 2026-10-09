@@ -32,6 +32,7 @@ if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, a_grid, a_grid(level1ii), z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
+        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d, N_a, vfoptions.level1n, N_z]);
 
         % First, we want aprime conditional on (d,1,a,z)
         [~,maxindex1]=max(ReturnMatrix_ii,[],2);
@@ -66,6 +67,7 @@ if ~isfield(vfoptions,'V_Jplus1')
             z_val=z_gridvals_J(z_c,:,N_j);
             % n-Monotonicity
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, d_gridvals, a_grid, a_grid(level1ii), z_val, ReturnFnParamsVec,1);
+            ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d, N_a, vfoptions.level1n, 1]);
 
             % First, we want aprime conditional on (d,1,a,z)
             [~,maxindex1]=max(ReturnMatrix_ii,[],2);
@@ -114,6 +116,7 @@ else
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, a_grid, a_grid(level1ii), z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
 
         entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*shiftdim(EV,-1);
+        entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a, vfoptions.level1n, N_z]);
 
         % First, we want aprime conditional on (d,1,a,z)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -156,6 +159,7 @@ else
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, d_gridvals, a_grid, a_grid(level1ii), z_val, ReturnFnParamsVec,1);
 
             entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*shiftdim(EV_z,-1);
+            entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a, vfoptions.level1n, 1]);
 
             % First, we want aprime conditional on (d,1,a,z)
             [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -219,6 +223,7 @@ for reverse_j=1:N_j-1
         ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, a_grid, a_grid(level1ii), z_gridvals_J(:,:,jj), ReturnFnParamsVec,1);
 
         entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*shiftdim(EV,-1);
+        entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a, vfoptions.level1n, N_z]);
 
         % First, we want aprime conditional on (d,1,a,z)
         [~,maxindex1]=max(entireRHS_ii,[],2);
@@ -260,6 +265,7 @@ for reverse_j=1:N_j-1
             ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, d_gridvals, a_grid, a_grid(level1ii), z_val, ReturnFnParamsVec,1);
 
             entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*shiftdim(EV_z,-1);
+            entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a, vfoptions.level1n, 1]);
 
             % First, we want aprime conditional on (d,1,a,z)
             [~,maxindex1]=max(entireRHS_ii,[],2);

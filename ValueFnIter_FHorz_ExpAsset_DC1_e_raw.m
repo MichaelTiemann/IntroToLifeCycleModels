@@ -62,6 +62,7 @@ if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
+        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(ReturnMatrix_ii,[],2);
@@ -109,12 +110,13 @@ if ~isfield(vfoptions,'V_Jplus1')
             e_val=e_gridvals_J(e_c,:,N_j);
             % n-Monotonicity
             ReturnMatrix_ii_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
+            ReturnMatrix_ii_e = reshape(ReturnMatrix_ii_e, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(ReturnMatrix_ii_e,[],2);
 
             % Now, get and store the full (d,aprime)
-            [Vtempii,maxindex2]=max(reshape(ReturnMatrix_ii_e,[N_d1*N_d2*N_a1,vfoptions.level1n*N_a2,N_z]),[],1);
+            [Vtempii,maxindex2]=max(reshape(ReturnMatrix_ii_e,[N_d1*N_d2*N_a1,vfoptions.level1n*N_a2,N_z,1]),[],1);
 
             % Store
             curraindex=repmat(level1ii',N_a2,1)+N_a1*repelem((0:1:N_a2-1)',vfoptions.level1n,1);
@@ -160,6 +162,7 @@ if ~isfield(vfoptions,'V_Jplus1')
 
                 % n-Monotonicity
                 ReturnMatrix_ii_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
+                ReturnMatrix_ii_ze = reshape(ReturnMatrix_ii_ze, [N_d, N_a1, vfoptions.level1n, N_a2, 1, 1]);
 
                 % First, we want a1prime conditional on (d,1,a)
                 [~,maxindex1]=max(ReturnMatrix_ii_ze,[],2);
@@ -292,7 +295,7 @@ else
             % n-Monotonicity
             ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,special_n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
             ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
-            DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+            DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z,1]);
 
             entireRHS_ii = ReturnMatrix_ii + shiftdim(DiscountedEV, -1);
             entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, 1]);
@@ -347,7 +350,7 @@ else
     elseif vfoptions.lowmemory==2
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c),[N_d2,N_a1,1,N_a2,1]);
+            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c),[N_d2,N_a1,1,N_a2,1,1]);
 
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,N_j);
@@ -558,7 +561,7 @@ for reverse_j=1:N_j-1
     elseif vfoptions.lowmemory==2
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
-            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c),[N_d2,N_a1,1,N_a2,1]);
+            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c),[N_d2,N_a1,1,N_a2,1,1]);
 
             for e_c=1:N_e
                 e_val=e_gridvals_J(e_c,:,jj);

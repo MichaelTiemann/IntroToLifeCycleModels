@@ -52,6 +52,7 @@ if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
+        ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d1*N_d2, N_a1, vfoptions.level1n, N_a2, N_z]);
 
         % First, we want a1prime conditional on (d,1,a)
         [~,maxindex1]=max(ReturnMatrix_ii,[],2);
@@ -101,6 +102,7 @@ if ~isfield(vfoptions,'V_Jplus1')
             z_val=z_gridvals_J(z_c,:,N_j);
             % n-Monotonicity
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
+            ReturnMatrix_ii_z = reshape(ReturnMatrix_ii_z, [N_d1*N_d2, N_a1, vfoptions.level1n, N_a2, 1]);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(ReturnMatrix_ii_z,[],2);
@@ -226,9 +228,9 @@ else
 
             % n-Monotonicity
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
-            ReturnMatrix_ii_z = reshape(ReturnMatrix_ii_z, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2]);
+            ReturnMatrix_ii_z = reshape(ReturnMatrix_ii_z, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, 1]);
             entireRHS_ii_z = ReturnMatrix_ii_z + shiftdim(DiscountedEV_z, -1);
-            entireRHS_ii_z = reshape(entireRHS_ii_z, [N_d, N_a1, vfoptions.level1n, N_a2]);
+            entireRHS_ii_z = reshape(entireRHS_ii_z, [N_d, N_a1, vfoptions.level1n, N_a2, 1]);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_z,[],2);
@@ -370,9 +372,9 @@ for reverse_j=1:N_j-1
 
             % n-Monotonicity
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
-            ReturnMatrix_ii_z = reshape(ReturnMatrix_ii_z, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2]);
+            ReturnMatrix_ii_z = reshape(ReturnMatrix_ii_z, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, 1]);
             entireRHS_ii_z = ReturnMatrix_ii_z + shiftdim(DiscountedEV_z, -1);
-            entireRHS_ii_z = reshape(entireRHS_ii_z, [N_d, N_a1, vfoptions.level1n, N_a2]);
+            entireRHS_ii_z = reshape(entireRHS_ii_z, [N_d, N_a1, vfoptions.level1n, N_a2, 1]);
 
             % First, we want a1prime conditional on (d,1,a)
             [~,maxindex1]=max(entireRHS_ii_z,[],2);
