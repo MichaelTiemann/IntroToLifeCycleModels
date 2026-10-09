@@ -76,9 +76,9 @@ if ~isfield(vfoptions,'V_Jplus1')
             [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size);
             
             % 3. Assign results
-            V(curraindex,:,N_j) = shiftdim(Vtempii,1);
+            V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
             allind = dind + N_d*zind + N_d*N_z*eind; 
-            Policy(curraindex,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
+            Policy(curraindex,:,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
     elseif vfoptions.lowmemory==1
         for e_c=1:N_e
