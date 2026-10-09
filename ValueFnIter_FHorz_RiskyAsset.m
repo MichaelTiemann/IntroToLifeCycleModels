@@ -132,30 +132,55 @@ target_sz = [target_sz, N_j]; % Time dimension is always last
 % 2. Reshape the Value Function
 V = reshape(VKron, target_sz);
 
-% 3. Extract Policy
-% We can use a single helper to un-kronecker the policy, or simply route based on the number of active states:
+% 3. Extract Policy dynamically
 has_z = (N_z > 1);
 has_e = (N_e > 1);
-has_a1 = (N_a1 > 0);
-has_d1 = (N_d1 > 0);
+has_a1 = (sum(n_a1) > 0); 
+has_d1 = (sum(n_d1) > 0);
 
-% Build the name of the UnKron function dynamically based on the state space and choice variables
-base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', 2 + has_a1 + has_d1);
+% The base number of channels is 2 (d2, d3). Add 1 for d1, Add 1 for a1.
+num_channels = 2 + has_a1 + has_d1; 
 
 if has_e && has_z
     suffix = '_z_e';
-    UnKronFn = str2func([base_fn, suffix]);
-    Policy = UnKronFn(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-elseif has_z || has_e % Treat e as z if only e exists
+elseif has_z || has_e
     suffix = '_z';
-    active_sz = max(n_z, vfoptions.n_e); 
-    UnKronFn = str2func([base_fn, suffix]);
-    Policy = UnKronFn(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a, active_sz, N_j, vfoptions);
 else
     suffix = '_noz';
-    UnKronFn = str2func([base_fn, suffix]);
-    Policy = UnKronFn(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a, N_j, vfoptions);
 end
+
+base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', num_channels);
+UnKronFn = str2func([base_fn, suffix]);
+
+% 4. Dynamically build the arguments list and shrink-wrap PolicyKron
+active_rows = [];
+if has_d1, active_rows = [active_rows, 1]; end
+active_rows = [active_rows, 2, 3]; % d2 and d3 are always present for RiskyAsset
+if has_a1, active_rows = [active_rows, 4]; end
+
+% Dynamically slice dimension 1 regardless of how many trailing dimensions exist
+slice_idx = repmat({':'}, 1, ndims(PolicyKron));
+slice_idx{1} = active_rows;
+PolicyKronSliced = PolicyKron(slice_idx{:});
+
+args = {PolicyKronSliced};
+if has_d1, args{end+1} = n_d1; end
+args = [args, {n_d2, n_d3}];
+if has_a1, args{end+1} = n_a1; end
+args{end+1} = n_a; % The full combined asset grid size
+
+if has_z && has_e
+    args = [args, {n_z, vfoptions.n_e}];
+elseif has_z
+    args{end+1} = n_z;
+elseif has_e
+    args{end+1} = vfoptions.n_e;
+end
+
+args = [args, {N_j, vfoptions}];
+
+% 5. Execute
+Policy = UnKronFn(args{:});
 
 
 end
