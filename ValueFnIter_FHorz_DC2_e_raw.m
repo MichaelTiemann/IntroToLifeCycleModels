@@ -129,8 +129,8 @@ if ~isfield(vfoptions,'V_Jplus1')
             maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
 
             % Attempt for improved version
-            maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],1));
-            maxgap2=squeeze(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],1));
+            maxgap1 = squeeze(max(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:), [], 5), [], 1));
+            maxgap2 = squeeze(max(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:), [], 5), [], 1));
             for ii=1:(vfoptions.level1n(1)-1)
                 % Perfectly partition a1: No redundant boundary evaluations!
                 curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
@@ -242,8 +242,8 @@ else
         maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z,N_e]);
 
         % Attempt for improved version
-        maxgap1=squeeze(max(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],5),[],1));
-        maxgap2=squeeze(max(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],5),[],1));
+        maxgap1=squeeze(max(max(max(maxindex11(:,1,2:end,2:end,:,:)-maxindex11(:,1,1:end-1,1:end-1,:,:),[],6),[],5),[],1));
+        maxgap2=squeeze(max(max(max(maxindex12(:,1,2:end,2:end,:,:)-maxindex12(:,1,1:end-1,1:end-1,:,:),[],6),[],5),[],1));
         for ii=1:(vfoptions.level1n(1)-1)
             % Perfectly partition a1: No redundant boundary evaluations!
             curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
@@ -303,8 +303,8 @@ else
             maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
 
             % Attempt for improved version
-            maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],1));
-            maxgap2=squeeze(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],1));
+            maxgap1 = squeeze(max(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:), [], 5), [], 1));
+            maxgap2 = squeeze(max(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:), [], 5), [], 1));
             for ii=1:(vfoptions.level1n(1)-1)
                 % Perfectly partition a1: No redundant boundary evaluations!
                 curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
