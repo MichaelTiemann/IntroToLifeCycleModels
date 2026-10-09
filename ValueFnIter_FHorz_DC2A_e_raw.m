@@ -7,6 +7,15 @@ N_a=prod(n_a);
 N_z=prod(n_z);
 N_e=prod(n_e);
 
+if ~has_z
+    z_gridvals_J = zeros(1, 1, N_j); % Pad to safely index (:,:,jj)
+    pi_z_J = ones(1, 1, N_j); % Pad with 1s so EV * 1 = EV (no-op)
+    n_z = 0; % Tell CreateReturnFnMatrix to omit z
+elseif size(z_gridvals_J, 3) < N_j
+    z_gridvals_J = repmat(z_gridvals_J, 1, 1, N_j); % Time-invariant fallback
+    pi_z_J = repmat(pi_z_J, 1, 1, N_j); % Time-invariant fallback
+end
+
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(N_a,N_z,N_e,N_j,'gpuArray'); %first dim indexes the optimal choice for d and aprime rest of dimensions a,z
 
