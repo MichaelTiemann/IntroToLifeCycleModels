@@ -71,8 +71,8 @@ if ~isfield(vfoptions,'V_Jplus1')
         % [~,maxindex1]=max(ReturnMatrix_ii,[],2);
         % But there is an error in Matlab for max in second dimension on GPU: https://au.mathworks.com/matlabcentral/answers/2152160-error-in-index-returned-by-max-in-the-second-dimension-in-obscure-case
         % So instead for now we instead do following two lines
-        [~,maxindex1]=max(permute(ReturnMatrix_ii,[2,1,3,4,5,6]),[],1);
-        maxindex1=permute(maxindex1,[2,1,3,4,5,6]);
+        [~,maxindex1]=max(permute(ReturnMatrix_ii,[2,1,3,4,5]),[],1);
+        maxindex1=permute(maxindex1,[2,1,3,4,5]);
 
         %% Level 2
         % Split maxindex1 into a1prime and a2prime
@@ -80,8 +80,8 @@ if ~isfield(vfoptions,'V_Jplus1')
         maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z,N_e]);
 
         % Attempt for improved version
-        maxgap1=squeeze(max(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],5),[],1));
-        maxgap2=squeeze(max(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],5),[],1));
+        maxgap1=squeeze(max(max(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],6),[],5),[],1));
+        maxgap2=squeeze(max(max(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],6),[],5),[],1));
         for ii=1:(vfoptions.level1n(1)-1)
             % Perfectly partition a1: No redundant boundary evaluations!
             curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
@@ -125,12 +125,12 @@ if ~isfield(vfoptions,'V_Jplus1')
 
             %% Level 2
             % Split maxindex1 into a1prime and a2prime
-            maxindex11=reshape(rem(maxindex1-1,N_a1)+1,[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2)]);
-            maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2)]);
+            maxindex11=reshape(rem(maxindex1-1,N_a1)+1,[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
+            maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
 
             % Attempt for improved version
-            maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end)-maxindex11(:,1,1:end-1,1:end-1),[],1));
-            maxgap2=squeeze(max(maxindex12(:,1,2:end,2:end)-maxindex12(:,1,1:end-1,1:end-1),[],1));
+            maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],1));
+            maxgap2=squeeze(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],1));
             for ii=1:(vfoptions.level1n(1)-1)
                 % Perfectly partition a1: No redundant boundary evaluations!
                 curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
@@ -140,8 +140,8 @@ if ~isfield(vfoptions,'V_Jplus1')
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
@@ -279,13 +279,15 @@ else
 
     elseif vfoptions.lowmemory==1
         for e_c=1:N_e
+            DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
+
             e_val = e_gridvals_J(:,:,N_j);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 1);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 1);
             % (d,a1a2prime,a1,a2)
 
-            entireRHS_ii=ReturnMatrix_ii+DiscountedEV;
+            entireRHS_ii=ReturnMatrix_ii+DiscountedEV_e;
 
             % First, we want a1a2prime conditional on (d,1,a)
             % We would just do
@@ -297,12 +299,12 @@ else
 
             %% Level 2
             % Split maxindex1 into a1prime and a2prime
-            maxindex11=reshape(rem(maxindex1-1,N_a1)+1,[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2)]);
-            maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2)]);
+            maxindex11=reshape(rem(maxindex1-1,N_a1)+1,[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
+            maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
 
             % Attempt for improved version
-            maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end)-maxindex11(:,1,1:end-1,1:end-1),[],1));
-            maxgap2=squeeze(max(maxindex12(:,1,2:end,2:end)-maxindex12(:,1,1:end-1,1:end-1),[],1));
+            maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],1));
+            maxgap2=squeeze(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],1));
             for ii=1:(vfoptions.level1n(1)-1)
                 % Perfectly partition a1: No redundant boundary evaluations!
                 curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
@@ -319,7 +321,6 @@ else
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
 
                     % 2. Extract EV Slice
-                    DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
                     a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
                     a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
                     aprimez = a1primeindexes + N_a1*(a2primeindexes-1) + N_a*shiftdim((0:1:N_z-1),-3);
@@ -341,15 +342,16 @@ else
     elseif vfoptions.lowmemory==2
         for z_c=1:N_z
             z_val = z_gridvals_J(:,:,N_j);
-            DiscountedEV_z=DiscountedEV(:,:,1,1,z_c);
             for e_c=1:N_e
+                DiscountedEV_ze = DiscountedEV(:,:,1,1,z_c,e_c);
+
                 e_val = e_gridvals_J(:,:,N_j);
 
                 % n-Monotonicity
                 ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_val, e_val, ReturnFnParamsVec, 1);
                 % (d,a1a2prime,a1,a2)
 
-                entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z;
+                entireRHS_ii=ReturnMatrix_ii+DiscountedEV_ze;
 
                 % First, we want a1a2prime conditional on (d,1,a)
                 % We would just do
@@ -383,7 +385,6 @@ else
                         ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_val, e_val, ReturnFnParamsVec, 2);
 
                         % 2. Extract EV Slice
-                        DiscountedEV_ze = DiscountedEV(:,:,1,1,z_c,e_c);
                         a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
                         a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
                         aprime = a1primeindexes + N_a1*(a2primeindexes-1);
@@ -434,8 +435,8 @@ for reverse_j=1:N_j-1
         % [~,maxindex1]=max(entireRHS_ii,[],2);
         % But there is an error in Matlab for max in second dimension on GPU: https://au.mathworks.com/matlabcentral/answers/2152160-error-in-index-returned-by-max-in-the-second-dimension-in-obscure-case
         % So instead for now we instead do following two lines
-        [~,maxindex1]=max(permute(entireRHS_ii,[2,1,3,4,5,6]),[],1);
-        maxindex1=permute(maxindex1,[2,1,3,4,5,6]);
+        [~,maxindex1]=max(permute(entireRHS_ii,[2,1,3,4,5]),[],1);
+        maxindex1=permute(maxindex1,[2,1,3,4,5]);
 
         %% Level 2
         % Split maxindex1 into a1prime and a2prime
@@ -443,8 +444,8 @@ for reverse_j=1:N_j-1
         maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z,N_e]);
 
         % Attempt for improved version
-        maxgap1=squeeze(max(max(maxindex11(:,1,2:end,2:end,:)-maxindex11(:,1,1:end-1,1:end-1,:),[],5),[],1));
-        maxgap2=squeeze(max(max(maxindex12(:,1,2:end,2:end,:)-maxindex12(:,1,1:end-1,1:end-1,:),[],5),[],1));
+        maxgap1=squeeze(max(max(max(maxindex11(:,1,2:end,2:end,:,:)-maxindex11(:,1,1:end-1,1:end-1,:,:),[],6),[],5),[],1));
+        maxgap2=squeeze(max(max(max(maxindex12(:,1,2:end,2:end,:,:)-maxindex12(:,1,1:end-1,1:end-1,:,:),[],6),[],5),[],1));
         for ii=1:(vfoptions.level1n(1)-1)
             % Perfectly partition a1: No redundant boundary evaluations!
             curra1index = (level11ii(ii) + (ii > 1)) : level11ii(ii+1);
@@ -480,12 +481,14 @@ for reverse_j=1:N_j-1
 
     elseif vfoptions.lowmemory==1
         for e_c=1:N_e
+            DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
+            e_val=e_gridvals_J(e_c,:,jj);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_e, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_gridvals_J(z_c,:,jj), e_gridvals_J(z_c,:,jj), ReturnFnParamsVec, 1);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid, a2_grid, a1_grid(level11ii), a2_grid(level12kk), z_gridvals_J(z_c,:,jj), e_val, ReturnFnParamsVec, 1);
             % (d,a1a2prime,a1,a2)
 
-            entireRHS_ii=ReturnMatrix_ii+DiscountedEV;
+            entireRHS_ii=ReturnMatrix_ii+DiscountedEV_e;
 
             % First, we want a1a2prime conditional on (d,1,a)
             % We would just do
@@ -497,8 +500,8 @@ for reverse_j=1:N_j-1
 
             %% Level 2
             % Split maxindex1 into a1prime and a2prime
-            maxindex11=reshape(rem(maxindex1-1,N_a1)+1,[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2)]);
-            maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2)]);
+            maxindex11=reshape(rem(maxindex1-1,N_a1)+1,[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
+            maxindex12=reshape(ceil(maxindex1/N_a1),[N_d,1,vfoptions.level1n(1),vfoptions.level1n(2),N_z]);
 
             % Attempt for improved version
             maxgap1=squeeze(max(maxindex11(:,1,2:end,2:end)-maxindex11(:,1,1:end-1,1:end-1),[],1));
@@ -512,14 +515,13 @@ for reverse_j=1:N_j-1
                     curra2index = (level12kk(kk) + (kk > 1)) : level12kk(kk+1);
 
                     % Cap the loweredges (Safe regardless of gaps)
-                    loweredge1 = min(maxindex11(:,1,ii,kk), N_a1-maxgap1(ii,kk));
-                    loweredge2 = min(maxindex12(:,1,ii,kk), N_a2-maxgap2(ii,kk));
+                    loweredge1 = min(maxindex11(:,1,ii,kk,:), N_a1-maxgap1(ii,kk));
+                    loweredge2 = min(maxindex12(:,1,ii,kk,:), N_a2-maxgap2(ii,kk));
 
                     % 1. Package the handle
                     ReturnFnHandle = @(a1p, a2p) CreateReturnFnMatrix_Disc_DC2_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a1_grid(a1p), a2_grid(a2p), a1_grid(curra1index), a2_grid(curra2index), z_gridvals_J(z_c,:,jj), e_val, ReturnFnParamsVec, 2);
 
                     % 2. Extract EV Slice
-                    DiscountedEV_e = DiscountedEV(:,:,1,1,:,e_c); % Isolate the current e slice
                     a1primeindexes = loweredge1 + repmat((0:1:maxgap1(ii,kk)), 1, maxgap2(ii,kk)+1);
                     a2primeindexes = loweredge2 + repelem((0:1:maxgap2(ii,kk)), 1, maxgap1(ii,kk)+1);
                     aprimez = a1primeindexes + N_a1*(a2primeindexes-1) + N_a*shiftdim((0:1:N_z-1),-3);
