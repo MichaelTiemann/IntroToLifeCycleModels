@@ -3,16 +3,19 @@ function [V,Policy]=ValueFnIter_FHorz_RiskyAsset_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_
 % d2: aprimeFn but not ReturnFn
 % d3: both ReturnFn and aprimeFn
 
-N_d1=prod(n_d1);
-N_d2=prod(n_d2);
-N_d3=prod(n_d3);
-N_a1=prod(n_a1);
-N_a2=prod(n_a2);
-N_z=prod(n_z);
-N_u=prod(n_u);
+N_d1=max(1,prod(n_d1(n_d1>0)));
+N_d2=max(1,prod(n_d2(n_d2>0)));
+N_d3=max(1,prod(n_d3(n_d3>0)));
+N_a1=max(1,prod(n_a1(n_a1>0)));
+N_a2=max(1,prod(n_a2(n_a2>0)));
+N_z =max(1,prod(n_z(n_z>0)));
+N_u =max(1,prod(n_u(n_u>0)));
 
 N_d=N_d1*N_d2*N_d3;
 N_a=N_a1*N_a2;
+
+% (For _e_raw only, also add):
+% N_e=max(1, prod(n_e(n_e>0)));
 
 % For ReturnFn
 n_d13=[n_d1,n_d3];
@@ -27,8 +30,13 @@ Policy=zeros(4,N_a,N_z,N_j,'gpuArray'); % d1, d2, d3 and a1prime
 %%
 u_grid=gpuArray(u_grid);
 
-d13a1_gridvals=CreateGridvals([n_d1,n_d3,n_a1],[d1_grid;d3_grid;a1_grid],1);
-a12_gridvals=CreateGridvals([n_a1,n_a2],[a1_grid;a2_grid],1);
+n_d13a1=[n_d1, n_d3, n_a1];
+grid_d13a1=[d1_grid; d3_grid; a1_grid];
+d13a1_gridvals=CreateGridvals(n_d13a1(n_d13a1>0), grid_d13a1,1);
+
+n_a12=[n_a1, n_a2];
+grid_a12=[a1_grid; a2_grid];
+a12_gridvals=CreateGridvals(n_a12(n_a12>0), grid_a12,1);
 
 if vfoptions.lowmemory>0
     special_n_z=ones(1,length(n_z));
@@ -183,121 +191,109 @@ end
 
 
 
-%% Iterate backwards through j.
-for reverse_j=1:N_j-1
-    jj=N_j-reverse_j;
-
+%% Iterate backwards through j
+for jj=N_j:-1:1
     if vfoptions.verbose==1
-        fprintf('Finite horizon: %i of %i \n',jj, N_j)
+        fprintf('Finite horizon: %i of %i \n', jj,N_j)
     end
-
-    % Create a vector containing all the return function parameters (in order)
-    ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,jj);
-    DiscountFactorParamsVec=CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj);
-    DiscountFactorParamsVec=prod(DiscountFactorParamsVec);
-
-    aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    [a2primeIndex,a2primeProbs]=CreateRiskyAssetFnMatrix(aprimeFn, n_d23, n_a2, n_u, d23_grid, a2_grid, u_grid, aprimeFnParamsVec,2); % Note, is actually aprime_grid (but a_grid is anyway same for all ages)
-    % Note: aprimeIndex is [N_d*N_u,1], whereas aprimeProbs is [N_d,N_u]
-
-    aprimeIndex=repelem((1:1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex-1,N_a1,1); % [N_d*N_a1,N_u]
-    aprimeplus1Index=repelem((1:1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex,N_a1,1); % [N_d*N_a1,N_u]
-    % aprimeProbs=repmat(a2primeProbs,N_a1,1);  % [N_d*N_a1,N_u]
-    % Note: aprimeIndex corresponds to value of (a1, a2), but has dimension (d,a1)
-
-    EV=V(:,:,jj+1);
-
-
+    
+    % 1. Prepare Parameters for period jj
+    ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames, jj);
+    is_terminal=(jj==N_j) && ~isfield(vfoptions, 'V_Jplus1');
+    
+    if ~is_terminal
+        DiscountFactorParamsVec=prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, jj));
+        aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames, jj);
+        
+        % Setup EV base
+        if jj==N_j
+            EV_base=reshape(vfoptions.V_Jplus1, [N_a,N_z]);
+        else
+            EV_base=V(:, :, jj+1);
+        end
+        
+        % Create standard aprime indices (Strictly (d23*a1, u) - NO z expansion!)
+        [a2primeIndex, a2primeProbs]=CreateRiskyAssetFnMatrix(aprimeFn, n_d23, n_a2, n_u, d23_grid, a2_grid, u_grid, aprimeFnParamsVec, 2);
+        
+        aprimeIndex=repelem((1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex-1,N_a1,1);
+        aprimeplus1Index=repelem((1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex,N_a1,1);
+        
+        % Base probability matrix (d23*a1, u)
+        baseProbs=repmat(a2primeProbs,N_a1,1);
+    end
+    
+    % 2. Setup Evaluation Blocks based on lowmemory
     if vfoptions.lowmemory==0
-
-        ReturnMatrix=CreateReturnFnMatrix_Case2_Disc(ReturnFn, [n_d13,n_a1], [n_a1,n_a2], n_z, d13a1_gridvals, a12_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec);
-        % (d,aprime,a,z)
-
-        EV=EV.*shiftdim(pi_z_J(:,:,jj)',-1);
-        EV(isnan(EV))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
-        EV=sum(EV,2); % sum over z', leaving a singular second dimension
-
-        % Seems like interpolation has trouble due to numerical precision rounding errors when the two points being interpolated are equal
-        % So I will add a check for when this happens, and then overwrite those (by setting aprimeProbs to zero)
-        skipinterp=logical(EV(aprimeIndex(:)+N_a*((1:1:N_z)-1))==EV(aprimeplus1Index(:)+N_a*((1:1:N_z)-1))); % Note, probably just do this off of a2prime values
-        aprimeProbs=repmat(a2primeProbs,N_a1,N_z);  % [N_d*N_a1,N_u]
-        aprimeProbs(skipinterp)=0;
-        aprimeProbs=reshape(aprimeProbs,[N_d23*N_a1,N_u,N_z]);
-
-        % Switch EV from being in terms of aprime to being in terms of d (in expectation because of the u shocks)
-        EV1=EV(aprimeIndex(:)+N_a*((1:1:N_z)-1)); % (d,u,z), the lower aprime
-        EV2=EV(aprimeplus1Index(:)+N_a*((1:1:N_z)-1)); % (d,u,z), the upper aprime
-
-        % Apply the aprimeProbs
-        EV1=reshape(EV1,[N_d23*N_a1,N_u,N_z]).*aprimeProbs; % probability of lower grid point
-        EV2=reshape(EV2,[N_d23*N_a1,N_u,N_z]).*(1-aprimeProbs); % probability of upper grid point
-        EV1(isnan(EV1))=0; % a zero weight against an infinite node gives 0*(-Inf)=NaN, so the term contributes nothing
-        EV2(isnan(EV2))=0;
-
-        % Expectation over u (using pi_u), and then add the lower and upper
-        EV=sum((EV1.*pi_u'),2)+sum((EV2.*pi_u'),2); % (d&a1prime,u,z), sum over u
-        % EV is over (d&a1prime,1,z)
-
-        % Time to refine
-        % First: ReturnMatrix, we can refine out d1
-        [ReturnMatrix_onlyd3,d1index]=max(reshape(ReturnMatrix,[N_d1,N_d3*N_a1,N_a,N_z]),[],1);
-        % Second: EV, we can refine out d2
-        [EV_onlyd3,d2index]=max(reshape(EV,[N_d2,N_d3*N_a1,1,N_z]),[],1);
-        % Now put together entireRHS, which just depends on d3
-        entireRHS=shiftdim(ReturnMatrix_onlyd3+DiscountFactorParamsVec*EV_onlyd3,1);
-
-        %Calc the max and it's index
-        [Vtemp,maxindex]=max(entireRHS,[],1);
-
-        V(:,:,jj)=shiftdim(Vtemp,1);
-        Policy(3,:,:,jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
-        Policy(4,:,:,jj)=shiftdim(ceil(maxindex/N_d3),-1);
-        Policy(1,:,:,jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*zind),1);
-        Policy(2,:,:,jj)=shiftdim(d2index(maxindex+N_d3*zind),1);
-
-    elseif vfoptions.lowmemory>=1 % lm1 already does the most-looped variant, so it also serves the higher lowmemory values
-        for z_c=1:N_z
-            z_val=z_gridvals_J(z_c,:,jj);
-            ReturnMatrix_z=CreateReturnFnMatrix_Case2_Disc(ReturnFn, [n_d13,n_a1], [n_a1,n_a2], special_n_z, d13a1_gridvals, a12_gridvals, z_val, ReturnFnParamsVec);
-
-            %Calc the condl expectation term (except beta), which depends on z but
-            %not on control variables
-            EV_z=EV.*pi_z_J(z_c,:,jj);
-            EV_z(isnan(EV_z))=0; %multiplications of -Inf with 0 gives NaN, this replaces them with zeros (as the zeros come from the transition probabilities)
-            EV_z=sum(EV_z,2);
-
-            % Seems like interpolation has trouble due to numerical precision rounding errors when the two points being interpolated are equal
-            % So I will add a check for when this happens, and then overwrite those (by setting aprimeProbs to zero)
-            skipinterp=logical(EV_z(aprimeIndex)==EV_z(aprimeplus1Index)); % Note, probably just do this off of a2prime values
-            aprimeProbs=repmat(a2primeProbs,N_a1,1);  % [N_d*N_a1,N_u]
-            aprimeProbs(skipinterp)=0;
-
-            % Switch EV from being in terms of aprime to being in terms of d (in expectation because of the u shocks)
-            EV1_z=aprimeProbs.*reshape(EV_z(aprimeIndex),[N_d23*N_a1,N_u]); % (d,u), the lower aprime
-            EV2_z=(1-aprimeProbs).*reshape(EV_z(aprimeplus1Index),[N_d23*N_a1,N_u]); % (d,u), the upper aprime
-            EV1_z(isnan(EV1_z))=0; % a zero weight against an infinite node gives 0*(-Inf)=NaN, so the term contributes nothing
-            EV2_z(isnan(EV2_z))=0;
-            % Already applied the probabilities from interpolating onto grid
-
-            % Expectation over u (using pi_u), and then add the lower and upper
-            EV_z=sum((EV1_z.*pi_u'),2)+sum((EV2_z.*pi_u'),2); % (d&a1prime,u), sum over u
-            % EV_z is over (d&a1prime,1)
-
-            % Time to refine
-            % First: ReturnMatrix, we can refine out d1
-            [ReturnMatrix_onlyd3,d1index]=max(reshape(ReturnMatrix_z,[N_d1,N_d3*N_a1,N_a]),[],1);
-            % Second: EV, we can refine out d2
-            [EV_onlyd3,d2index]=max(reshape(EV_z,[N_d2,N_d3*N_a1,1]),[],1);
-            % Now put together entireRHS, which just depends on d3
-            entireRHS_z=shiftdim(ReturnMatrix_onlyd3+DiscountFactorParamsVec*EV_onlyd3,1);
-
-            %Calc the max and it's index
-            [Vtemp,maxindex]=max(entireRHS_z,[],1);
-            V(:,z_c,jj)=Vtemp;
-            Policy(3,:,z_c,jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
-            Policy(4,:,z_c,jj)=shiftdim(ceil(maxindex/N_d3),-1);
-            Policy(1,:,z_c,jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind),1);
-            Policy(2,:,z_c,jj)=shiftdim(d2index(maxindex),1);
+        z_iter=1;
+        special_n_z=n_z;
+    else
+        z_iter=1:N_z;
+        special_n_z=ones(1, length(n_z));
+    end
+    
+    % 3. Core Evaluation Loop
+    for z_c=z_iter
+        if vfoptions.lowmemory==0
+            z_val=z_gridvals_J(:, :, jj);
+            z_idx=1:N_z;
+            z_offset=zind; % For indexing policy correctly
+        else
+            z_val=z_gridvals_J(z_c, :, jj);
+            z_idx=z_c;
+            z_offset=0; % Block is a single slice
+        end
+        
+        % A. Evaluate ReturnMatrix for this block
+        ReturnMatrix_block=CreateReturnFnMatrix_Case2_Disc(ReturnFn, [n_d13, n_a1], [n_a1, n_a2], special_n_z, d13a1_gridvals, a12_gridvals, z_val, ReturnFnParamsVec);
+        [ReturnMatrix_onlyd3, d1index]=max(reshape(ReturnMatrix_block, [N_d1,N_d3*N_a1,N_a, length(z_idx)]), [],1);
+        
+        if is_terminal
+            % Terminal Period Logic (No Continuation Value)
+            entireRHS=shiftdim(ReturnMatrix_onlyd3,1);
+            [Vtemp, maxindex]=max(entireRHS, [],1);
+            
+            V(:, z_idx, jj)=shiftdim(Vtemp,1);
+            Policy(3, :, z_idx, jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
+            Policy(4, :, z_idx, jj)=shiftdim(ceil(maxindex/N_d3), -1);
+            Policy(1, :, z_idx, jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*z_offset),1);
+            Policy(2, :, z_idx, jj)=1; % d2 is meaningless without continuation
+        else
+            % B. Compute Continuation Value (EV)
+            if vfoptions.lowmemory==0
+                EV_z=EV_base .* shiftdim(pi_z_J(:, :, jj)', -1);
+            else
+                EV_z=EV_base .* pi_z_J(z_c, :, jj);
+            end
+            EV_z(isnan(EV_z))=0;
+            EV_z=sum(EV_z, 2); 
+            
+            % Interpolation check mapped onto active slice
+            skipinterp=logical(EV_z(aprimeIndex(:)+N_a*((1:length(z_idx))-1))==EV_z(aprimeplus1Index(:)+N_a*((1:length(z_idx))-1)));
+            
+            % Expand probabilities locally for this block ONLY
+            blockProbs=repmat(baseProbs,1, length(z_idx));
+            blockProbs(skipinterp)=0;
+            blockProbs=reshape(blockProbs, [N_d23*N_a1,N_u, length(z_idx)]);
+            
+            % Extract EV bounds and apply U-shocks
+            EV1=reshape(EV_z(aprimeIndex(:)+N_a*((1:length(z_idx))-1)), [N_d23*N_a1,N_u, length(z_idx)]) .* blockProbs;
+            EV2=reshape(EV_z(aprimeplus1Index(:)+N_a*((1:length(z_idx))-1)), [N_d23*N_a1,N_u, length(z_idx)]) .* (1 - blockProbs);
+            
+            EV1(isnan(EV1))=0; EV2(isnan(EV2))=0;
+            EV_block=sum((EV1 .* pi_u'), 2)+sum((EV2 .* pi_u'), 2);
+            
+            % Refine d2 out of Continuation Value
+            [EV_onlyd3, d2index]=max(reshape(DiscountFactorParamsVec*EV_block, [N_d2,N_d3*N_a1,1, length(z_idx)]), [],1);
+            
+            % C. Maximize total RHS
+            entireRHS=shiftdim(ReturnMatrix_onlyd3+EV_onlyd3,1);
+            [Vtemp, maxindex]=max(entireRHS, [],1);
+            
+            V(:, z_idx, jj)=shiftdim(Vtemp,1);
+            Policy(3, :, z_idx, jj)=shiftdim(rem(maxindex-1,N_d3)+1,1);
+            Policy(4, :, z_idx, jj)=shiftdim(ceil(maxindex/N_d3), -1);
+            Policy(1, :, z_idx, jj)=shiftdim(d1index(maxindex+N_d3*N_a1*aind+N_d3*N_a1*N_a*z_offset),1);
+            Policy(2, :, z_idx, jj)=shiftdim(d2index(maxindex+N_d3*z_offset),1);
         end
     end
 end
