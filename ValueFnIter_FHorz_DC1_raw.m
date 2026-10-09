@@ -91,9 +91,8 @@ if ~isfield(vfoptions,'V_Jplus1')
                 [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size);
 
                 % 3. Assign results
-                V(curraindex,:,N_j) = shiftdim(Vtempii,1);
-                allind = dind + N_d*zind;
-                Policy(curraindex,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
+                V(curraindex,z_c,N_j) = shiftdim(Vtempii,1);
+                Policy(curraindex,z_c,N_j) = shiftdim(maxindex + N_d*(loweredge(dind)-1), 1);
             end
         end
     end
@@ -179,16 +178,15 @@ else
                 reshape_size = [N_d*(maxgap(ii)+1), 1, 1];
 
                 % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
-                aprimez = loweredge + (0:1:maxgap(ii)) + N_a*zBind;
-                EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
+                aprimez = loweredge + (0:1:maxgap(ii));
+                EV_RHS_slice = DiscountFactorParamsVec * reshape(EV_z(aprimez), reshape_size);
 
                 % 3. Call the helper!
                 [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
 
                 % 4. Assign results
-                V(curraindex,:,N_j) = shiftdim(Vtempii,1);
-                allind = dind + N_d*zind;
-                Policy(curraindex,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
+                V(curraindex,z_c,N_j) = shiftdim(Vtempii,1);
+                Policy(curraindex,z_c,N_j) = shiftdim(maxindex + N_d*(loweredge(dind)-1), 1);
             end
         end
     end
@@ -284,16 +282,15 @@ for reverse_j=1:N_j-1
                 reshape_size = [N_d*(maxgap(ii)+1), 1, N_z];
 
                 % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
-                aprimez = loweredge + (0:1:maxgap(ii)) + N_a*zBind;
-                EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
+                aprimez = loweredge + (0:1:maxgap(ii));
+                EV_RHS_slice = DiscountFactorParamsVec * reshape(EV_z(aprimez), reshape_size);
 
                 % 3. Call the helper!
                 [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
 
                 % 4. Assign results
-                V(curraindex,:,jj) = shiftdim(Vtempii,1);
-                allind = dind + N_d*zind;
-                Policy(curraindex,:,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
+                V(curraindex,z_c,jj) = shiftdim(Vtempii,1);
+                Policy(curraindex,z_c,jj) = shiftdim(maxindex + N_d*(loweredge(dind)-1), 1);
             end
 
         end
