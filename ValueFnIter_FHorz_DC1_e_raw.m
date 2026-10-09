@@ -64,28 +64,20 @@ if ~isfield(vfoptions,'V_Jplus1')
         % Attempt for improved version
         maxgap=squeeze(max(max(max(maxindex1(:,1,2:end,:,:)-maxindex1(:,1,1:end-1,:,:),[],5),[],4),[],1)); % max over d,z,e
         for ii=1:(vfoptions.level1n-1)
-            curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,ii,:,:),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                aprimeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z-by-n_e
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2);
-                [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                dind=(rem(maxindex-1,N_d)+1);
-                allind=dind+N_d*zind+N_d*N_z*eind; % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,ii,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2);
-                [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                dind=(rem(maxindex-1,N_d)+1);
-                allind=dind+N_d*zind+N_d*N_z*eind; % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-            end
+            curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+            loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+            
+            % 1. Package the handle and shape
+            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
+            reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, N_e];
+
+            % 2. Call the helper!
+            [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size);
+            
+            % 3. Assign results
+            V(curraindex,:,N_j) = shiftdim(Vtempii,1);
+            allind = dind + N_d*zind + N_d*N_z*eind; 
+            Policy(curraindex,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
     elseif vfoptions.lowmemory==1
         for e_c=1:N_e
@@ -106,28 +98,20 @@ if ~isfield(vfoptions,'V_Jplus1')
             % Attempt for improved version
             maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1)); % max over d,z,e
             for ii=1:(vfoptions.level1n-1)
-                curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,ii,:),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-1-by-n_z
-                    aprimeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z
-                    ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2);
-                    [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    dind=(rem(maxindex-1,N_d)+1);
-                    allind=dind+N_d*zind; % loweredge is n_d-by-1-by-1-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,ii,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2);
-                    [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    dind=(rem(maxindex-1,N_d)+1);
-                    allind=dind+N_d*zind; % loweredge is n_d-by-1-by-1-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-                end
+                curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+                loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+
+                % 1. Package the handle and shape
+                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, special_e_z, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
+                reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, 1];
+
+                % 2. Call the helper!
+                [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size);
+
+                % 3. Assign results
+                V(curraindex,:,e_c,N_j) = shiftdim(Vtempii,1);
+                allind = dind + N_d*zind;
+                Policy(curraindex,:,e_c,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
             end
         end
     elseif vfoptions.lowmemory==2
@@ -151,28 +135,19 @@ if ~isfield(vfoptions,'V_Jplus1')
                 % Attempt for improved version
                 maxgap=squeeze(max(maxindex1(:,1,2:end)-maxindex1(:,1,1:end-1),[],1)); % max over d,z,e
                 for ii=1:(vfoptions.level1n-1)
-                    curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-                    if maxgap(ii)>0
-                        loweredge=min(maxindex1(:,1,ii),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                        % loweredge is n_d-by-1-by-1
-                        aprimeindexes=loweredge+(0:1:maxgap(ii));
-                        % aprime possibilities are n_d-by-maxgap(ii)+1-by-1
-                        ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec,2);
-                        [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        dind=(rem(maxindex-1,N_d)+1);
-                        allind=dind; % loweredge is n_d-by-1-by-1
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindex'+N_d*(loweredge(allind)-1),1);
-                    else
-                        loweredge=maxindex1(:,1,ii);
-                        % Just use aprime(ii) for everything
-                        ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec,2);
-                        [Vtempii,maxindex]=max(ReturnMatrix_ii,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        dind=(rem(maxindex-1,N_d)+1);
-                        allind=dind; % loweredge is n_d-by-1-by-1
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindex'+N_d*(loweredge(allind)-1),1);
-                    end
+                    curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+                    loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+
+                    % 1. Package the handle and shape
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, special_e_z, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
+                    reshape_size = [N_d*(maxgap(ii)+1), 1, 1, 1];
+
+                    % 2. Call the helper!
+                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size);
+
+                    % 3. Assign results
+                    V(curraindex,z_c,e_c,N_j) = shiftdim(Vtempii,1);
+                    Policy(curraindex,z_c,e_c,N_j) = shiftdim(maxindex + N_d*(loweredge(dind)-1), 1);
                 end
             end
 
@@ -210,32 +185,24 @@ else
         % Attempt for improved version
         maxgap=squeeze(max(max(max(maxindex1(:,1,2:end,:,:)-maxindex1(:,1,1:end-1,:,:),[],5),[],4),[],1)); % max over d,z,e
         for ii=1:(vfoptions.level1n-1)
-            curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,ii,:,:),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                aprimeindexes=loweredge+(0:1:maxgap(ii));
-                % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z-by-n_e
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2);
-                aprimez=aprimeindexes+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*(maxgap(ii)+1),1,N_z,N_e]);  % autoexpand level1iidiff(ii) in 2nd-dim
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                dind=(rem(maxindex-1,N_d)+1);
-                allind=dind+N_d*zind+N_d*N_z*eind; % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,ii,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2);
-                aprimez=loweredge+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*1,1,N_z,N_e]); % autoexpand level1iidiff(ii) in 2nd-dim
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,N_j)=shiftdim(Vtempii,1);
-                dind=(rem(maxindex-1,N_d)+1);
-                allind=dind+N_d*zind+N_d*N_z*eind; % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                Policy(curraindex,:,:,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-            end
+            curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+            loweredge = min(maxindex1(:,1,ii,:), n_a-maxgap(ii));
+
+            % 1. Package the handle and shape
+            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
+            reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, N_e];
+
+            % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
+            aprimez = loweredge + (0:1:maxgap(ii)) + N_a*zBind;
+            EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
+
+            % 3. Call the helper!
+            [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+            % 4. Assign results
+            V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
+            allind = dind + N_d*zind + N_d*N_z*eind;
+            Policy(curraindex,:,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
     elseif vfoptions.lowmemory==1
         for e_c=1:N_e
@@ -258,32 +225,24 @@ else
             % Attempt for improved version
             maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1)); % max over d,z,e
             for ii=1:(vfoptions.level1n-1)
-                curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,ii,:),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-1-by-n_z
-                    aprimeindexes=loweredge+(0:1:maxgap(ii));
-                    % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z
-                    ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2);
-                    aprimez=aprimeindexes+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*(maxgap(ii)+1),1,N_z]); % autoexpand level1iidiff(ii) in 2nd-dim
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    dind=(rem(maxindex-1,N_d)+1);
-                    allind=dind+N_d*zind; % loweredge is n_d-by-1-by-1-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,ii,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2);
-                    aprimez=loweredge+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*1,1,N_z]); % autoexpand level1iidiff(ii) in 2nd-dim
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,N_j)=shiftdim(Vtempii,1);
-                    dind=(rem(maxindex-1,N_d)+1);
-                    allind=dind+N_d*zind; % loweredge is n_d-by-1-by-1-by-n_z
-                    Policy(curraindex,:,e_c,N_j)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-                end
+                curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+                loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+
+                % 1. Package the handle and shape
+                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec, 2);
+                reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, 1];
+
+                % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
+                aprimez = loweredge + (0:1:maxgap(ii));
+                EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
+
+                % 3. Call the helper!
+                [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,:,e_c,N_j) = shiftdim(Vtempii,1);
+                allind = dind + N_d*zind;
+                Policy(curraindex,:,e_c,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
             end
         end
     elseif vfoptions.lowmemory==2
@@ -311,30 +270,23 @@ else
                 % Attempt for improved version
                 maxgap=squeeze(max(maxindex1(:,1,2:end)-maxindex1(:,1,1:end-1),[],1)); % max over d,z,e
                 for ii=1:(vfoptions.level1n-1)
-                    curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-                    if maxgap(ii)>0
-                        loweredge=min(maxindex1(:,1,ii),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                        % loweredge is n_d-by-1-by-1
-                        aprimeindexes=loweredge+(0:1:maxgap(ii));
-                        % aprime possibilities are n_d-by-maxgap(ii)+1-by-1
-                        ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec,2);
-                        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV_z(aprimeindexes),[N_d*(maxgap(ii)+1),1]); % autoexpand level1iidiff(ii) in 2nd-dim
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        dind=(rem(maxindex-1,N_d)+1);
-                        allind=dind; % loweredge is n_d-by-1-by-1
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindex'+N_d*(loweredge(allind)-1),1);
-                    else
-                        loweredge=maxindex1(:,1,ii);
-                        % Just use aprime(ii) for everything
-                        ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec,2);
-                        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*EV_z(loweredge); % autoexpand level1iidiff(ii) in 2nd-dim
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                        dind=(rem(maxindex-1,N_d)+1);
-                        allind=dind; % loweredge is n_d-by-1-by-1
-                        Policy(curraindex,z_c,e_c,N_j)=shiftdim(maxindex'+N_d*(loweredge(allind)-1),1);
-                    end
+                    curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+                    loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+
+                    % 1. Package the handle and shape
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
+                    reshape_size = [N_d*(maxgap(ii)+1), 1, 1, 1];
+
+                    % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
+                    aprimez = loweredge + (0:1:maxgap(ii));
+                    EV_RHS_slice = DiscountFactorParamsVec * reshape(EV_z(aprimez), reshape_size);
+
+                    % 3. Call the helper!
+                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+                    % 4. Assign results
+                    V(curraindex,z_c,e_c,N_j) = shiftdim(Vtempii,1);
+                    Policy(curraindex,z_c,e_c,N_j) = shiftdim(maxindex + N_d*(loweredge(dind)-1), 1);
                 end
             end
         end
@@ -382,31 +334,24 @@ for reverse_j=1:N_j-1
         % Attempt for improved version
         maxgap=squeeze(max(max(max(maxindex1(:,1,2:end,:,:)-maxindex1(:,1,1:end-1,:,:),[],5),[],4),[],1)); % max over d,z,e
         for ii=1:(vfoptions.level1n-1)
-            curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-            if maxgap(ii)>0
-                loweredge=min(maxindex1(:,1,ii,:,:),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                aprimeindexes=loweredge+(0:1:maxgap(ii)); % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z-by-n_e
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,2);
-                aprimez=aprimeindexes+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*(maxgap(ii)+1),1,N_z,N_e]); % autoexpand level1iidiff(ii) in 2nd-dim
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,jj)=shiftdim(Vtempii,1);
-                dind=(rem(maxindex-1,N_d)+1);
-                allind=dind+N_d*zind+N_d*N_z*eind; % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                Policy(curraindex,:,:,jj)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-            else
-                loweredge=maxindex1(:,1,ii,:,:);
-                % Just use aprime(ii) for everything
-                ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,2);
-                aprimez=loweredge+N_a*zBind;
-                entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*1,1,N_z,N_e]); % autoexpand level1iidiff(ii) in 2nd-dim
-                [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                V(curraindex,:,:,jj)=shiftdim(Vtempii,1);
-                dind=(rem(maxindex-1,N_d)+1);
-                allind=dind+N_d*zind+N_d*N_z*eind; % loweredge is n_d-by-1-by-1-by-n_z-by-n_e
-                Policy(curraindex,:,:,jj)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-            end
+            curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+            loweredge = min(maxindex1(:,1,ii,:), n_a-maxgap(ii));
+            
+            % 1. Package the handle and shape
+            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 2);
+            reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, N_e];
+            
+            % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
+            aprimez = loweredge + (0:1:maxgap(ii)) + N_a*zBind;
+            EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
+            
+            % 3. Call the helper!
+            [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+            
+            % 4. Assign results
+            V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
+            allind = dind + N_d*zind + N_d*N_z*eind;
+            Policy(curraindex,:,:,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
     elseif vfoptions.lowmemory==1
         for e_c=1:N_e
@@ -429,31 +374,24 @@ for reverse_j=1:N_j-1
             % Attempt for improved version
             maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1)); % max over d,z,e
             for ii=1:(vfoptions.level1n-1)
-                curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-                if maxgap(ii)>0
-                    loweredge=min(maxindex1(:,1,ii,:),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                    % loweredge is n_d-by-1-by-1-by-n_z
-                    aprimeindexes=loweredge+(0:1:maxgap(ii)); % aprime possibilities are n_d-by-maxgap(ii)+1-by-1-by-n_z
-                    ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,2);
-                    aprimez=aprimeindexes+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*(maxgap(ii)+1),1,N_z]); % autoexpand level1iidiff(ii) in 2nd-dim
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,jj)=shiftdim(Vtempii,1);
-                    dind=(rem(maxindex-1,N_d)+1);
-                    allind=dind+N_d*zind; % loweredge is n_d-by-1-by-1-by-n_z
-                    Policy(curraindex,:,e_c,jj)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-                else
-                    loweredge=maxindex1(:,1,ii,:);
-                    % Just use aprime(ii) for everything
-                    ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, n_z, special_n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,2);
-                    aprimez=loweredge+N_a*zBind;
-                    entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV(aprimez),[N_d*1,1,N_z]); % autoexpand level1iidiff(ii) in 2nd-dim
-                    [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                    V(curraindex,:,e_c,jj)=shiftdim(Vtempii,1);
-                    dind=(rem(maxindex-1,N_d)+1);
-                    allind=dind+N_d*zind; % loweredge is n_d-by-1-by-1-by-n_z
-                    Policy(curraindex,:,e_c,jj)=shiftdim(maxindex+N_d*(loweredge(allind)-1),1);
-                end
+                curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+                loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+
+                % 1. Package the handle and shape
+                ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 2);
+                reshape_size = [N_d*(maxgap(ii)+1), 1, N_z, 1];
+
+                % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
+                aprimez = loweredge + (0:1:maxgap(ii));
+                EV_RHS_slice = DiscountFactorParamsVec * reshape(EV(aprimez), reshape_size);
+
+                % 3. Call the helper!
+                [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+                % 4. Assign results
+                V(curraindex,:,e_c,jj) = shiftdim(Vtempii,1);
+                allind = dind + N_d*zind;
+                Policy(curraindex,:,e_c,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
             end
         end
     elseif vfoptions.lowmemory==2
@@ -482,29 +420,23 @@ for reverse_j=1:N_j-1
                 % Attempt for improved version
                 maxgap=squeeze(max(maxindex1(:,1,2:end)-maxindex1(:,1,1:end-1),[],1)); % max over d,z,e
                 for ii=1:(vfoptions.level1n-1)
-                    curraindex=level1ii(ii)+1:1:level1ii(ii+1)-1;
-                    if maxgap(ii)>0
-                        loweredge=min(maxindex1(:,1,ii),n_a-maxgap(ii)); % maxindex1(ii,:), but avoid going off top of grid when we add maxgap(ii) points
-                        % loweredge is n_d-by-1-by-1
-                        aprimeindexes=loweredge+(0:1:maxgap(ii)); % aprime possibilities are n_d-by-maxgap(ii)+1-by-1
-                        ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a_grid(aprimeindexes), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec,2);
-                        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*reshape(EV_z(aprimeindexes),[N_d*(maxgap(ii)+1),1]); % autoexpand level1iidiff(ii) in 2nd-dim
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,jj)=shiftdim(Vtempii,1);
-                        dind=(rem(maxindex-1,N_d)+1);
-                        allind=dind; % loweredge is n_d-by-1-by-1
-                        Policy(curraindex,z_c,e_c,jj)=shiftdim(maxindex'+N_d*(loweredge(allind)-1),1);
-                    else
-                        loweredge=maxindex1(:,1,ii);
-                        % Just use aprime(ii) for everything
-                        ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, a_grid(loweredge), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec,2);
-                        entireRHS_ii=ReturnMatrix_ii+DiscountFactorParamsVec*EV_z(loweredge); % autoexpand level1iidiff(ii) in 2nd-dim
-                        [Vtempii,maxindex]=max(entireRHS_ii,[],1);
-                        V(curraindex,z_c,e_c,jj)=shiftdim(Vtempii,1);
-                        dind=(rem(maxindex-1,N_d)+1);
-                        allind=dind; % loweredge is n_d-by-1-by-1
-                        Policy(curraindex,z_c,e_c,jj)=shiftdim(maxindex'+N_d*(loweredge(allind)-1),1);
-                    end
+                    curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
+                    loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+
+                    % 1. Package the handle and shape
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, special_n_z, special_n_e, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_val, e_val, ReturnFnParamsVec, 2);
+                    reshape_size = [N_d*(maxgap(ii)+1), 1, 1, 1];
+
+                    % 2. Extract the Expected Value subset (and multiply by DiscountFactor)
+                    aprimez = loweredge + (0:1:maxgap(ii));
+                    EV_RHS_slice = DiscountFactorParamsVec * reshape(EV_z(aprimez), reshape_size);
+
+                    % 3. Call the helper!
+                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size, EV_RHS_slice);
+
+                    % 4. Assign results
+                    V(curraindex,z_c,e_c,jj) = shiftdim(Vtempii,1);
+                    Policy(curraindex,z_c,e_c,jj) = shiftdim(maxindex + N_d*(loweredge(dind)-1), 1);
                 end
             end
         end
