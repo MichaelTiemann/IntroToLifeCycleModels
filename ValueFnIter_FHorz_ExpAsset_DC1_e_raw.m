@@ -32,6 +32,7 @@ a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 if vfoptions.lowmemory==0
     % precompute
     eBind=shiftdim((0:1:N_e-1),-2); % already includes -1
+    eind = shiftdim((0:1:N_e-1), -4);
     % precompute
     zind=shiftdim((0:1:N_z-1),-3); % already includes -1
     zBind=shiftdim((0:1:N_z-1),-1); % already includes -1
@@ -83,14 +84,14 @@ if ~isfield(vfoptions,'V_Jplus1')
             loweredge = min(maxindex1(:,1,ii,:,:,:), N_a1-maxgap(ii));
 
             % 1. Package the handle (Notice Level = 2)
-            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
 
             % 2. Call the helper!
             [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, [], []);
 
             % 3. Assign results
             V(curraindex,:,:,N_j) = shiftdim(Vtempii,1);
-            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind;
+            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind + N_d*N_a2*N_z*eBind;
             Policy(curraindex,:,:,N_j) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
     elseif vfoptions.lowmemory==1
@@ -119,7 +120,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 loweredge = min(maxindex1(:,1,ii,:,:,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle (Notice Level = 2)
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2, 0);
 
                 % 2. Call the helper!
                 [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, [], []);
@@ -159,7 +160,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                     loweredge = min(maxindex1(:,1,ii,:,:,:), N_a1-maxgap(ii));
 
                     % 1. Package the handle (Notice Level = 2)
-                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec, 2, 0);
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec, 2, 0);
 
                     % 2. Call the helper!
                     [Vtempii, maxindex, dind] = RefineSearch_ExpAsset_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, [], []);
@@ -199,7 +200,7 @@ else
         % n-Monotonicity
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,n_z,n_e, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % Level=1, Refine=0
         ReturnMatrix_ii=reshape(ReturnMatrix_ii, [N_d1, N_d2, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
-        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z]);
+        DiscountedEV=DiscountFactorParamsVec*reshape(EV,[N_d2,N_a1,1,N_a2,N_z,N_e]);
 
         entireRHS_ii = ReturnMatrix_ii + shiftdim(DiscountedEV, -1);
         entireRHS_ii = reshape(entireRHS_ii, [N_d, N_a1, vfoptions.level1n, N_a2, N_z, N_e]);
@@ -224,10 +225,10 @@ else
             a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
 
             % 1. Package the handle (Notice Level = 3)
-            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 3, 0);
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 3, 0);
 
             % 2. Extract EV and define reshape
-            d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
+            d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind + N_d2*N_a*N_z*eind;
             EV_RHS_slice = DiscountedEV(d2aprimez);
             reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, N_z, N_e];
 
@@ -236,7 +237,7 @@ else
 
             % 4. Assign results
             V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
-            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind;
+            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind + N_d*N_a2*N_z*eBind;
             Policy(curraindex,:,:,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
 
@@ -273,7 +274,7 @@ else
                 a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
 
                 % 1. Package the handle (Notice Level = 3)
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 3, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 3, 0);
 
                 % 2. Extract EV and define reshape
                 d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
@@ -323,7 +324,7 @@ else
                     a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
 
                     % 1. Package the handle (Notice Level = 3)
-                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec, 3, 0);
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec, 3, 0);
 
                     % 2. Extract EV and define reshape
                     d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
@@ -405,10 +406,10 @@ for reverse_j=1:N_j-1
             a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
 
             % 1. Package the handle (Notice Level = 3)
-            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 3, 0);
+            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec, 3, 0);
 
             % 2. Extract EV and define reshape
-            d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
+            d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind + N_d2*N_a*N_z*eind;
             EV_RHS_slice = DiscountedEV(d2aprimez);
             reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, N_z, N_e];
 
@@ -417,7 +418,7 @@ for reverse_j=1:N_j-1
 
             % 4. Assign results
             V(curraindex,:,:,jj) = shiftdim(Vtempii,1);
-            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind;
+            allind = dind + N_d*repelem(a2Bind,1,level1iidiff(ii)) + N_d*N_a2*zBind + N_d*N_a2*N_z*eBind;
             Policy(curraindex,:,:,jj) = shiftdim(maxindex + N_d*(loweredge(allind)-1), 1);
         end
 
@@ -453,7 +454,7 @@ for reverse_j=1:N_j-1
                 a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
 
                 % 1. Package the handle (Notice Level = 3)
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 3, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec, 3, 0);
 
                 % 2. Extract EV and define reshape
                 d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind + N_d2*N_a*zind;
@@ -504,7 +505,7 @@ for reverse_j=1:N_j-1
                     a1primeindexes = loweredge + (0:1:maxgap(ii)); % Needed to slice EV below
 
                     % 1. Package the handle (Notice Level = 3)
-                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec, 3, 0);
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d2,maxgap(ii)+1,level1iidiff(ii),n_a2,special_n_z,special_n_e, d_gridvals, reshape(a1_gridvals(a1p), size(a1p)), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, e_val, ReturnFnParamsVec, 3, 0);
 
                     % 2. Extract EV and define reshape
                     d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind;
