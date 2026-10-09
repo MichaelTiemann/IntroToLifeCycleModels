@@ -47,7 +47,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         maxgap=squeeze(max(max(maxindex1(:,1,2:end,:)-maxindex1(:,1,1:end-1,:),[],4),[],1));
         for ii=1:(vfoptions.level1n-1)
             curraindex = level1ii(ii)+1:1:level1ii(ii+1)-1;
-            loweredge = min(maxindex1(:,1,ii), n_a-maxgap(ii));
+            loweredge = min(maxindex1(:,1,ii,:), n_a-maxgap(ii));
             
             % 1. Package the handle and shape
             ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d, n_z, d_gridvals, reshape(a_grid(ap), size(ap)), a_grid(level1ii(ii)+1:level1ii(ii+1)-1), z_gridvals_J(:,:,N_j), ReturnFnParamsVec, 2);
@@ -55,7 +55,7 @@ if ~isfield(vfoptions,'V_Jplus1')
 
             % 2. Call the helper!
             [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, loweredge, maxgap(ii), N_d, reshape_size);
-            
+
             % 3. Assign results
             V(curraindex,:,N_j) = shiftdim(Vtempii,1);
             allind = dind + N_d*zind; 
