@@ -222,7 +222,7 @@ else
 
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,:,:,z_c),[N_d2,N_a1,1,N_a2,N_z]);
+            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c),[N_d2,N_a1,1,N_a2,1]);
 
             % n-Monotonicity
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
@@ -366,7 +366,7 @@ for reverse_j=1:N_j-1
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,jj);
 
-            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,:,:,z_c),[N_d2,N_a1,1,N_a2,N_z]);
+            DiscountedEV_z=DiscountFactorParamsVec*reshape(EV(:,:,z_c),[N_d2,N_a1,1,N_a2,1]);
 
             % n-Monotonicity
             ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d2,n_a1,vfoptions.level1n,n_a2,special_n_z, d_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec,1,0); % Level=1, Refine=0
