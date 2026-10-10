@@ -176,7 +176,7 @@ ReturnFn = @(d_m, aprime, a, m, z, e, w, r, sigma, agej, Jr, pension, kappa_j) .
 % vfoptions.refine_d: only (d1,d3,..) are input to ReturnFn [this model has no d1, so here just d3]
 
 % ENABLE DIVIDE-AND-CONQUER & GRID INTERPOLATION
-vfoptions.divideandconquer = 0; 
+vfoptions.divideandconquer = 1; 
 vfoptions.gridinterplayer = 0;
 vfoptions.ngridinterp = 20; 
 simoptions.gridinterplayer = vfoptions.gridinterplayer; 

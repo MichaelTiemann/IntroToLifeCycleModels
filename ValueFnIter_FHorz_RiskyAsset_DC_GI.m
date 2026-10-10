@@ -108,26 +108,19 @@ end
 base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', num_channels);
 UnKronFn = str2func([base_fn, suffix]);
 
-% 4. Dynamically build the arguments list and shrink-wrap PolicyKron
-active_rows = [];
-if has_d1, active_rows(end+1) = 1; end
-if has_d2, active_rows(end+1) = 2; end
-if has_d3, active_rows(end+1) = 3; end
-if has_a1, active_rows(end+1) = 4; end
-if has_a2, active_rows(end+1) = 5; end
+% 4. Dynamically build the arguments list 
+% (PolicyKron is ALREADY shrink-wrapped by the _raw helpers!)
+PolicyKronSliced = PolicyKron; 
 
-if vfoptions.gridinterplayer == 1
-    if has_a2
-        active_rows = [active_rows, 6, 7]; % DC2A flags
-    else
-        active_rows = [active_rows, 5, 6]; % DC1 flags
-    end
-end
+% Build the argument list based ONLY on active dimensions
+args = {PolicyKronSliced};
+if has_d1, args{end+1} = n_d1; end
+if has_d2, args{end+1} = n_d2; end
+if has_d3, args{end+1} = n_d3; end
+if has_a1, args{end+1} = n_a1; end
+if has_a2, args{end+1} = n_a2; end
 
-% Slice out only the active rows
-slice_idx = repmat({':'}, 1, ndims(PolicyKron));
-slice_idx{1} = active_rows;
-PolicyKronSliced = PolicyKron(slice_idx{:});
+args{end+1} = n_a; % The full combined asset grid size
 
 % Build the argument list based ONLY on active dimensions
 args = {PolicyKronSliced};

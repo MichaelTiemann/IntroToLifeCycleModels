@@ -178,7 +178,7 @@ for jj = N_j:-1:1
                         entireRHS_ii = ReturnMatrix_ii;
                     else
                         % Broadcast offset for z in level 3: z is dimension 5, so shift by -4
-                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:length(z_idx)-1), -4);
+                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:length(z_idx)-1)', -4);
                         entireRHS_ii = ReturnMatrix_ii + DiscountedEV(d3aprimez);
                     end
 
@@ -196,7 +196,7 @@ for jj = N_j:-1:1
             if is_terminal
                 entireRHS_ii = ReturnMatrix_ii;
             else
-                d3aprimez = (1:1:N_d13)' + N_d13*(midpoint_jj(:)-1) + N_d13*N_a1*shiftdim((0:length(z_idx)-1), -4);
+                d3aprimez = (1:1:N_d13)' + N_d13*(midpoint_jj(:)-1) + N_d13*N_a1*shiftdim((0:length(z_idx)-1)', -4);
                 entireRHS_ii = ReturnMatrix_ii + reshape(DiscountedEV_d13(d3aprimez), [N_d13, N_a1*N_a2, length(z_idx), length(e_idx)]);
             end
 

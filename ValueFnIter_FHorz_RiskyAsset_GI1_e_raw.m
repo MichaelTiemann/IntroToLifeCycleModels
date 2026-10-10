@@ -176,7 +176,7 @@ for jj=N_j:-1:1
                 entireRHS_ii = ReturnMatrix_ii;
             else
                 % EV does not depend on a2 nor e
-                da1primez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1prime*shiftdim((0:length(z_idx)-1),-1);
+                da1primez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1prime*shiftdim((0:length(z_idx)-1)',-4);
                 entireRHS_ii = ReturnMatrix_ii + reshape(DiscountedEVinterp_d13(da1primez(:)), [N_d13*n2long, N_a1*N_a2, length(z_idx), length(e_idx)]);
             end
 
