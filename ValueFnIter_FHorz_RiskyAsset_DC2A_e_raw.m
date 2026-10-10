@@ -209,12 +209,13 @@ for jj = N_j:-1:1
             end
 
             % Final Policy Assembly
-            ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc_DC2A_e(ReturnFn, n_d1, n_d3, n_a2, n_a3, special_n_z, special_n_e, d13_gridvals, a1_grid(midpoint_jj(:)), a2_gridvals, a1_grid, a2_gridvals, a3_grid, z_val, e_val, ReturnFnParamsVec, 2);
+            ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc_DC2A_e(ReturnFn, n_d1, n_d3, n_a2, n_a3, special_n_z, special_n_e, d13_gridvals, a1_grid(midpoint_jj), a2_gridvals, a1_grid, a2_gridvals, a3_grid, z_val, e_val, ReturnFnParamsVec, 2);
 
             if is_terminal
                 entireRHS_ii = ReturnMatrix_ii;
             else
-                d3aprimez = (1:1:N_d13)' + N_d13*(midpoint_jj(:)-1) + N_d13*N_a1*shiftdim((0:N_a2-1)',-2) + N_d13*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
+                % Remove the (:) from midpoint_jj here too
+                d3aprimez = (1:1:N_d13)' + N_d13*(midpoint_jj-1) + N_d13*N_a1*shiftdim((0:N_a2-1)',-2) + N_d13*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
                 entireRHS_ii = ReturnMatrix_ii + reshape(DiscountedEV_d13(d3aprimez(:)), [N_d13*N_a2, N_a, length(z_idx), length(e_idx)]);
             end
 
@@ -239,7 +240,7 @@ for jj = N_j:-1:1
             else
                 a1mid = midpoint_jj(allind);
                 if vfoptions.lowmemory <= 1
-                    zlin = shiftdim(gpuArray(0:length(z_idx)-1), -2);
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
                 else
                     zlin = 0;
                 end

@@ -112,14 +112,6 @@ if has_a2, args{end+1} = n_a2; end
 
 args{end+1} = n_a; % The full combined asset grid size
 
-if has_d1, args{end+1} = n_d1; end
-if has_d2, args{end+1} = n_d2; end
-if has_d3, args{end+1} = n_d3; end
-if has_a1, args{end+1} = n_a1; end
-if has_a2, args{end+1} = n_a2; end
-
-args{end+1} = n_a; % The full combined asset grid size
-
 if has_z && has_e
     args = [args, {n_z, vfoptions.n_e}];
 elseif has_z

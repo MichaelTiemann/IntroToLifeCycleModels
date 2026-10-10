@@ -229,7 +229,7 @@ for jj = N_j:-1:1
                 % Corrected broadcasting for z offset (z belongs in dim 3!)
                 a1mid = midpoint_jj(allind); % [1, N_a, length(z_idx), length(e_idx)]
                 if vfoptions.lowmemory <= 1
-                    zlin = shiftdim(gpuArray(0:length(z_idx)-1), -2);
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
                 else
                     zlin = 0;
                 end

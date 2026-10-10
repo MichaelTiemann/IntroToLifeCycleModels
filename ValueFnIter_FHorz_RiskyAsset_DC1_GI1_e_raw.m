@@ -195,7 +195,7 @@ for jj = N_j:-1:1
                         entireRHS_ii = ReturnMatrix_ii;
                     else
                         % SHIFTDIM(-4) explicitly targets dim 5 to broadcast over N_z in Level 3 correctly!
-                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:length(z_idx)-1), -4);
+                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:length(z_idx)-1)', -4);
                         entireRHS_ii = ReturnMatrix_ii + DiscountedEV(d3aprimez);
                     end
 
@@ -215,7 +215,7 @@ for jj = N_j:-1:1
             if is_terminal
                 entireRHS_ii = ReturnMatrix_ii;
             else
-                da1primez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1prime*shiftdim((0:length(z_idx)-1), -4);
+                da1primez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1prime*shiftdim((0:length(z_idx)-1)', -4);
                 entireRHS_ii = ReturnMatrix_ii + reshape(DiscountedEVinterp_d13(da1primez(:)), [N_d13*n2long, N_a, length(z_idx), length(e_idx)]);
             end
 
@@ -257,7 +257,7 @@ for jj = N_j:-1:1
             else
                 a1mid = midpoint_jj(allind);
                 if vfoptions.lowmemory <= 1
-                    zlin = shiftdim(gpuArray(0:length(z_idx)-1), -2);
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
                 else
                     zlin = 0;
                 end
