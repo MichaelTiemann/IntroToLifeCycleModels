@@ -213,12 +213,10 @@ for jj = N_j:-1:1
             % Define local combined ze_offset since e_offset and z_offset were split
             ze_offset = z_offset + N_z*e_offset;
 
-            % Flatten midpoint cleanly (no squeeze) so shape perfectly feeds arrayfun
-            midpoint_L2 = midpoint(:);
-            a1primeindexesfine = max(1, min(N_a1fine - n2long + 1, (midpoint_L2 - 1) * n2short + 1 + shiftdim(-n2short-1:n2short+1, -1)));
+            midpoint = max(min(midpoint, N_a1-1), 2);
+            a1primeindexesfine = (midpoint + (midpoint-1)*n2short) + (-n2short-1:1:n2short+1);
 
             ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc_DC2A_e(ReturnFn, n_d1, n_d3, n_a2, n_a3, special_n_z, special_n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a2_gridvals, a1_grid, a2_gridvals, a3_grid, z_val, e_val, ReturnFnParamsVec, 2);
-
             if is_terminal
                 entireRHS_ii = ReturnMatrix_ii;
             else
@@ -254,7 +252,7 @@ for jj = N_j:-1:1
             else
                 % The exact transpose column-vector fix for 2A offsets!
                 if vfoptions.lowmemory <= 1
-                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -3);
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
                 else
                     zlin = 0;
                 end

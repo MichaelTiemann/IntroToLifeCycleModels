@@ -203,7 +203,7 @@ for jj=N_j:-1:1
                 % d2 lookup: d2index_resh depends on (d3, a1prime_mid, z)
                 a1mid = midpoint_jj(allind);
                 if vfoptions.lowmemory <= 1
-                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -1);
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
                 else
                     zlin = 0;
                 end
