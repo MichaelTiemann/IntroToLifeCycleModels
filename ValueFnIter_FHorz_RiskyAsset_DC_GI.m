@@ -130,9 +130,10 @@ has_d1 = (sum(n_d1) > 0);
 has_d2 = (sum(n_d2) > 0);
 has_d3 = (sum(n_d3) > 0);
 has_a1 = (sum(n_a1) > 0);
+has_a2 = (length(n_a) >= 2);
 
 % Dynamically count the number of active choice variables
-num_channels = has_d1 + has_d2 + has_d3 + has_a1;
+num_channels = has_d1 + has_d2 + has_d3 + has_a1 + has_a2;
 
 if has_e && has_z
     suffix = '_z_e';
@@ -151,8 +152,9 @@ if has_d1, active_rows(end+1) = 1; end
 if has_d2, active_rows(end+1) = 2; end
 if has_d3, active_rows(end+1) = 3; end
 if has_a1, active_rows(end+1) = 4; end
+if has_a2, active_rows(end+1) = 5; end
 if vfoptions.gridinterplayer == 1
-    active_rows = [active_rows, 5, 6]; % Keep the GI flags!
+    active_rows = [active_rows, 5+has_a2, 6+has_a2]; % Keep the GI flags!
 end
 
 % Dynamically slice dimension 1 regardless of how many trailing dimensions exist
@@ -165,7 +167,8 @@ args = {PolicyKronSliced};
 if has_d1, args{end+1} = n_d1; end
 if has_d2, args{end+1} = n_d2; end
 if has_d3, args{end+1} = n_d3; end
-if has_a1, args{end+1} = n_a1; end
+if has_a1, args{end+1} = n_a1(1); end
+if has_a2, args{end+1} = n_a1(2); end
 
 args{end+1} = n_a; % The full combined asset grid size
 
