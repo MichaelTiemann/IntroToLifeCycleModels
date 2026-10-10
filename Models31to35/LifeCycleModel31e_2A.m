@@ -10,7 +10,7 @@ Params.J = 100 - Params.agejshifter;
 % Grid sizes to use (Keep grids slightly smaller due to 3D state space)
 n_d = [21];               % Risky investment choice
 n_a = [31, 21, 21];       % [Safe Asset, Future Fund, Risky Asset]
-n_z = 21;
+n_z = 11;
 n_e = 3;
 n_u = 5;
 N_j = Params.J;
@@ -103,7 +103,7 @@ ReturnFn = @(d_m, aprime_safe, aprime_future, a_safe, a_future, m, z, e, w, r_sa
 
 vfoptions.divideandconquer = 0;
 vfoptions.gridinterplayer = 1;
-vfoptions.ngridinterp = 20;
+vfoptions.ngridinterp = 10;
 simoptions.gridinterplayer = vfoptions.gridinterplayer;
 simoptions.ngridinterp = vfoptions.ngridinterp;
 
@@ -120,7 +120,7 @@ future_ind = 1; % a_future = 0
 m_ind = 1;      % m = 0
 
 figure(1)
-surf(1:Params.J, a_safe_grid, squeeze(V(:, future_ind, m_ind, zind, :)))
+surf(1:Params.J, a_safe_grid, squeeze(V(:, future_ind, m_ind, zind, eind, :)))
 title('Value function: Safe Wealth (median z, a_{future}=0, m=0)')
 xlabel('Age j')
 ylabel('Safe Assets (a_{safe})')
@@ -163,7 +163,7 @@ xlabel('Age')
 %% Extract Polices for Scatters
 % PolicyVals outputs [d_m, aprime_safe, aprime_future]
 PolicyVals = PolicyInd2Val_FHorz(Policy, n_d, n_a, n_z, N_j, d_grid, a_grid, vfoptions);
-Pol_reshaped = reshape(PolicyVals, [3, n_a(1), n_a(2), n_a(3), n_z, Params.J]);
+Pol_reshaped = reshape(PolicyVals, [3, n_a(1), n_a(2), n_a(3), n_z, n_e, Params.J]);
 
 target_age = 45;
 d_m_vals    = reshape(Pol_reshaped(1, :, :, :, zind, eind, target_age), [n_a(1), n_a(2), n_a(3)]);
