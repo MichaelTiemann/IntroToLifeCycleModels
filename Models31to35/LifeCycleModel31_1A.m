@@ -161,7 +161,7 @@ ReturnFn = @(d_m, aprime, a, m, z, w, r, sigma, agej, Jr, pension, kappa_j) ...
 
 % ENABLE DIVIDE-AND-CONQUER & GRID INTERPOLATION
 vfoptions.divideandconquer = 0; 
-vfoptions.gridinterplayer = 0;
+vfoptions.gridinterplayer = 1;
 vfoptions.ngridinterp = 20; 
 simoptions.gridinterplayer = vfoptions.gridinterplayer; 
 simoptions.ngridinterp = vfoptions.ngridinterp;

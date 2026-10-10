@@ -3,23 +3,25 @@ function [V,Policy]=ValueFnIter_FHorz_RiskyAsset_DC1_raw(n_d1,n_d2,n_d3,n_a1,n_a
 % d2: aprimeFn but not ReturnFn
 % d3: both ReturnFn and aprimeFn
 
-N_d1=prod(n_d1);
-N_d2=prod(n_d2);
-N_d3=prod(n_d3);
-N_a1=prod(n_a1);
-N_a2=prod(n_a2);
-N_a=N_a1*N_a2;
-N_z=prod(n_z);
-N_u=prod(n_u);
+% Safely calculate N_d dimensions, treating 0 as a singleton (1) for math
+N_d1 = max(1, prod(n_d1(n_d1 > 0)));
+N_d2 = max(1, prod(n_d2(n_d2 > 0)));
+N_d3 = max(1, prod(n_d3(n_d3 > 0)));
+N_a1 = max(1, prod(n_a1(n_a1 > 0)));
+N_a2 = max(1, prod(n_a2(n_a2 > 0)));
+N_a  = N_a1 * N_a2;
+N_z  = max(1, prod(n_z(n_z > 0)));
+N_u  = max(1, prod(n_u(n_u > 0)));
 
 % For ReturnFn (d1 and d3 only)
-n_d13=[n_d1,n_d3];
-N_d13=N_d1*N_d3;
-d13_grid=[d1_grid;d3_grid];
+n_d13 = [n_d1(n_d1 > 0), n_d3(n_d3 > 0)];
+N_d13 = N_d1 * N_d3;
+d13_grid = [d1_grid; d3_grid];
+
 % For aprimeFn (d2 and d3)
-n_d23=[n_d2,n_d3];
-N_d23=N_d2*N_d3;
-d23_grid=[d2_grid; d3_grid];
+n_d23 = [n_d2(n_d2 > 0), n_d3(n_d3 > 0)];
+N_d23 = N_d2 * N_d3;
+d23_grid = [d2_grid; d3_grid];
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(4,N_a,N_z,N_j,'gpuArray'); % (1)=d1, (2)=d2, (3)=d3, (4)=a1prime
