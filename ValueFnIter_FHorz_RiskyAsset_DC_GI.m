@@ -14,6 +14,18 @@ N_e=prod(vfoptions.n_e);
 if N_a1==0
     error('Cannot use vfoptions.divideandconquer with riskyasset DC_GI if there is no standard endogenous state (N_a1==0)')
 end
+
+if ~isfield(vfoptions,'level1n')
+    vfoptions.level1n=floor(sqrt(n_a1(1)));
+    if n_a1(1)<5
+        error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable (you need to turn off divide-and-conquer, or put more points into the a variable)')
+    end
+    if vfoptions.verbose==1
+        fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n (for smaller models 7 or 9 is good, but for larger models something 15 or 21 can be better) \n')
+    end
+end
+vfoptions.level1n=min(vfoptions.level1n,n_a1(1)); % n_a1(1): level1n is scalar, and with two standard assets it is a1_1 that is divide-conquered
+
 % Two standard endogenous assets -> the DC2A_GI2A raws.
 if length(n_a1)>1
     if length(n_a1)>2
@@ -36,72 +48,18 @@ if length(n_a1)>1
     else
         [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC2A_GI2A_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_a3,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, a3_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
     end
-    if vfoptions.outputkron==1
-        V=VKron;
-        Policy=PolicyKron;
-        return
-    end
+
     % Policy channels: d2, d3, a1prime (divide-conquered), a2prime (folded) [plus d1 at the
     % front when there is a d1], and then the two grid-interp-layer rows (L2 and L2flag) which
     % UnKronPolicyIndexes*_FHorz_* passes through unchanged when vfoptions.gridinterplayer==1.
-    n_a=[n_a1,n_a2,n_a3];
-    if N_d1==0
-        if N_e==0
-            if N_z==0
-                V=reshape(VKron,[n_a,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_noz(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, N_j, vfoptions);
-            else
-                V=reshape(VKron,[n_a,n_z,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_z(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, n_z, N_j, vfoptions);
-            end
-        else
-            if N_z==0
-                V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_z(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-            else
-                V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_z_e(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-            end
-        end
-    else % N_d1
-        if N_e==0
-            if N_z==0
-                V=reshape(VKron,[n_a,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_noz(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, N_j, vfoptions);
-            else
-                V=reshape(VKron,[n_a,n_z,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_z(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, n_z, N_j, vfoptions);
-            end
-        else
-            if N_z==0
-                V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_z(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-            else
-                V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_z_e(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-            end
-        end
-    end
-    return
-end
-if ~isfield(vfoptions,'level1n')
-    vfoptions.level1n=floor(sqrt(n_a1(1)));
-    if n_a1(1)<5
-        error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable (you need to turn off divide-and-conquer, or put more points into the a variable)')
-    end
-    if vfoptions.verbose==1
-        fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n (for smaller models 7 or 9 is good, but for larger models something 15 or 21 can be better) \n')
-    end
-end
-vfoptions.level1n=min(vfoptions.level1n,n_a1(1)); % n_a1(1): level1n is scalar, and with two standard assets it is a1_1 that is divide-conquered
-
-%% Dispatch
-if N_e == 0
-    [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
 else
-    [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
+    %% Dispatch
+    if N_e == 0
+        [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
+    else
+        [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
+    end
 end
-
 
 %%
 if vfoptions.outputkron==1
@@ -110,11 +68,11 @@ if vfoptions.outputkron==1
     return
 end
 
-n_a=[n_a1,n_a2];
+n_a = [n_a1, n_a2, n_a3];
 
 %% Transform Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
 % 1. Dynamically reconstruct the state-space dimensions
-target_sz = n_a; 
+target_sz = n_a;
 if N_z > 1, target_sz = [target_sz, n_z]; end
 if N_e > 1, target_sz = [target_sz, vfoptions.n_e]; end
 target_sz = [target_sz, N_j];
@@ -125,15 +83,14 @@ V = reshape(VKron, target_sz);
 % 3. Un-Kronecker the Policy Function
 has_z = (N_z > 1);
 has_e = (N_e > 1);
-
 has_d1 = (sum(n_d1) > 0);
 has_d2 = (sum(n_d2) > 0);
 has_d3 = (sum(n_d3) > 0);
-has_a1 = (sum(n_a1) > 0);
-has_a2 = (length(n_a) >= 2);
+has_a1 = (sum(n_a1) > 0); 
+has_a2 = (length(n_a) >= 2); % Detect second standard asset
 
 % Dynamically count the number of active choice variables
-num_channels = has_d1 + has_d2 + has_d3 + has_a1 + has_a2;
+num_channels = has_d1 + has_d2 + has_d3 + has_a1 + has_a2; 
 
 if has_e && has_z
     suffix = '_z_e';
@@ -153,11 +110,16 @@ if has_d2, active_rows(end+1) = 2; end
 if has_d3, active_rows(end+1) = 3; end
 if has_a1, active_rows(end+1) = 4; end
 if has_a2, active_rows(end+1) = 5; end
+
 if vfoptions.gridinterplayer == 1
-    active_rows = [active_rows, 5+has_a2, 6+has_a2]; % Keep the GI flags!
+    if has_a2
+        active_rows = [active_rows, 6, 7]; % DC2A flags
+    else
+        active_rows = [active_rows, 5, 6]; % DC1 flags
+    end
 end
 
-% Dynamically slice dimension 1 regardless of how many trailing dimensions exist
+% Slice out only the active rows
 slice_idx = repmat({':'}, 1, ndims(PolicyKron));
 slice_idx{1} = active_rows;
 PolicyKronSliced = PolicyKron(slice_idx{:});
@@ -167,8 +129,8 @@ args = {PolicyKronSliced};
 if has_d1, args{end+1} = n_d1; end
 if has_d2, args{end+1} = n_d2; end
 if has_d3, args{end+1} = n_d3; end
-if has_a1, args{end+1} = n_a1(1); end
-if has_a2, args{end+1} = n_a1(2); end
+if has_a1, args{end+1} = n_a1; end
+if has_a2, args{end+1} = n_a2; end
 
 args{end+1} = n_a; % The full combined asset grid size
 
@@ -184,7 +146,6 @@ args = [args, {N_j, vfoptions}];
 
 % 5. Execute
 Policy = UnKronFn(args{:});
-
 
 
 end
