@@ -75,10 +75,10 @@ if ~isfield(vfoptions,'V_Jplus1')
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
-            z_vals=z_gridvals_J(z_c,:,N_j);
+            z_val=z_gridvals_J(z_c,:,N_j);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_vals, ReturnFnParamsVec,1,0);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_val, ReturnFnParamsVec,1,0);
 
             % First, we want a1prime conditional on (d,1,a2prime,a,z)
             [~,maxindex1]=max(ReturnMatrix_ii,[],2);
@@ -97,7 +97,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, ReturnFnParamsVec, 2, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_val, ReturnFnParamsVec, 2, 0);
                 reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1];
 
                 % 2. Call your new helper!
@@ -166,11 +166,11 @@ else
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
-            z_vals=z_gridvals_J(z_c,:,N_j);
+            z_val=z_gridvals_J(z_c,:,N_j);
             DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_a1, N_a2, 1, 1]);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_vals, ReturnFnParamsVec,1,0);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_val, ReturnFnParamsVec,1,0);
 
             entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z;
 
@@ -191,7 +191,7 @@ else
                 loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, ReturnFnParamsVec, 2, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_val, ReturnFnParamsVec, 2, 0);
                 reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1];
 
                 % 2. Extract the relevant Expected Value subset
@@ -271,11 +271,11 @@ for reverse_j=1:N_j-1
 
     elseif vfoptions.lowmemory==1
         for z_c=1:N_z
-            z_vals=z_gridvals_J(z_c,:,N_j);
+            z_val=z_gridvals_J(z_c,:,N_j);
             DiscountedEV_z = DiscountFactorParamsVec * reshape(EV(:,:,z_c), [1, N_a1, N_a2, 1, 1]);
 
             % n-Monotonicity
-            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_vals, ReturnFnParamsVec,1,0);
+            ReturnMatrix_ii=CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, z_val, ReturnFnParamsVec,1,0);
 
             entireRHS_ii=ReturnMatrix_ii+DiscountedEV_z;
 
@@ -296,7 +296,7 @@ for reverse_j=1:N_j-1
                 loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
 
                 % 1. Package the handle and shape
-                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_vals, ReturnFnParamsVec, 2, 0);
+                ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A(ReturnFn, n_d, special_n_z, d_gridvals, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, z_val, ReturnFnParamsVec, 2, 0);
                 reshape_size = [N_d*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1];
 
                 % 2. Extract the relevant Expected Value subset

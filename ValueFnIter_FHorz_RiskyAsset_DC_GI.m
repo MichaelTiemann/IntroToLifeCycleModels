@@ -96,34 +96,10 @@ end
 vfoptions.level1n=min(vfoptions.level1n,n_a1(1)); % n_a1(1): level1n is scalar, and with two standard assets it is a1_1 that is divide-conquered
 
 %% Dispatch
-if N_e==0 % no e variable
-    if N_d1==0
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_nod1_noz_raw(n_d2,n_d3,n_a1,n_a2,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, u_grid, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_nod1_raw(n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    else
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_noz_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, u_grid, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    end
-else % N_e
-    if N_d1==0
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_nod1_noz_e_raw(n_d2,n_d3,n_a1,n_a2,vfoptions.n_e,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, vfoptions.e_gridvals_J, u_grid, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_nod1_e_raw(n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    else % d1 variable
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_noz_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, vfoptions.e_gridvals_J, u_grid, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    end
+if N_e == 0
+    [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
+else
+    [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_GI1_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
 end
 
 
@@ -146,16 +122,18 @@ target_sz = [target_sz, N_j];
 % 2. Reshape the Value Function
 V = reshape(VKron, target_sz);
 
-% 3. Extract Policy dynamically
+% 3. Un-Kronecker the Policy Function
 has_z = (N_z > 1);
 has_e = (N_e > 1);
-has_d1 = (N_d1 > 0);
 
-% The number of policy channels is: 
-% 1 (for d2, d3 bundled logic) + d1 (if present) + number of standard endogenous assets
-num_channels = 1 + has_d1 + length(n_a); 
+has_d1 = (sum(n_d1) > 0);
+has_d2 = (sum(n_d2) > 0);
+has_d3 = (sum(n_d3) > 0);
+has_a1 = (sum(n_a1) > 0);
 
-% Determine suffix
+% Dynamically count the number of active choice variables
+num_channels = has_d1 + has_d2 + has_d3 + has_a1;
+
 if has_e && has_z
     suffix = '_z_e';
 elseif has_z || has_e
@@ -167,20 +145,38 @@ end
 base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', num_channels);
 UnKronFn = str2func([base_fn, suffix]);
 
-% 4. Dynamically build the arguments list
-args = {PolicyKron};
-if has_d1, args{end+1} = n_d1; end
-args = [args, {n_d2, n_d3}];
-
-% Append the standard asset grids (everything in n_a except the risky asset at the end)
-for i = 1:(length(n_a)-1)
-    args{end+1} = n_a(i);
+% 4. Dynamically build the arguments list and shrink-wrap PolicyKron
+active_rows = [];
+if has_d1, active_rows(end+1) = 1; end
+if has_d2, active_rows(end+1) = 2; end
+if has_d3, active_rows(end+1) = 3; end
+if has_a1, active_rows(end+1) = 4; end
+if vfoptions.gridinterplayer == 1
+    active_rows = [active_rows, 5, 6]; % Keep the GI flags!
 end
+
+% Dynamically slice dimension 1 regardless of how many trailing dimensions exist
+slice_idx = repmat({':'}, 1, ndims(PolicyKron));
+slice_idx{1} = active_rows;
+PolicyKronSliced = PolicyKron(slice_idx{:});
+
+% Build the argument list based ONLY on active dimensions
+args = {PolicyKronSliced};
+if has_d1, args{end+1} = n_d1; end
+if has_d2, args{end+1} = n_d2; end
+if has_d3, args{end+1} = n_d3; end
+if has_a1, args{end+1} = n_a1; end
 
 args{end+1} = n_a; % The full combined asset grid size
 
-if has_z, args{end+1} = n_z; end
-if has_e, args{end+1} = vfoptions.n_e; end
+if has_z && has_e
+    args = [args, {n_z, vfoptions.n_e}];
+elseif has_z
+    args{end+1} = n_z;
+elseif has_e
+    args{end+1} = vfoptions.n_e;
+end
+
 args = [args, {N_j, vfoptions}];
 
 % 5. Execute

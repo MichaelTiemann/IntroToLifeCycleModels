@@ -20,7 +20,7 @@ elseif length(n_a)==2
             [VKron, PolicyKron]=ValueFnIter_FHorz_GI2A_e_raw(n_d,n_a,n_z,vfoptions.n_e, N_j, d_gridvals, a_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
         end
     else
-        error('vfoptions.gridinterplayer=1 with two endogenous states can only be applied to the first of the two endo states (you have length(vfoptions.ngridinterp)>1)')
+        error('vfoptions.gridinterplayer=1*0 with two endogenous states can only be applied to the first of the two endo states (you have length(vfoptions.ngridinterp)>1)')
     end
 else
     error('Cannot use vfoptions.gridinterplayer with more than two endogenous states (you have length(n_a)>2)')
