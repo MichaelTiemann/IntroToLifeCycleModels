@@ -43,6 +43,7 @@ Params.J=100-Params.agejshifter; % =81, Number of period in life-cycle
 n_d = [51]; % Decision: absolute amount invested in risky asset
 n_a = [51, 51]; % [Safe Asset, Risky Asset]
 n_z=21; % Exogenous labor productivity units shock
+n_e=3; % i.i.d labor productivity units shock
 n_u=5; % Between period i.i.d. shock
 N_j=Params.J; % Number of periods in finite horizon
 
@@ -93,6 +94,7 @@ Params.kappa_j=[linspace(0.5,2,Params.Jr-15),linspace(2,1,14),zeros(1,Params.J-P
 % Exogenous shock process: AR1 on labor productivity units
 Params.rho_z=0.9;
 Params.sigma_epsilon_z=0.03;
+Params.sigma_epsilon_e=0.2;
 
 % Conditional survival probabilities: sj is the probability of surviving to be age j+1, given alive at age j
 % Most countries have calculations of these (as they are used by the government departments that oversee pensions)
@@ -127,6 +129,20 @@ z_grid=exp(z_grid); % Take exponential of the grid
 [mean_z,~,~,~]=MarkovChainMoments(z_grid,pi_z); % Calculate the mean of the grid so as can normalise it
 z_grid=z_grid./mean_z; % Normalise the grid on z (so that the mean of z is exactly 1)
 
+% Now the iid normal process e
+[e_grid,pi_e] = discretizeAR1_FarmerToda(0,0,Params.sigma_epsilon_e,n_e);
+e_grid = exp(e_grid);
+pi_e = pi_e(1,:)'; 
+mean_e = pi_e'*e_grid;
+e_grid = e_grid./mean_e; 
+
+vfoptions.n_e = n_e;
+vfoptions.e_grid = e_grid;
+vfoptions.pi_e = pi_e;
+simoptions.n_e = n_e;
+simoptions.e_grid = e_grid;
+simoptions.pi_e = pi_e;
+
 %% Define aprime function used for the riskyasset (value of next period assets, determined by this period decision, and u shock)
 
 % riskyasset: aprime_val=aprimeFn(d,u)
@@ -154,9 +170,9 @@ simoptions.d_grid=d_grid;
 %% Now, create the return function
 DiscountFactorParamNames={'beta','sj'};
 
-% Use 'LifeCycleModel31_1A_ReturnFn' (because we want to turn off the bequests for now)
-ReturnFn = @(d_m, aprime, a, m, z, w, r, sigma, agej, Jr, pension, kappa_j) ...
-    LifeCycleModel31_1A_ReturnFn(d_m, aprime, a, m, z, w, r, sigma, agej, Jr, pension, kappa_j);
+% Use 'LifeCycleModel31e_1A_ReturnFn' (because we want to turn off the bequests for now)
+ReturnFn = @(d_m, aprime, a, m, z, e, w, r, sigma, agej, Jr, pension, kappa_j) ...
+    LifeCycleModel31e_1A_ReturnFn(d_m, aprime, a, m, z, e, w, r, sigma, agej, Jr, pension, kappa_j);
 % vfoptions.refine_d: only (d1,d3,..) are input to ReturnFn [this model has no d1, so here just d3]
 
 % ENABLE DIVIDE-AND-CONQUER & GRID INTERPOLATION
@@ -194,30 +210,31 @@ size(Policy)
 % We can plot V as a 3d plot (surf is matlab command for 3d plot)
 % Which z value should we plot? I will plot the median
 zind=floor((n_z+1)/2); % This will be the median
+eind = floor((n_e+1)/2); % Median e shock
 m_ind = 1; % Assume m = 0, so a_safe_grid represents Total Wealth
 
 figure(1)
-subplot(2,1,1); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(1:1:Params.J),reshape(V(:,m_ind,zind,:),[n_a(1),Params.J]))
+subplot(2,1,1); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(1:1:Params.J),reshape(V(:,m_ind,zind,eind,:),[n_a(1),Params.J]))
 title('Value function: median value of z')
 xlabel('Age j')
 ylabel('Assets (a)')
-subplot(2,1,2); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(Params.agejshifter+(1:1:Params.J)),reshape(V(:,m_ind,zind,:),[n_a(1),Params.J]))
+subplot(2,1,2); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(Params.agejshifter+(1:1:Params.J)),reshape(V(:,m_ind,zind,eind,:),[n_a(1),Params.J]))
 title('Value function: median value of z')
 xlabel('Age in Years')
 ylabel('Assets (a)')
 
 % Do another plot of V, this time as a function (of assets) for a given age (I do a few for different ages)
 figure(2)
-subplot(5,1,1); plot(a_safe_grid,V(:,m_ind,1,1),a_safe_grid,V(:,m_ind,zind,1),a_safe_grid,V(:,m_ind,end,1)) % j=1
+subplot(5,1,1); plot(a_safe_grid,V(:,m_ind,1,1),a_safe_grid,V(:,m_ind,zind,eind,1),a_safe_grid,V(:,m_ind,end,1)) % j=1
 title('Value fn at age j=1')
 legend('min z','median z','max z') % Just include the legend once in the top subplot
-subplot(5,1,2); plot(a_safe_grid,V(:,m_ind,1,20),a_safe_grid,V(:,m_ind,zind,20),a_safe_grid,V(:,m_ind,end,20)) % j=20
+subplot(5,1,2); plot(a_safe_grid,V(:,m_ind,1,20),a_safe_grid,V(:,m_ind,zind,eind,20),a_safe_grid,V(:,m_ind,end,20)) % j=20
 title('Value fn at age j=20')
-subplot(5,1,3); plot(a_safe_grid,V(:,m_ind,1,45),a_safe_grid,V(:,m_ind,zind,45),a_safe_grid,V(:,m_ind,end,45)) % j=45
+subplot(5,1,3); plot(a_safe_grid,V(:,m_ind,1,45),a_safe_grid,V(:,m_ind,zind,eind,45),a_safe_grid,V(:,m_ind,end,45)) % j=45
 title('Value fn at age j=45')
-subplot(5,1,4); plot(a_safe_grid,V(:,m_ind,1,Params.Jr),a_safe_grid,V(:,m_ind,zind,Params.Jr),a_safe_grid,V(:,m_ind,end,Params.Jr)) % j=Jr
+subplot(5,1,4); plot(a_safe_grid,V(:,m_ind,1,Params.Jr),a_safe_grid,V(:,m_ind,zind,eind,Params.Jr),a_safe_grid,V(:,m_ind,end,Params.Jr)) % j=Jr
 title(sprintf('Value fn at age j=%i (first year of retirement)',Params.Jr))
-subplot(5,1,5); plot(a_safe_grid,V(:,m_ind,1,81),a_safe_grid,V(:,m_ind,zind,81),a_safe_grid,V(:,m_ind,end,81)) % j=81
+subplot(5,1,5); plot(a_safe_grid,V(:,m_ind,1,81),a_safe_grid,V(:,m_ind,zind,eind,81),a_safe_grid,V(:,m_ind,end,81)) % j=81
 title('Value fn at age j=81')
 xlabel('Assets (a)')
 
@@ -225,13 +242,13 @@ xlabel('Assets (a)')
 % Plot both as a 3d plot, again I arbitrarily choose the median value of z
 figure(3)
 PolicyVals=PolicyInd2Val_FHorz(Policy,n_d,n_a,n_z,N_j,d_grid,a_grid,vfoptions);
-PolicyVals=squeeze(PolicyVals(:,m_ind,:,:,:)); % Squeeze out the risky wealth dimension to align with riskyshare in Model31
-subplot(2,1,1); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(1:1:Params.J),reshape(PolicyVals(2,:,zind,:),[n_a(1),Params.J]))
+PolicyVals=squeeze(PolicyVals(:,m_ind,:,:,:,:)); % Squeeze out the risky wealth dimension to align with riskyshare in Model31
+subplot(2,1,1); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(1:1:Params.J),reshape(PolicyVals(2,:,zind,eind,:),[n_a(1),Params.J]))
 title('Policy function: savings, median z')
 xlabel('Age j')
 ylabel('Assets (a)')
 zlabel('Savings')
-subplot(2,1,2); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(1:1:Params.J),reshape(PolicyVals(1,:,zind,:),[n_a(1),Params.J]))
+subplot(2,1,2); surf(a_safe_grid*ones(1,Params.J),ones(n_a(1),1)*(1:1:Params.J),reshape(PolicyVals(1,:,zind,eind,:),[n_a(1),Params.J]))
 title('Policy function: riskyshare, median z')
 xlabel('Age j')
 ylabel('Assets (a)')
@@ -239,27 +256,27 @@ zlabel('share of savings invested in risky assets (riskyshare)')
 
 % Again, plot both policies (savings and riskyshare), this time as a function (of assets) for a given age  (I do a few for different ages)
 figure(4)
-subplot(5,2,1); plot(a_safe_grid,PolicyVals(2,:,1,1),a_safe_grid,PolicyVals(2,:,zind,1),a_safe_grid,PolicyVals(2,:,end,1)) % j=1
+subplot(5,2,1); plot(a_safe_grid,PolicyVals(2,:,1,1),a_safe_grid,PolicyVals(2,:,zind,eind,1),a_safe_grid,PolicyVals(2,:,end,1)) % j=1
 title('Policy for savings at age j=1')
-subplot(5,2,3); plot(a_safe_grid,PolicyVals(2,:,1,20),a_safe_grid,PolicyVals(2,:,zind,20),a_safe_grid,PolicyVals(2,:,end,20)) % j=20
+subplot(5,2,3); plot(a_safe_grid,PolicyVals(2,:,1,20),a_safe_grid,PolicyVals(2,:,zind,eind,20),a_safe_grid,PolicyVals(2,:,end,20)) % j=20
 title('Policy for savings at age j=20')
-subplot(5,2,5); plot(a_safe_grid,PolicyVals(2,:,1,45),a_safe_grid,PolicyVals(2,:,zind,45),a_safe_grid,PolicyVals(2,:,end,45)) % j=45
+subplot(5,2,5); plot(a_safe_grid,PolicyVals(2,:,1,45),a_safe_grid,PolicyVals(2,:,zind,eind,45),a_safe_grid,PolicyVals(2,:,end,45)) % j=45
 title('Policy for savings at age j=45')
-subplot(5,2,7); plot(a_safe_grid,PolicyVals(2,:,1,Params.Jr),a_safe_grid,PolicyVals(2,:,zind,Params.Jr),a_safe_grid,PolicyVals(2,:,end,Params.Jr)) % j=Jr
+subplot(5,2,7); plot(a_safe_grid,PolicyVals(2,:,1,Params.Jr),a_safe_grid,PolicyVals(2,:,zind,eind,Params.Jr),a_safe_grid,PolicyVals(2,:,end,Params.Jr)) % j=Jr
 title(sprintf('Policy for savings at age j=%i (first year of retirement)',Params.Jr))
-subplot(5,2,9); plot(a_safe_grid,PolicyVals(2,:,1,81),a_safe_grid,PolicyVals(2,:,zind,81),a_safe_grid,PolicyVals(2,:,end,81)) % j=81
+subplot(5,2,9); plot(a_safe_grid,PolicyVals(2,:,1,81),a_safe_grid,PolicyVals(2,:,zind,eind,81),a_safe_grid,PolicyVals(2,:,end,81)) % j=81
 title('Policy for savings at age j=81')
 xlabel('Assets (a)')
-subplot(5,2,2); plot(a_safe_grid,PolicyVals(1,:,1,1),a_safe_grid,PolicyVals(1,:,zind,1),a_safe_grid,PolicyVals(1,:,end,1)) % j=1
+subplot(5,2,2); plot(a_safe_grid,PolicyVals(1,:,1,1),a_safe_grid,PolicyVals(1,:,zind,eind,1),a_safe_grid,PolicyVals(1,:,end,1)) % j=1
 title('Policy for riskyshare at age j=1')
 legend('min z','median z','max z') % Just include the legend once in the top-right subplot
-subplot(5,2,4); plot(a_safe_grid,PolicyVals(1,:,1,20),a_safe_grid,PolicyVals(1,:,zind,20),a_safe_grid,PolicyVals(1,:,end,20)) % j=20
+subplot(5,2,4); plot(a_safe_grid,PolicyVals(1,:,1,20),a_safe_grid,PolicyVals(1,:,zind,eind,20),a_safe_grid,PolicyVals(1,:,end,20)) % j=20
 title('Policy for riskyshare at age j=20')
-subplot(5,2,6); plot(a_safe_grid,PolicyVals(1,:,1,45),a_safe_grid,PolicyVals(1,:,zind,45),a_safe_grid,PolicyVals(1,:,end,45)) % j=45
+subplot(5,2,6); plot(a_safe_grid,PolicyVals(1,:,1,45),a_safe_grid,PolicyVals(1,:,zind,eind,45),a_safe_grid,PolicyVals(1,:,end,45)) % j=45
 title('Policy for riskyshare at age j=45')
-subplot(5,2,8); plot(a_safe_grid,PolicyVals(1,:,1,Params.Jr),a_safe_grid,PolicyVals(1,:,zind,Params.Jr),a_safe_grid,PolicyVals(1,:,end,Params.Jr)) % j=Jr
+subplot(5,2,8); plot(a_safe_grid,PolicyVals(1,:,1,Params.Jr),a_safe_grid,PolicyVals(1,:,zind,eind,Params.Jr),a_safe_grid,PolicyVals(1,:,end,Params.Jr)) % j=Jr
 title(sprintf('Policy for riskyshare at age j=%i (first year of retirement)',Params.Jr))
-subplot(5,2,10); plot(a_safe_grid,PolicyVals(1,:,1,81),a_safe_grid,PolicyVals(1,:,zind,81),a_safe_grid,PolicyVals(1,:,end,81)) % j=81
+subplot(5,2,10); plot(a_safe_grid,PolicyVals(1,:,1,81),a_safe_grid,PolicyVals(1,:,zind,eind,81),a_safe_grid,PolicyVals(1,:,end,81)) % j=81
 title('Policy for riskyshare at age j=81')
 xlabel('Assets (a)')
 
@@ -267,8 +284,8 @@ xlabel('Assets (a)')
 
 %% Initial distribution of agents at birth (j=1)
 % Before we plot the life-cycle profiles we have to define how agents are at age j=1. We will give them all zero assets.
-jequaloneDist=zeros([n_a,n_z],'gpuArray'); % Put no households anywhere on grid
-jequaloneDist(1,floor((n_z+1)/2))=1; % All agents start with zero assets, and the median shock
+jequaloneDist=zeros([n_a,n_z,n_e],'gpuArray'); % Put no households anywhere on grid
+jequaloneDist(1,floor((n_z+1)/2),floor((n_e+1)/2))=1; % All agents start with zero assets, and the median shock
 
 %% We now compute the 'stationary distribution' of households
 % Start with a mass of one at initial age, use the conditional survival
@@ -302,20 +319,20 @@ fprintf('Risky Asset grid check: mass on top point is %1.2e, top 10%% is %1.2e \
 
 
 %% FnsToEvaluate are how we say what we want to graph the life-cycles of
-% The inputs match the ReturnFn: (d_m, aprime, a, m, z, ...)
+% The inputs match the ReturnFn: (d_m, aprime, a, m, z, e, ...)
 
 % riskyshare is the fraction of total savings invested in the risky asset
 % (We use max() to prevent divide-by-zero NaNs when total savings is 0)
-FnsToEvaluate.riskyshare = @(d_m, aprime, a, m, z) d_m ./ max(1e-10, d_m + aprime); 
+FnsToEvaluate.riskyshare = @(d_m, aprime, a, m, z, e) d_m ./ max(1e-10, d_m + aprime); 
 
 % total savings for tomorrow
-FnsToEvaluate.savings = @(d_m, aprime, a, m, z) d_m + aprime; 
+FnsToEvaluate.savings = @(d_m, aprime, a, m, z, e) d_m + aprime; 
 
 % labor earnings
-FnsToEvaluate.earnings = @(d_m, aprime, a, m, z, w, kappa_j) w * kappa_j * z; 
+FnsToEvaluate.earnings = @(d_m, aprime, a, m, z, e, w, kappa_j) w * kappa_j * z * e; 
 
 % total current assets (safe + realized risky)
-FnsToEvaluate.assets = @(d_m, aprime, a, m, z) a + m;
+FnsToEvaluate.assets = @(d_m, aprime, a, m, z, e) a + m;
 % notice that we have called these riskyshare, earnings and assets
 
 %% Calculate the life-cycle profiles
@@ -341,15 +358,16 @@ title('Life Cycle Profile: Assets (a)')
 PolicyVals = PolicyInd2Val_FHorz(Policy, n_d, n_a, n_z, N_j, d_grid, a_grid, vfoptions);
 
 % 2. Reshape into the full explicit tensor: [2, a_safe, m, z, Age]
-Pol_reshaped = reshape(PolicyVals, [2, n_a(1), n_a(2), n_z, Params.J]);
+Pol_reshaped = reshape(PolicyVals, [2, n_a(1), n_a(2), n_z, n_e, Params.J]);
 
 % Choose an age and z-shock to visualize
 target_age = 45; 
 zind = floor((n_z+1)/2); 
+eind = floor((n_e+1)/2);
 
 % 3. Extract the 2D [a_safe, m] slices safely using reshape instead of squeeze
-d_m_vals    = reshape(Pol_reshaped(1, :, :, zind, target_age), [n_a(1), n_a(2)]);
-aprime_vals = reshape(Pol_reshaped(2, :, :, zind, target_age), [n_a(1), n_a(2)]);
+d_m_vals    = reshape(Pol_reshaped(1, :, :, zind, eind, target_age), [n_a(1), n_a(2)]);
+aprime_vals = reshape(Pol_reshaped(2, :, :, zind, eind, target_age), [n_a(1), n_a(2)]);
 
 % 4. Calculate riskyshare = d_m / (d_m + aprime_safe)
 riskyshare_vals = d_m_vals ./ max(1e-10, d_m_vals + aprime_vals);

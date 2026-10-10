@@ -4,22 +4,26 @@ function [V,Policy]=ValueFnIter_FHorz_RiskyAsset_GI1_e_raw(n_d1,n_d2,n_d3,n_a1,n
 % d3: both ReturnFn and aprimeFn
 % e: iid start-of-period shock (integrated out of EV before d2 refinement)
 
-N_d1=prod(n_d1);
-N_d2=prod(n_d2);
-N_d3=prod(n_d3);
-N_a1=prod(n_a1);
-N_a2=prod(n_a2);
-N_a=N_a1*N_a2;
-N_z=prod(n_z);
-N_e=prod(n_e);
-N_u=prod(n_u);
+% Safely calculate N_d dimensions, treating 0 as a singleton (1) for math
+N_d1 = max(1, prod(n_d1(n_d1 > 0)));
+N_d2 = max(1, prod(n_d2(n_d2 > 0)));
+N_d3 = max(1, prod(n_d3(n_d3 > 0)));
+N_a1 = max(1, prod(n_a1(n_a1 > 0)));
+N_a2 = max(1, prod(n_a2(n_a2 > 0)));
+N_a  = N_a1 * N_a2;
+N_z  = max(1, prod(n_z(n_z > 0)));
+N_e  = max(1, prod(n_e(n_e > 0)));
+N_u  = max(1, prod(n_u(n_u > 0)));
 
-n_d13=[n_d1,n_d3];
-N_d13=N_d1*N_d3;
-d13_grid=[d1_grid;d3_grid];
-n_d23=[n_d2,n_d3];
-N_d23=N_d2*N_d3;
-d23_grid=[d2_grid; d3_grid];
+% For ReturnFn (d1 and d3 only)
+n_d13 = [n_d1(n_d1 > 0), n_d3(n_d3 > 0)];
+N_d13 = N_d1 * N_d3;
+d13_grid = [d1_grid; d3_grid];
+
+% For aprimeFn (d2 and d3)
+n_d23 = [n_d2(n_d2 > 0), n_d3(n_d3 > 0)];
+N_d23 = N_d2 * N_d3;
+d23_grid = [d2_grid; d3_grid];
 
 V=zeros(N_a,N_z,N_e,N_j,'gpuArray');
 Policy=zeros(6,N_a,N_z,N_e,N_j,'gpuArray'); % (1)=d1, (2)=d2, (3)=d3, (4)=midpoint, (5)=L2ind
@@ -52,368 +56,170 @@ zeindB=zindB+N_z*shiftdim((0:1:N_e-1),-2);
 
 a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2);
 
-%% j=N_j
-
-ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
-
-if ~isfield(vfoptions,'V_Jplus1')
-    % No EV; d2 meaningless.
-    if vfoptions.lowmemory==0
-        % Layer 1: full ReturnMatrix max for initial midpoint
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z,n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
-        [~,maxindex]=max(ReturnMatrix,[],2);
-        midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
-
-        % Grid interpolation layer
-        aprimeindexes=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z,n_e, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
-        [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
-        V(:,:,:,N_j)=shiftdim(Vtempii,1);
-        d_ind=rem(maxindexL2-1,N_d13)+1;
-        d1_ind=rem(d_ind-1,N_d1)+1;
-        d3_ind=ceil(d_ind/N_d1);
-        allind=d_ind+N_d13*aind+N_d13*N_a*zeindB;
-        Policy(1,:,:,:,N_j)=d1_ind;                                       % d1
-        Policy(3,:,:,:,N_j)=d3_ind;                                       % d3
-        Policy(4,:,:,:,N_j)=shiftdim(squeeze(midpoint_jj(allind)),-1);    % midpoint
-        Policy(5,:,:,:,N_j)=shiftdim(ceil(maxindexL2/N_d13),-1);          % L2ind
-
-        % L2flag
-        L2offset      = ceil(maxindexL2/N_d13);
-        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zeindB;
-        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zeindB;
-        isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-        isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-        inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-        inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(6,:,:,:,N_j) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
-
-        % d2 meaningless at j=N_j; leave Policy(2,:,:,:,N_j) default
-        Policy(2,:,:,:,N_j)=ones(1,N_a,N_z,N_e,'gpuArray');
-
-    elseif vfoptions.lowmemory==1
-        for e_c=1:N_e
-            e_val=e_gridvals_J(e_c,:,N_j);
-            ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z,special_n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0);
-            [~,maxindex]=max(ReturnMatrix_e,[],2);
-            midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
-
-            aprimeindexes=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-            ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z,special_n_e, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2,0);
-            [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
-            V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
-            d_ind=rem(maxindexL2-1,N_d13)+1;
-            d1_ind=rem(d_ind-1,N_d1)+1;
-            d3_ind=ceil(d_ind/N_d1);
-            allind=d_ind+N_d13*aind+N_d13*N_a*zindB;
-            Policy(1,:,:,e_c,N_j)=d1_ind;                                       % d1
-            Policy(3,:,:,e_c,N_j)=d3_ind;                                       % d3
-            Policy(4,:,:,e_c,N_j)=shiftdim(squeeze(midpoint_jj(allind)),-1);    % midpoint
-            Policy(5,:,:,e_c,N_j)=shiftdim(ceil(maxindexL2/N_d13),-1);          % L2ind
-
-            % L2flag
-            L2offset      = ceil(maxindexL2/N_d13);
-            linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-            isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-            inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(6,:,:,e_c,N_j) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
-        end
-        % d2 meaningless at j=N_j; leave Policy(2,:,:,:,N_j) default
-        Policy(2,:,:,:,N_j)=ones(1,N_a,N_z,N_e,'gpuArray');
-
-    elseif vfoptions.lowmemory==2
-        for z_c=1:N_z
-            z_val=z_gridvals_J(z_c,:,N_j);
-            for e_c=1:N_e
-                e_val=e_gridvals_J(e_c,:,N_j);
-                ReturnMatrix_ze=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z,special_n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,1,0);
-                [~,maxindex]=max(ReturnMatrix_ze,[],2);
-                midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
-
-                aprimeindexes=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-                ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z,special_n_e, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec,2,0);
-                [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
-                V(:,z_c,e_c,N_j)=shiftdim(Vtempii,1);
-                d_ind=rem(maxindexL2-1,N_d13)+1;
-                d1_ind=rem(d_ind-1,N_d1)+1;
-                d3_ind=ceil(d_ind/N_d1);
-                allind=d_ind+N_d13*aind;
-                Policy(1,:,z_c,e_c,N_j)=d1_ind;                       % d1
-                Policy(3,:,z_c,e_c,N_j)=d3_ind;                       % d3
-                Policy(4,:,z_c,e_c,N_j)=midpoint_jj(allind);          % midpoint
-                Policy(5,:,z_c,e_c,N_j)=ceil(maxindexL2/N_d13);       % L2ind
-
-                % L2flag
-                L2offset      = ceil(maxindexL2/N_d13);
-                linidx_lower  = d_ind                    + N_d13*n2long*aind;
-                linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind;
-                isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-                isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-                inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-                inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-                Policy(6,:,z_c,e_c,N_j) = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
-            end
-        end
-        % d2 meaningless at j=N_j; leave Policy(2,:,:,:,N_j) default
-        Policy(2,:,:,:,N_j)=ones(1,N_a,N_z,N_e,'gpuArray');
-    end
-else % V_Jplus1
-
-    ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
-    DiscountFactorParamsVec=prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames,N_j));
-
-    V_Jplus1=reshape(vfoptions.V_Jplus1,[N_a,N_z,N_e]);
-    EVpre=sum(V_Jplus1.*shiftdim(pi_e_J(:,N_j+1),-2),3); % [N_a,N_z]
-
-    % Build a2primeIndex and a2primeProbs for RisykAsset
-    aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,N_j);
-    [a2primeIndex,a2primeProbs]=CreateRiskyAssetFnMatrix(aprimeFn, n_d23, n_a2, n_u, d23_grid, a2_grid, u_grid, aprimeFnParamsVec,2);
-    aprimeIndex=repelem((1:1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex-1,N_a1,1);
-    aprimeplus1Index=repelem((1:1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex,N_a1,1);
-
-    % EVpre is [N_a,N_z] (e already integrated). Sum over zprime.
-    EV=EVpre.*shiftdim(pi_z_J(:,:,N_j)',-1);
-    EV(isnan(EV))=0;
-    EV=sum(EV,2);
-    EV=reshape(EV,[N_a,N_z]);
-
-    % Interpolate EV onto aprime, use skipinterp to avoid numerical errors where the lower and upper points are identical
-    skipinterp=logical(EV(aprimeIndex(:)+N_a*((1:1:N_z)-1))==EV(aprimeplus1Index(:)+N_a*((1:1:N_z)-1)));
-    aprimeProbs=repmat(a2primeProbs,N_a1,N_z);
-    aprimeProbs(skipinterp)=0;
-    aprimeProbs=reshape(aprimeProbs,[N_d23*N_a1,N_u,N_z]);
-    % Take the expectation over the between period iid u shock
-    EV1=reshape(EV(aprimeIndex(:)+N_a*((1:1:N_z)-1)),[N_d23*N_a1,N_u,N_z]).*aprimeProbs;
-    EV2=reshape(EV(aprimeplus1Index(:)+N_a*((1:1:N_z)-1)),[N_d23*N_a1,N_u,N_z]).*(1-aprimeProbs);
-    EV1(isnan(EV1))=0; % a zero weight against an infinite node gives 0*(-Inf)=NaN, so the term contributes nothing
-    EV2(isnan(EV2))=0;
-    EV=sum(EV1.*pi_u',2)+sum(EV2.*pi_u',2);
-    EV=reshape(EV,[N_d23*N_a1,N_z]);
-
-    % Refine d2 out of EV before combining with ReturnFn
-    EVres=reshape(EV,[N_d2,N_d3*N_a1,N_z]);
-    [EV_onlyd3,d2index]=max(EVres,[],1);
-    EV_onlyd3=reshape(EV_onlyd3,[N_d3*N_a1,N_z]);
-    d2index_resh=reshape(d2index,[N_d3,N_a1,N_z]);
-
-    % DiscountedEV
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV_onlyd3,[N_d3,N_a1,1,1,N_z]);
-    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5]),a1prime_grid),[2,1,3,4,5]); % [N_d3,N_a1prime,1,1,N_z]
-
-    % Broadcast d1 onto DiscountedEV by repelem along the first dim
-    DiscountedEV_d13=repelem(DiscountedEV,N_d1,1);             % [N_d13,N_a1,1,1,N_z]
-    DiscountedEVinterp_d13=repelem(DiscountedEVinterp,N_d1,1); % [N_d13,N_a1prime,1,1,N_z]
-
-    if vfoptions.lowmemory==0
-        % Layer 1: full ReturnMatrix max for initial midpoint
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z,n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
-        entireRHS=ReturnMatrix+DiscountedEV_d13;
-        [~,maxindex]=max(entireRHS,[],2);
-        midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
-
-        % Grid interpolation layer
-        a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z,n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
-        % EV does not depend on a2 nor e; build linear index into DiscountedEVinterp_d13 [N_d13,N_a1prime,1,1,N_z]
-        da1primez=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1)+N_d13*N_a1prime*zind;
-        entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_d13(da1primez(:)),[N_d13*n2long,N_a1*N_a2,N_z,N_e]);
-        [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
-        V(:,:,:,N_j)=shiftdim(Vtempii,1);
-        d_ind=rem(maxindexL2-1,N_d13)+1;
-        d1_ind=rem(d_ind-1,N_d1)+1;
-        d3_ind=ceil(d_ind/N_d1);
-        allind=d_ind+N_d13*aind+N_d13*N_a*zeindB;
-        Policy(1,:,:,:,N_j)=d1_ind;                                       % d1
-        Policy(3,:,:,:,N_j)=d3_ind;                                       % d3
-        Policy(4,:,:,:,N_j)=shiftdim(squeeze(midpoint_jj(allind)),-1);    % midpoint
-        Policy(5,:,:,:,N_j)=shiftdim(ceil(maxindexL2/N_d13),-1);          % L2ind
-
-        % L2flag
-        L2offset      = ceil(maxindexL2/N_d13);
-        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zeindB;
-        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zeindB;
-        isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-        isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-        inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-        inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(6,:,:,:,N_j) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
-
-        % d2 lookup: d2index_resh depends on (d3, a1prime_mid, z) — not e
-        a1mid=midpoint_jj(allind); % [1,N_a,N_z,N_e]
-        zlin=shiftdim(gpuArray(0:N_z-1),-1); % [1,1,N_z]
-        lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*zlin; % broadcasts to [1,N_a,N_z,N_e]
-        Policy(2,:,:,:,N_j)=d2index_resh(lin);
-
-    elseif vfoptions.lowmemory>=1
-        for e_c=1:N_e
-            e_val=e_gridvals_J(e_c,:,N_j);
-            ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z,special_n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,1,0);
-            entireRHS_e=ReturnMatrix_e+DiscountedEV_d13;
-            [~,maxindex]=max(entireRHS_e,[],2);
-            midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
-
-            a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-            ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z,special_n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), e_val, ReturnFnParamsVec,2,0);
-            da1primez=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1)+N_d13*N_a1prime*zind;
-            entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_d13(da1primez(:)),[N_d13*n2long,N_a1*N_a2,N_z]);
-            [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
-            V(:,:,e_c,N_j)=shiftdim(Vtempii,1);
-            d_ind=rem(maxindexL2-1,N_d13)+1;
-            d1_ind=rem(d_ind-1,N_d1)+1;
-            d3_ind=ceil(d_ind/N_d1);
-            allind=d_ind+N_d13*aind+N_d13*N_a*zindB;
-            Policy(1,:,:,e_c,N_j)=d1_ind;                                       % d1
-            Policy(3,:,:,e_c,N_j)=d3_ind;                                       % d3
-            Policy(4,:,:,e_c,N_j)=shiftdim(squeeze(midpoint_jj(allind)),-1);    % midpoint
-            Policy(5,:,:,e_c,N_j)=shiftdim(ceil(maxindexL2/N_d13),-1);          % L2ind
-
-            % L2flag
-            L2offset      = ceil(maxindexL2/N_d13);
-            linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-            isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-            inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(6,:,:,e_c,N_j) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
-
-            % d2 lookup
-            a1mid=midpoint_jj(allind); % [1,N_a,N_z]
-            zlin=shiftdim(gpuArray(0:N_z-1),-1); % [1,1,N_z]
-            lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*zlin;
-            Policy(2,:,:,e_c,N_j)=d2index_resh(lin);
-        end
-    end
-end
-
-%% Iterate backwards
-for reverse_j=1:N_j-1
-    jj=N_j-reverse_j;
-
+%% Iterate backwards through j
+for jj=N_j:-1:1
     if vfoptions.verbose==1
         fprintf('Finite horizon: %i of %i \n',jj, N_j)
     end
 
     ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,jj);
-    DiscountFactorParamsVec=prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj));
+    is_terminal = (jj == N_j) && ~isfield(vfoptions, 'V_Jplus1');
 
-    % Build a2primeIndex and a2primeProbs for RisykAsset
-    aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
-    [a2primeIndex,a2primeProbs]=CreateRiskyAssetFnMatrix(aprimeFn, n_d23, n_a2, n_u, d23_grid, a2_grid, u_grid, aprimeFnParamsVec,2);
-    aprimeIndex=repelem((1:1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex-1,N_a1,1);
-    aprimeplus1Index=repelem((1:1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex,N_a1,1);
+    %% Compute EV (Only if not terminal)
+    if ~is_terminal
+        DiscountFactorParamsVec=prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames,jj));
+        aprimeFnParamsVec=CreateVectorFromParams(Parameters, aprimeFnParamNames,jj);
 
-    % Integrate e out of V(:,:,:,jj+1) first
-    EVnext=sum(V(:,:,:,jj+1).*shiftdim(pi_e_J(:,jj+1),-2),3); % [N_a,N_z]
+        % 1. Get next period's V and integrate out 'e' immediately!
+        if jj == N_j
+            V_next = reshape(vfoptions.V_Jplus1, [N_a, N_z, N_e]);
+        else
+            V_next = V(:,:,:,jj+1);
+        end
 
-    % Sum over zprime
-    EV=EVnext.*shiftdim(pi_z_J(:,:,jj)',-1);
-    EV(isnan(EV))=0;
-    EV=sum(EV,2);
-    EV=reshape(EV,[N_a,N_z]);
+        % Safely get the shock distribution (cap at max J to avoid out-of-bounds)
+        pi_e_step = pi_e_J(:, min(jj+1, size(pi_e_J, 2)));
 
-    skipinterp=logical(EV(aprimeIndex(:)+N_a*((1:1:N_z)-1))==EV(aprimeplus1Index(:)+N_a*((1:1:N_z)-1)));
-    aprimeProbs=repmat(a2primeProbs,N_a1,N_z);
-    aprimeProbs(skipinterp)=0;
-    aprimeProbs=reshape(aprimeProbs,[N_d23*N_a1,N_u,N_z]);
-    EV1=reshape(EV(aprimeIndex(:)+N_a*((1:1:N_z)-1)),[N_d23*N_a1,N_u,N_z]).*aprimeProbs;
-    EV2=reshape(EV(aprimeplus1Index(:)+N_a*((1:1:N_z)-1)),[N_d23*N_a1,N_u,N_z]).*(1-aprimeProbs);
-    EV1(isnan(EV1))=0; % a zero weight against an infinite node gives 0*(-Inf)=NaN, so the term contributes nothing
-    EV2(isnan(EV2))=0;
-    EV=sum(EV1.*pi_u',2)+sum(EV2.*pi_u',2);
-    EV=reshape(EV,[N_d23*N_a1,N_z]);
+        % shiftdim aligns pi_e to dim 3 for exact tensor broadcasting
+        EV_base = sum(V_next .* shiftdim(pi_e_step, -2), 3); % Now it is just [N_a, N_z]!
 
-    % Refine d2
-    EVres=reshape(EV,[N_d2,N_d3*N_a1,N_z]);
-    [EV_onlyd3,d2index]=max(EVres,[],1);
-    EV_onlyd3=reshape(EV_onlyd3,[N_d3*N_a1,N_z]);
-    d2index_resh=reshape(d2index,[N_d3,N_a1,N_z]);
+        [a2primeIndex,a2primeProbs]=CreateRiskyAssetFnMatrix(aprimeFn, n_d23, n_a2, n_u, d23_grid, a2_grid, u_grid, aprimeFnParamsVec,2);
+        aprimeIndex=repelem((1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex-1,N_a1,1);
+        aprimeplus1Index=repelem((1:N_a1)',N_d23,N_u)+N_a1*repmat(a2primeIndex,N_a1,1);
+        baseProbs=repmat(a2primeProbs,N_a1,1);
+    end
 
-    DiscountedEV=DiscountFactorParamsVec*reshape(EV_onlyd3,[N_d3,N_a1,1,1,N_z]);
-    DiscountedEVinterp=permute(interp1(a1_gridvals,permute(DiscountedEV,[2,1,3,4,5]),a1prime_grid),[2,1,3,4,5]);
-    DiscountedEV_d13=repelem(DiscountedEV,N_d1,1);
-    DiscountedEVinterp_d13=repelem(DiscountedEVinterp,N_d1,1);
+    %% Setup Evaluation Loops
+    if vfoptions.lowmemory == 0
+        e_iter = 1; special_n_e = n_e;
+        z_iter = 1; special_n_z = n_z;
+    elseif vfoptions.lowmemory == 1
+        e_iter = 1:N_e; special_n_e = ones(1, length(n_e));
+        z_iter = 1;     special_n_z = n_z;
+    else
+        e_iter = 1:N_e; special_n_e = ones(1, length(n_e));
+        z_iter = 1:N_z; special_n_z = ones(1, length(n_z));
+    end
 
-    if vfoptions.lowmemory==0
-        % Layer 1: full ReturnMatrix max for initial midpoint
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z,n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
-        entireRHS=ReturnMatrix+DiscountedEV_d13;
-        [~,maxindex]=max(entireRHS,[],2);
-        midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
+    for z_c = z_iter
+        if vfoptions.lowmemory <= 1
+            z_val = z_gridvals_J(:,:,jj);
+            z_idx = 1:N_z; z_offset = zindB;
+        else
+            z_val = z_gridvals_J(z_c,:,jj);
+            z_idx = z_c; z_offset = 0;
+        end
 
-        % Grid interpolation layer
-        a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z,n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
-        da1primez=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1)+N_d13*N_a1prime*zind;
-        entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_d13(da1primez(:)),[N_d13*n2long,N_a1*N_a2,N_z,N_e]);
-        [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
-        V(:,:,:,jj)=shiftdim(Vtempii,1);
-        d_ind=rem(maxindexL2-1,N_d13)+1;
-        d1_ind=rem(d_ind-1,N_d1)+1;
-        d3_ind=ceil(d_ind/N_d1);
-        allind=d_ind+N_d13*aind+N_d13*N_a*zeindB;
-        Policy(1,:,:,:,jj)=d1_ind;                                       % d1
-        Policy(3,:,:,:,jj)=d3_ind;                                       % d3
-        Policy(4,:,:,:,jj)=shiftdim(squeeze(midpoint_jj(allind)),-1);    % midpoint
-        Policy(5,:,:,:,jj)=shiftdim(ceil(maxindexL2/N_d13),-1);          % L2ind
+        % JUST-IN-TIME EV SLICING & INTERPOLATION
+        if ~is_terminal
+            if vfoptions.lowmemory <= 1
+                EV_z = EV_base .* shiftdim(pi_z_J(:,:,jj)', -1);
+            else
+                EV_z = EV_base .* pi_z_J(z_c,:,jj);
+            end
+            EV_z(isnan(EV_z)) = 0;
+            EV_z = sum(EV_z, 2);
 
-        % L2flag
-        L2offset      = ceil(maxindexL2/N_d13);
-        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zeindB;
-        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zeindB;
-        isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-        isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-        inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-        inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-        Policy(6,:,:,:,jj) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
+            skipinterp = logical(EV_z(aprimeIndex(:)+N_a*((1:length(z_idx))-1)) == EV_z(aprimeplus1Index(:)+N_a*((1:length(z_idx))-1)));
+            blockProbs = repmat(baseProbs, 1, length(z_idx));
+            blockProbs(skipinterp) = 0;
+            blockProbs = reshape(blockProbs, [N_d23*N_a1, N_u, length(z_idx)]);
 
-        % d2 lookup
-        a1mid=midpoint_jj(allind); % [1,N_a,N_z,N_e]
-        zlin=shiftdim(gpuArray(0:N_z-1),-1); % [1,1,N_z]
-        lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*zlin; % broadcasts to [1,N_a,N_z,N_e]
-        Policy(2,:,:,:,jj)=d2index_resh(lin);
+            EV1 = reshape(EV_z(aprimeIndex(:)+N_a*((1:length(z_idx))-1)), [N_d23*N_a1, N_u, length(z_idx)]) .* blockProbs;
+            EV2 = reshape(EV_z(aprimeplus1Index(:)+N_a*((1:length(z_idx))-1)), [N_d23*N_a1, N_u, length(z_idx)]) .* (1 - blockProbs);
+            EV1(isnan(EV1)) = 0; EV2(isnan(EV2)) = 0;
 
-    elseif vfoptions.lowmemory>=1
-        for e_c=1:N_e
-            e_val=e_gridvals_J(e_c,:,jj);
-            ReturnMatrix_e=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z,special_n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,1,0);
-            entireRHS_e=ReturnMatrix_e+DiscountedEV_d13;
-            [~,maxindex]=max(entireRHS_e,[],2);
-            midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
+            EV_block = sum((EV1 .* pi_u'), 2) + sum((EV2 .* pi_u'), 2);
 
-            a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-            ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z,special_n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), e_val, ReturnFnParamsVec,2,0);
-            da1primez=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1)+N_d13*N_a1prime*zind;
-            entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_d13(da1primez(:)),[N_d13*n2long,N_a1*N_a2,N_z]);
-            [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
-            V(:,:,e_c,jj)=shiftdim(Vtempii,1);
-            d_ind=rem(maxindexL2-1,N_d13)+1;
-            d1_ind=rem(d_ind-1,N_d1)+1;
-            d3_ind=ceil(d_ind/N_d1);
-            allind=d_ind+N_d13*aind+N_d13*N_a*zindB;
-            Policy(1,:,:,e_c,jj)=d1_ind;                                       % d1
-            Policy(3,:,:,e_c,jj)=d3_ind;                                       % d3
-            Policy(4,:,:,e_c,jj)=shiftdim(squeeze(midpoint_jj(allind)),-1);    % midpoint
-            Policy(5,:,:,e_c,jj)=shiftdim(ceil(maxindexL2/N_d13),-1);          % L2ind
+            % Refine d2 out of EV
+            [EV_onlyd3, d2index] = max(reshape(DiscountFactorParamsVec*EV_block, [N_d2, N_d3*N_a1, length(z_idx)]), [], 1);
+            d2index_resh = reshape(d2index, [N_d3, N_a1, length(z_idx)]);
+
+            DiscountedEV = reshape(EV_onlyd3, [N_d3, N_a1, 1, 1, length(z_idx)]);
+            DiscountedEVinterp = permute(interp1(a1_gridvals, permute(DiscountedEV, [2,1,3,4,5]), a1prime_grid), [2,1,3,4,5]);
+
+            DiscountedEV_d13 = repelem(DiscountedEV, N_d1, 1);
+            DiscountedEVinterp_d13 = repelem(DiscountedEVinterp, N_d1, 1);
+        end
+
+        for e_c = e_iter
+            if vfoptions.lowmemory == 0
+                e_val = e_gridvals_J(:,:,jj);
+                e_idx = 1:N_e; ze_offset = zeindB;
+            else
+                e_val = e_gridvals_J(e_c,:,jj);
+                e_idx = e_c;
+                if vfoptions.lowmemory == 1
+                    ze_offset = zindB; % e is singular, so ze offset maps strictly to z
+                else
+                    ze_offset = 0;
+                end
+            end
+
+            % Layer 1: full ReturnMatrix max for initial midpoint
+            ReturnMatrix = CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1, n_d3, n_a1, n_a1, n_a2, special_n_z, special_n_e, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec, 1, 0);
+
+            if is_terminal
+                entireRHS = ReturnMatrix;
+            else
+                entireRHS = ReturnMatrix + DiscountedEV_d13;
+            end
+
+            [~, maxindex] = max(entireRHS, [], 2);
+            midpoint_jj = max(min(maxindex, n_a1(1)-1), 2);
+
+            % Grid interpolation layer
+            a1primeindexesfine = (midpoint_jj + (midpoint_jj-1)*n2short) + (-n2short-1:1:1+n2short);
+            ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc_e(ReturnFn, n_d1, n_d3, n2long, n_a1, n_a2, special_n_z, special_n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, e_val, ReturnFnParamsVec, 2, 0);
+
+            if is_terminal
+                entireRHS_ii = ReturnMatrix_ii;
+            else
+                % EV does not depend on a2 nor e
+                da1primez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1prime*shiftdim((0:length(z_idx)-1),-1);
+                entireRHS_ii = ReturnMatrix_ii + reshape(DiscountedEVinterp_d13(da1primez(:)), [N_d13*n2long, N_a1*N_a2, length(z_idx), length(e_idx)]);
+            end
+
+            entireRHS_ii = reshape(entireRHS_ii, [N_d13*n2long, N_a1*N_a2, length(z_idx), length(e_idx)]);
+            [Vtempii, maxindexL2] = max(entireRHS_ii, [], 1);
+
+            V(:, z_idx, e_idx, jj) = shiftdim(Vtempii, 1);
+
+            d_ind = rem(maxindexL2-1, N_d13) + 1;
+            d1_ind = rem(d_ind-1, N_d1) + 1;
+            d3_ind = ceil(d_ind/N_d1);
+            allind = d_ind + N_d13*aind + N_d13*N_a*ze_offset;
+
+            Policy(1, :, z_idx, e_idx, jj) = d1_ind;
+            Policy(3, :, z_idx, e_idx, jj) = d3_ind;
+            Policy(4, :, z_idx, e_idx, jj) = shiftdim(squeeze(midpoint_jj(allind)), -1);
+            Policy(5, :, z_idx, e_idx, jj) = shiftdim(ceil(maxindexL2/N_d13), -1);
 
             % L2flag
-            L2offset      = ceil(maxindexL2/N_d13);
-            linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
-            isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
-            inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
-            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
-            Policy(6,:,:,e_c,jj) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
+            L2offset = ceil(maxindexL2/N_d13);
+            linidx_lower = d_ind + N_d13*n2long*aind + N_d13*n2long*N_a*ze_offset;
+            linidx_upper = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*ze_offset;
 
-            % d2 lookup
-            a1mid=midpoint_jj(allind); % [1,N_a,N_z]
-            zlin=shiftdim(gpuArray(0:N_z-1),-1); % [1,1,N_z]
-            lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*zlin;
-            Policy(2,:,:,e_c,jj)=d2index_resh(lin);
+            isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
+            isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
+            inLowerStrict = (L2offset >= 2) & (L2offset <= n2short+1);
+            inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
+
+            Policy(6, :, z_idx, e_idx, jj) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), -1);
+
+            if is_terminal
+                Policy(2, :, z_idx, e_idx, jj) = 1;
+            else
+                % d2 lookup: d2index_resh depends on (d3, a1prime_mid, z)
+                a1mid = midpoint_jj(allind);
+                if vfoptions.lowmemory <= 1
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1), -1);
+                else
+                    zlin = 0;
+                end
+                lin = d3_ind + N_d3*(a1mid-1) + N_d3*N_a1*zlin;
+                Policy(2, :, z_idx, e_idx, jj) = d2index_resh(lin);
+            end
         end
     end
 end
@@ -422,5 +228,25 @@ end
 adjust=(Policy(5,:,:,:,:)<1+n2short+1);                                                  % L2ind strictly < n2short+2
 Policy(4,:,:,:,:)=Policy(4,:,:,:,:)-adjust;                                              % decrement midpoint when chosen-below
 Policy(5,:,:,:,:)=Policy(5,:,:,:,:)-(n2short+1)*(~adjust);   % rebase L2ind to [1..n2short+2]
+
+%% Shrink-wrap Policy to remove inactive choice dimensions
+has_d1 = (sum(n_d1) > 0);
+has_d2 = (sum(n_d2) > 0);
+has_d3 = (sum(n_d3) > 0);
+has_a1 = (sum(n_a1) > 0);
+
+active_rows = [];
+if has_d1, active_rows(end+1) = 1; end
+if has_d2, active_rows(end+1) = 2; end
+if has_d3, active_rows(end+1) = 3; end
+if has_a1, active_rows(end+1) = 4; end
+
+% Append the GI1 flags
+active_rows = [active_rows, 5, 6];
+
+slice_idx = repmat({':'}, 1, ndims(Policy));
+slice_idx{1} = active_rows;
+Policy = Policy(slice_idx{:});
+
 
 end
