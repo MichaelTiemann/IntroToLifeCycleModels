@@ -48,18 +48,6 @@ u_grid=gpuArray(u_grid);
 a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
-% Setup for DC (over a1 only)
-if vfoptions.lowmemory==0
-    midpoint=zeros(N_d13,1,N_a2,N_a1,N_a2,N_a3,N_z,N_e,'gpuArray');
-elseif vfoptions.lowmemory==1
-    special_n_e=ones(1,length(n_e));
-    midpoint=zeros(N_d13,1,N_a2,N_a1,N_a2,N_a3,N_z,'gpuArray');
-elseif vfoptions.lowmemory==2
-    special_n_e=ones(1,length(n_e));
-    special_n_z=ones(1,length(n_z));
-    midpoint=zeros(N_d13,1,N_a2,N_a1,N_a2,N_a3,'gpuArray');
-end
-
 level1ii=round(linspace(1,n_a1,vfoptions.level1n));
 level1iidiff=level1ii(2:end)-level1ii(1:end-1)-1;
 
@@ -68,6 +56,9 @@ n2short=vfoptions.ngridinterp;
 n2long=vfoptions.ngridinterp*2+3;
 a1prime_grid=interp1(1:1:N_a1,a1_grid,linspace(1,N_a1,N_a1+(N_a1-1)*n2short))';
 N_a1fine=length(a1prime_grid);
+
+% Base column vectors
+a2_base = gpuArray(0:N_a2-1)';
 
 % Precompute
 aind=gpuArray(0:1:N_a-1);
@@ -204,7 +195,7 @@ for jj = N_j:-1:1
                         entireRHS_ii = ReturnMatrix_ii;
                     else
                         % Exact transposed offsets for 2A
-                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:N_a2-1)',-2) + N_d3*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
+                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim(a2_base,-2) + N_d3*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
                         entireRHS_ii = ReturnMatrix_ii + DiscountedEV_d13(d3aprimez);
                     end
 
@@ -232,7 +223,7 @@ for jj = N_j:-1:1
                 entireRHS_ii = ReturnMatrix_ii;
             else
                 % Transposed shifts push a2prime to dim 3 and z to dim 7 in the un-merged EV tensor
-                aprimez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim((0:N_a2-1)',-2) + N_d13*N_a1fine*N_a2*shiftdim((0:length(z_idx)-1)',-6);
+                aprimez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim(a2_base,-2) + N_d13*N_a1fine*N_a2*shiftdim((0:length(z_idx)-1)',-6);
                 entireRHS_ii = reshape(ReturnMatrix_ii + DiscountedEVinterp_d13(aprimez), [N_d13*n2long*N_a2, N_a, length(z_idx), length(e_idx)]);
             end
 

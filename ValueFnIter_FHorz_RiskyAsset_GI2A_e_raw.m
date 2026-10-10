@@ -46,23 +46,21 @@ u_grid=gpuArray(u_grid);
 a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
-if vfoptions.lowmemory>=1
-    special_n_e=ones(1,length(n_e),'gpuArray');
-end
-if vfoptions.lowmemory==2
-    special_n_z=ones(1,length(n_z));
-end
-
 % Setup for GI (over a1 only)
 n2short=vfoptions.ngridinterp;
 n2long=vfoptions.ngridinterp*2+3;
 a1prime_grid=interp1(1:1:N_a1,a1_grid,linspace(1,N_a1,N_a1+(N_a1-1)*n2short))';
 N_a1fine=length(a1prime_grid);
 
+% Base column vectors
+a2_base = gpuArray(0:N_a2-1)';
+z_base  = gpuArray(0:N_z-1)';
+e_base  = gpuArray(0:N_e-1)';
+
 % Precompute
 aind=gpuArray(0:1:N_a-1);
-zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
-zeBind=zBind+N_z*shiftdim((0:1:N_e-1),-2);
+zBind=shiftdim(z_base,-2); % [1,1,N_z]
+zeBind=zBind+N_z*shiftdim(e_base,-3); % [1,1,1,N_e]
 
 %% Unified Time Loop
 for jj = N_j:-1:1
@@ -151,6 +149,12 @@ for jj = N_j:-1:1
             DiscountedEVinterp_d13 = repelem(DiscountedEVinterp, N_d1, 1);
         end
 
+        if vfoptions.lowmemory <= 1
+            zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
+        else
+            zlin = 0;
+        end
+
         for e_c = e_iter
             if vfoptions.lowmemory == 0
                 e_val = e_gridvals_J(:,:,jj);
@@ -186,7 +190,7 @@ for jj = N_j:-1:1
             else
                 % Corrected broadcasting offsets for a2prime (dim 3) and z (dim 7)
                 % The transpose operator (') is CRITICAL here so they shift into dims 3 and 7, not 4 and 8!
-                aprimez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim((0:N_a2-1)',-2) + N_d13*N_a1fine*N_a2*shiftdim((0:length(z_idx)-1)',-6);
+                aprimez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim(a2_base,-2) + N_d13*N_a1fine*N_a2*shiftdim((0:length(z_idx)-1)',-6);
                 entireRHS_ii = reshape(ReturnMatrix_ii + DiscountedEVinterp_d13(aprimez), [N_d13*n2long*N_a2, N_a, length(z_idx), length(e_idx)]);
             end
 
@@ -228,11 +232,6 @@ for jj = N_j:-1:1
             else
                 % Corrected broadcasting for z offset (z belongs in dim 3!)
                 a1mid = midpoint_jj(allind); % [1, N_a, length(z_idx), length(e_idx)]
-                if vfoptions.lowmemory <= 1
-                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -2);
-                else
-                    zlin = 0;
-                end
                 lin = d3_ind + N_d3*(a1mid-1) + N_d3*N_a1*(maxindexL2a2-1) + N_d3*N_a1*N_a2*zlin;
                 Policy(2, :, z_idx, e_idx, jj) = d2index_resh(lin);
             end

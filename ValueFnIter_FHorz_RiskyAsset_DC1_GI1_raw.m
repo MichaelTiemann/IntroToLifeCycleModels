@@ -47,7 +47,7 @@ N_a1prime = length(a1prime_grid);
 
 % Precompute Array Indices
 aind = gpuArray(0:1:N_a-1);
-zBind = shiftdim(gpuArray(0:1:N_z-1)', -2); % [1, 1, N_z]
+zBind = shiftdim(gpuArray(0:1:N_z-1), -1); % [1, 1, N_z]
 d3ind = repelem(gpuArray(1:1:N_d3)', N_d1, 1); % [N_d13,1]; maps full d13-index to d3-component
 
 %% Iterate backwards through j

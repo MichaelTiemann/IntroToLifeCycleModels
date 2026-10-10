@@ -47,11 +47,9 @@ n2long=vfoptions.ngridinterp*2+3; % total number of aprime points we end up look
 a1prime_grid=interp1(1:1:n_a1(1),a1_gridvals,linspace(1,n_a1(1),n_a1(1)+(n_a1(1)-1)*n2short));
 N_a1prime=length(a1prime_grid);
 
-zind  = shiftdim(gpuArray(0:1:N_z-1)', -4); % Dim 5 for da1primez
-zBind = shiftdim(gpuArray(0:1:N_z-1)', -2); % Dim 3 for allind
-a2ind = shiftdim(gpuArray(0:1:N_a2-1)', -3); % Dim 4 for a2 offsets
-
-a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2); % already includes -1
+z_base  = gpuArray(0:N_z-1)';
+zind  = shiftdim(z_base, -4); % Dim 5 for da1primez
+zBind = shiftdim(z_base, -2); % Dim 3 for allind
 
 %% j=N_j
 
@@ -210,7 +208,7 @@ else % V_Jplus1
 
         % d2 lookup: d2index_resh(d3, a1prime_midpoint, z)
         a1mid=midpoint_jj(allind); % [1,N_a,N_z]
-        zlin = shiftdim(gpuArray(0:N_z-1)', -2); % [1,1,N_z]
+        zlin = shiftdim(z_base, -2); % [1,1,N_z]
         lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*zlin; % [1,N_a,N_z]
         Policy(2,:,:,N_j)=d2index_resh(lin);
 
@@ -345,7 +343,7 @@ for reverse_j=1:N_j-1
 
         % d2 lookup
         a1mid=midpoint_jj(allind); % [1,N_a,N_z]
-        zlin = shiftdim(gpuArray(0:N_z-1)', -2); % [1,1,N_z]
+        zlin = shiftdim(z_base, -2); % [1,1,N_z]
         lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*zlin; % [1,N_a,N_z]
         Policy(2,:,:,jj)=d2index_resh(lin);
 

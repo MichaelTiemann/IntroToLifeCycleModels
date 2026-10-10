@@ -48,8 +48,9 @@ u_grid=gpuArray(u_grid);
 a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
+z_base  = gpuArray(0:N_z-1)';
 if vfoptions.lowmemory==0
-    zBind=shiftdim(gpuArray(0:1:N_z-1),-1); % [1,1,N_z]
+    zBind=shiftdim(z_base,-2); % [1,1,N_z]
 else
     special_n_z=ones(1,length(n_z));
 end
@@ -104,7 +105,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 dind       =rem(maxindex-1,N_d13)+1;
                 a1localind =rem(floor((maxindex-1)/N_d13),maxgap(ii)+1)+1;
                 a2primepart=floor((maxindex-1)/(N_d13*(maxgap(ii)+1)))+1;
-                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(gpuArray(0:N_z-1)', -6);
+                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(z_base, -6);
                 a1primepart=a1localind+loweredge(loweredge_idx)-1;
                 d1part     =rem(dind-1,N_d1)+1;
                 d3part     =ceil(dind/N_d1);
@@ -119,7 +120,7 @@ if ~isfield(vfoptions,'V_Jplus1')
                 V(curraindex,:,N_j)=shiftdim(Vtempii,1);
                 dind       =rem(maxindex-1,N_d13)+1;
                 a2primepart=floor((maxindex-1)/N_d13)+1;
-                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(gpuArray(0:N_z-1)', -6);
+                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(z_base, -6);
                 d1part     =rem(dind-1,N_d1)+1;
                 d3part     =ceil(dind/N_d1);
                 Policy(1,curraindex,:,N_j)=d1part;
@@ -268,14 +269,14 @@ else % V_Jplus1
                 loweredge=min(maxindex1(:,1,:,ii,:,:,:),N_a1-maxgap(ii));
                 a1primeindexes=loweredge+(0:1:maxgap(ii));
                 ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_DC2A(ReturnFn, n_d1, n_d3, n_a2, n_a3, n_z, d13_gridvals, a1_grid(a1primeindexes), a2_gridvals, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, a3_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec, 3);
-                d3aprimez=d3col + N_d3*(a1primeindexes-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(gpuArray(0:N_z-1)', -6);
+                d3aprimez=d3col + N_d3*(a1primeindexes-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(z_base, -6);
                 entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d3aprimez),[N_d13*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2*N_a3,N_z]);
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
                 V(curraindex,:,N_j)=shiftdim(Vtempii,1);
                 dind       =rem(maxindex-1,N_d13)+1;
                 a1localind =rem(floor((maxindex-1)/N_d13),maxgap(ii)+1)+1;
                 a2primepart=floor((maxindex-1)/(N_d13*(maxgap(ii)+1)))+1;
-                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(gpuArray(0:N_z-1)', -6);
+                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(z_base, -6);
                 a1primepart=a1localind+loweredge(loweredge_idx)-1;
                 d1part     =rem(dind-1,N_d1)+1;
                 d3part     =ceil(dind/N_d1);
@@ -289,13 +290,13 @@ else % V_Jplus1
             else
                 loweredge=maxindex1(:,1,:,ii,:,:,:);
                 ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_DC2A(ReturnFn, n_d1, n_d3, n_a2, n_a3, n_z, d13_gridvals, a1_grid(loweredge), a2_gridvals, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, a3_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec, 3);
-                d3aprimez=d3col + N_d3*(loweredge-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(gpuArray(0:N_z-1)', -6);
+                d3aprimez=d3col + N_d3*(loweredge-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(z_base, -6);
                 entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d3aprimez),[N_d13*N_a2,level1iidiff(ii)*N_a2*N_a3,N_z]);
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
                 V(curraindex,:,N_j)=shiftdim(Vtempii,1);
                 dind       =rem(maxindex-1,N_d13)+1;
                 a2primepart=floor((maxindex-1)/N_d13)+1;
-                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(gpuArray(0:N_z-1)', -6);
+                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(z_base, -6);
                 a1primepart=loweredge(loweredge_idx);
                 d1part     =rem(dind-1,N_d1)+1;
                 d3part     =ceil(dind/N_d1);
@@ -469,14 +470,14 @@ for reverse_j=1:N_j-1
                 loweredge=min(maxindex1(:,1,:,ii,:,:,:),N_a1-maxgap(ii));
                 a1primeindexes=loweredge+(0:1:maxgap(ii));
                 ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_DC2A(ReturnFn, n_d1, n_d3, n_a2, n_a3, n_z, d13_gridvals, a1_grid(a1primeindexes), a2_gridvals, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, a3_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec, 3);
-                d3aprimez=d3col + N_d3*(a1primeindexes-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(gpuArray(0:N_z-1)', -6);
+                d3aprimez=d3col + N_d3*(a1primeindexes-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(z_base, -6);
                 entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d3aprimez),[N_d13*(maxgap(ii)+1)*N_a2,level1iidiff(ii)*N_a2*N_a3,N_z]);
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
                 V(curraindex,:,jj)=shiftdim(Vtempii,1);
                 dind       =rem(maxindex-1,N_d13)+1;
                 a1localind =rem(floor((maxindex-1)/N_d13),maxgap(ii)+1)+1;
                 a2primepart=floor((maxindex-1)/(N_d13*(maxgap(ii)+1)))+1;
-                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(gpuArray(0:N_z-1)', -6);
+                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(z_base, -6);
                 a1primepart=a1localind+loweredge(loweredge_idx)-1;
                 d1part     =rem(dind-1,N_d1)+1;
                 d3part     =ceil(dind/N_d1);
@@ -490,13 +491,13 @@ for reverse_j=1:N_j-1
             else
                 loweredge=maxindex1(:,1,:,ii,:,:,:);
                 ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_DC2A(ReturnFn, n_d1, n_d3, n_a2, n_a3, n_z, d13_gridvals, a1_grid(loweredge), a2_gridvals, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, a3_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec, 3);
-                d3aprimez=d3col + N_d3*(loweredge-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(gpuArray(0:N_z-1)', -6);
+                d3aprimez=d3col + N_d3*(loweredge-1) + N_d3*N_a1*a2pcol + N_d3*N_a1*N_a2*shiftdim(z_base, -6);
                 entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEV(d3aprimez),[N_d13*N_a2,level1iidiff(ii)*N_a2*N_a3,N_z]);
                 [Vtempii,maxindex]=max(entireRHS_ii,[],1);
                 V(curraindex,:,jj)=shiftdim(Vtempii,1);
                 dind       =rem(maxindex-1,N_d13)+1;
                 a2primepart=floor((maxindex-1)/N_d13)+1;
-                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(gpuArray(0:N_z-1)', -6);
+                loweredge_idx=dind + N_d13*(a2primepart-1) + N_d13*N_a2*a2ind_flat + N_d13*N_a2*N_a2*a3ind_flat + N_d13*N_a2*N_a2*N_a3*shiftdim(z_base, -6);
                 a1primepart=loweredge(loweredge_idx);
                 d1part     =rem(dind-1,N_d1)+1;
                 d3part     =ceil(dind/N_d1);

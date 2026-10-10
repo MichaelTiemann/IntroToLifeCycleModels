@@ -36,17 +36,6 @@ a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 a1_gridvals=a1_grid;
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
-if vfoptions.lowmemory==0
-    midpoint_jj=zeros(N_d13,1,N_a1,N_a2,N_z,N_e,'gpuArray');
-elseif vfoptions.lowmemory==1
-    midpoint_jj=zeros(N_d13,1,N_a1,N_a2,N_z,'gpuArray');
-    special_n_e=ones(1,length(n_e));
-end
-if vfoptions.lowmemory==2
-    special_n_e=ones(1,length(n_e));
-    special_n_z=ones(1,length(n_z));
-end
-
 % Setup for DC
 level1ii=round(linspace(1,n_a1,vfoptions.level1n));
 level1iidiff=level1ii(2:end)-level1ii(1:end-1)-1;
@@ -59,11 +48,8 @@ N_a1prime=length(a1prime_grid);
 
 % Precompute
 aind=gpuArray(0:1:N_a-1);
-zind=shiftdim(gpuArray(0:1:N_z-1),-3);
-zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
-eBind=shiftdim(gpuArray(0:1:N_e-1),-2);
-a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2);
-a2Bind=gpuArray(0:1:N_a2-1);
+zBind=shiftdim(gpuArray(0:1:N_z-1),-1); % [1,1,N_z]
+eBind=shiftdim(gpuArray(0:1:N_e-1),-2); % [1,1,1,N_e]
 d3ind=repelem(gpuArray(1:1:N_d3)',N_d1,1); % [N_d13,1]; maps full d13-index to d3-component
 
 %% Unified Time Loop

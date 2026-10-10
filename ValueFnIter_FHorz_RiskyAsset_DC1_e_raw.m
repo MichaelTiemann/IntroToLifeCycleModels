@@ -35,22 +35,19 @@ a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 a1_gridvals=a1_grid;
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
+% Dimensionally aligned indices
+
 if vfoptions.lowmemory==0
-    zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
-    eBind=shiftdim(gpuArray(0:1:N_e-1),-2);
+    zBind = shiftdim(gpuArray(0:N_z-1), -1); % [1,1,N_z]
+    eBind = shiftdim(gpuArray(0:N_e-1), -2); % [1,1,1,N_e]
 elseif vfoptions.lowmemory==1
-    special_n_e=ones(1,length(n_e));
-    zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
-elseif vfoptions.lowmemory==2
-    special_n_e=ones(1,length(n_e));
-    special_n_z=ones(1,length(n_z));
+    zBind = shiftdim(gpuArray(0:N_z-1), -1); % [1,1,N_z]
 end
 
 level1ii=round(linspace(1,n_a1,vfoptions.level1n));
 level1iidiff=level1ii(2:end)-level1ii(1:end-1)-1;
 
 aind = gpuArray(0:1:N_a-1);
-a2Bind=gpuArray(0:1:N_a2-1);
 d3ind=repelem((1:1:N_d3)',N_d1,1); % [N_d13,1]
 
 %% Unified Time Loop

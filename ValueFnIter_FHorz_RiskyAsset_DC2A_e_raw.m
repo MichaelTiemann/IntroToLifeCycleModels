@@ -49,26 +49,18 @@ u_grid=gpuArray(u_grid);
 a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
+a2_base=gpuArray(0:N_a2-1)';
+
 if vfoptions.lowmemory==0
     zBind=shiftdim(gpuArray(0:1:N_z-1),-1); % [1,1,N_z]
     eBind=shiftdim(gpuArray(0:1:N_e-1),-2); % [1,1,1,N_e]
 elseif vfoptions.lowmemory==1
-    special_n_e=ones(1,length(n_e));
-    zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
-elseif vfoptions.lowmemory==2
-    special_n_e=ones(1,length(n_e));
-    special_n_z=ones(1,length(n_z));
+    zBind=shiftdim(gpuArray(0:1:N_z-1),-1); % [1,1,N_z]
 end
 
 % Setup for DC (over a1 only)
 level1ii=round(linspace(1,n_a1,vfoptions.level1n));
 level1iidiff=level1ii(2:end)-level1ii(1:end-1)-1;
-
-% Precompute
-a2ind=gpuArray(0:N_a2-1)';
-a3ind=gpuArray(0:N_a3-1)';
-d3col=repelem((1:1:N_d3)',N_d1,1);     % [N_d13,1]; maps full d13-index to d3-component
-a2pcol=reshape(0:1:N_a2-1,[1,1,N_a2]); % [1,1,N_a2prime]
 
 %% Unified Time Loop
 for jj = N_j:-1:1
@@ -118,10 +110,10 @@ for jj = N_j:-1:1
     for z_c = z_iter
         if vfoptions.lowmemory <= 1
             z_val = z_gridvals_J(:,:,jj);
-            z_idx = 1:N_z; z_offset = zBind;
+            z_idx = 1:N_z;
         else
             z_val = z_gridvals_J(z_c,:,jj);
-            z_idx = z_c; z_offset = 0;
+            z_idx = z_c;
         end
 
         % JUST-IN-TIME EV SLICING
@@ -196,7 +188,7 @@ for jj = N_j:-1:1
                         entireRHS_ii = ReturnMatrix_ii;
                     else
                         % Broadcast offset for z in level 3: z is dimension 7, so shift by -6
-                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:N_a2-1)',-2) + N_d3*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
+                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim(a2_base,-2) + N_d3*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
                         entireRHS_ii = ReturnMatrix_ii + DiscountedEV(d3aprimez);
                     end
 
@@ -215,7 +207,7 @@ for jj = N_j:-1:1
                 entireRHS_ii = ReturnMatrix_ii;
             else
                 % Remove the (:) from midpoint_jj here too
-                d3aprimez = (1:1:N_d13)' + N_d13*(midpoint_jj-1) + N_d13*N_a1*shiftdim((0:N_a2-1)',-2) + N_d13*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
+                d3aprimez = (1:1:N_d13)' + N_d13*(midpoint_jj-1) + N_d13*N_a1*shiftdim(a2_base,-2) + N_d13*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
                 entireRHS_ii = ReturnMatrix_ii + reshape(DiscountedEV_d13(d3aprimez(:)), [N_d13*N_a2, N_a, length(z_idx), length(e_idx)]);
             end
 

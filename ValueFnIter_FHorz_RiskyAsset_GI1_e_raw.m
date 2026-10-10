@@ -36,13 +36,6 @@ a2_gridvals=CreateGridvals(n_a2,a2_grid,1);
 a1_gridvals=a1_grid;
 d13_gridvals=CreateGridvals(n_d13,d13_grid,1);
 
-if vfoptions.lowmemory>=1
-    special_n_e=ones(1,length(n_e),'gpuArray');
-end
-if vfoptions.lowmemory==2
-    special_n_z=ones(1,length(n_z));
-end
-
 % Grid interpolation
 n2short=vfoptions.ngridinterp;
 n2long=vfoptions.ngridinterp*2+3;
@@ -50,11 +43,8 @@ a1prime_grid=interp1(1:1:n_a1(1),a1_gridvals,linspace(1,n_a1(1),n_a1(1)+(n_a1(1)
 N_a1prime=length(a1prime_grid);
 
 aind=gpuArray(0:1:N_a-1);
-zind=shiftdim(gpuArray(0:1:N_z-1),-3);
 zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
 zeBind=zBind+N_z*shiftdim((0:1:N_e-1),-2);
-
-a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2);
 
 %% Iterate backwards through j
 for jj=N_j:-1:1
