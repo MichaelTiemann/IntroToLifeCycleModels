@@ -56,7 +56,7 @@ N_a1fine=length(a1prime_grid);
 
 % Precompute
 aind=gpuArray(0:1:N_a-1);
-zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
+zBind=shiftdim(gpuArray(0:1:N_z-1)',-2);
 
 %% j=N_j
 ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
@@ -196,7 +196,7 @@ else % V_Jplus1
         a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
         ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc_DC2A(ReturnFn, n_d1, n_d3, n_a2, n_a3, n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a2_gridvals, a1_grid, a2_gridvals, a3_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec, 3);
         % EV does not depend on a3, so the linear index into DiscountedEVinterp_d13 omits an a3 offset
-        aprimez=(1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim((0:1:N_a2-1),-1) + N_d13*N_a1fine*N_a2*shiftdim((0:1:N_z-1),-5);
+        aprimez=(1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim((0:1:N_a2-1)',-2) + N_d13*N_a1fine*N_a2*shiftdim((0:1:N_z-1)',-6);
         entireRHS_ii=reshape(ReturnMatrix_ii+DiscountedEVinterp_d13(aprimez),[N_d13*n2long*N_a2,N_a,N_z]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
@@ -225,7 +225,7 @@ else % V_Jplus1
 
         % d2 lookup: d2index_resh(d3, a1prime_midpoint, a2prime, z)
         a1mid=midpoint_jj(allind); % [1,N_a,N_z]
-        zlin=shiftdim(gpuArray(0:N_z-1),-1); % [1,1,N_z]
+        zlin=shiftdim(gpuArray(0:N_z-1)',-3); % [1,1,N_z]
         lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*(maxindexL2a2-1)+N_d3*N_a1*N_a2*zlin;
         Policy(2,:,:,N_j)=d2index_resh(lin);
 
@@ -367,7 +367,7 @@ for reverse_j=1:N_j-1
 
         % d2 lookup
         a1mid=midpoint_jj(allind); % [1,N_a,N_z]
-        zlin=shiftdim(gpuArray(0:N_z-1),-1); % [1,1,N_z]
+        zlin=shiftdim(gpuArray(0:N_z-1)',-3); % [1,1,N_z]
         lin=d3_ind+N_d3*(a1mid-1)+N_d3*N_a1*(maxindexL2a2-1)+N_d3*N_a1*N_a2*zlin;
         Policy(2,:,:,jj)=d2index_resh(lin);
 

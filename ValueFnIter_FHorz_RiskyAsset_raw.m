@@ -45,8 +45,7 @@ if vfoptions.lowmemory>0
 end
 
 aind=gpuArray(0:1:N_a-1);
-zind=shiftdim(gpuArray(0:1:N_z-1),-1);
-
+zind = shiftdim(gpuArray(0:1:N_z-1)', -2); % [1,1,N_z]
 
 %% j=N_j
 
