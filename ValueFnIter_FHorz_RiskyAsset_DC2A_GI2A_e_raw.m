@@ -186,9 +186,90 @@ for jj = N_j:-1:1
             end
 
             [~, maxindex1] = max(entireRHS_ii, [], 2);
+            midpoint(:, 1, :, level1ii, :, :, :, :) = maxindex1;
 
-            % [Standard divide and conquer layers and GI layers perfectly reuse the exact same memory-safe branching logic we built for Model 2A...]
-            % [Make sure to map the V(:, z_idx, e_idx, jj) outputs at the end!]
+            % =======================================================
+            % Layer 2: Divide and Conquer Sweep
+            % =======================================================
+            maxgap = squeeze(max(max(max(max(max(max(maxindex1(:, 1, :, 2:end, :, :, :, :) - maxindex1(:, 1, :, 1:end-1, :, :, :, :), [], 8), [], 7), [], 6), [], 5), [], 3), [], 1));
+
+            for ii = 1:(vfoptions.level1n-1)
+                curraindex = (level1ii(ii)+1:1:level1ii(ii+1)-1)';
+                if maxgap(ii) > 0
+                    loweredge = min(maxindex1(:, 1, :, ii, :, :, :, :), N_a1 - maxgap(ii));
+                    a1primeindexes = loweredge + (0:1:maxgap(ii));
+                    ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc_DC2A_e(ReturnFn, n_d1, n_d3, n_a2, n_a3, special_n_z, special_n_e, d13_gridvals, a1_grid(a1primeindexes), a2_gridvals, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, a3_grid, z_val, e_val, ReturnFnParamsVec, 3);
+
+                    if is_terminal
+                        entireRHS_ii = ReturnMatrix_ii;
+                    else
+                        % Exact transposed offsets for 2A
+                        d3aprimez = d3ind + N_d3*(a1primeindexes-1) + N_d3*N_a1*shiftdim((0:N_a2-1)',-2) + N_d3*N_a1*N_a2*shiftdim((0:length(z_idx)-1)', -6);
+                        entireRHS_ii = ReturnMatrix_ii + DiscountedEV_d13(d3aprimez);
+                    end
+
+                    [~, maxindex] = max(entireRHS_ii, [], 2);
+                    midpoint(:, 1, :, curraindex, :, :, :, :) = maxindex + (loweredge - 1);
+                else
+                    loweredge = maxindex1(:, 1, :, ii, :, :, :, :);
+                    midpoint(:, 1, :, curraindex, :, :, :, :) = repelem(loweredge, 1, 1, 1, level1iidiff(ii), 1, 1, 1, 1);
+                end
+            end
+
+            % =======================================================
+            % Layer 3: Grid Interpolation & Final Policy Assembly
+            % =======================================================
+            % Define local combined ze_offset since e_offset and z_offset were split
+            ze_offset = z_offset + N_z*e_offset;
+
+            % Flatten midpoint cleanly (no squeeze) so shape perfectly feeds arrayfun
+            midpoint_L2 = midpoint(:);
+            a1primeindexesfine = max(1, min(N_a1fine - n2long + 1, (midpoint_L2 - 1) * n2short + 1 + shiftdim(-n2short-1:n2short+1, -1)));
+
+            ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc_DC2A_e(ReturnFn, n_d1, n_d3, n_a2, n_a3, special_n_z, special_n_e, d13_gridvals, a1prime_grid(a1primeindexesfine), a2_gridvals, a1_grid, a2_gridvals, a3_grid, z_val, e_val, ReturnFnParamsVec, 2);
+
+            if is_terminal
+                entireRHS_ii = ReturnMatrix_ii;
+            else
+                % Transposed shifts push a2prime to dim 3 and z to dim 7 in the un-merged EV tensor
+                aprimez = (1:1:N_d13)' + N_d13*(a1primeindexesfine-1) + N_d13*N_a1fine*shiftdim((0:N_a2-1)',-2) + N_d13*N_a1fine*N_a2*shiftdim((0:length(z_idx)-1)',-6);
+                entireRHS_ii = reshape(ReturnMatrix_ii + DiscountedEVinterp_d13(aprimez), [N_d13*n2long*N_a2, N_a, length(z_idx), length(e_idx)]);
+            end
+
+            entireRHS_ii = reshape(entireRHS_ii, [N_d13*n2long*N_a2, N_a, length(z_idx), length(e_idx)]);
+            [Vtempii, maxindexL2] = max(entireRHS_ii, [], 1);
+
+            V(:, z_idx, e_idx, jj) = shiftdim(Vtempii, 1);
+
+            maxindexL2_d_a2 = rem(maxindexL2-1, N_d13*n2long*N_a2) + 1;
+            d_ind = rem(maxindexL2_d_a2-1, N_d13) + 1;
+            L2flag = rem(ceil(maxindexL2_d_a2/N_d13)-1, n2long) + 1;
+            maxindexL2a2 = ceil(maxindexL2_d_a2/(N_d13*n2long));
+
+            allind = d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*ze_offset;
+            a1mid = midpoint(allind);
+
+            d1_ind = rem(d_ind-1, N_d1) + 1;
+            d3_ind = ceil(d_ind/N_d1);
+
+            Policy(1, :, z_idx, e_idx, jj) = d1_ind;
+            Policy(3, :, z_idx, e_idx, jj) = d3_ind;
+            Policy(4, :, z_idx, e_idx, jj) = shiftdim(squeeze(a1mid), -1);
+            Policy(5, :, z_idx, e_idx, jj) = maxindexL2a2;
+            Policy(6, :, z_idx, e_idx, jj) = L2flag;
+
+            if is_terminal
+                Policy(2, :, z_idx, e_idx, jj) = 1;
+            else
+                % The exact transpose column-vector fix for 2A offsets!
+                if vfoptions.lowmemory <= 1
+                    zlin = shiftdim(gpuArray(0:length(z_idx)-1)', -3);
+                else
+                    zlin = 0;
+                end
+                linlookup = d3_ind + N_d3*(a1mid-1) + N_d3*N_a1*(maxindexL2a2-1) + N_d3*N_a1*N_a2*zlin;
+                Policy(2, :, z_idx, e_idx, jj) = d2index_resh(linlookup);
+            end
 
         end
     end
