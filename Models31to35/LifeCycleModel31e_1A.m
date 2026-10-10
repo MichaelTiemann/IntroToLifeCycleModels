@@ -42,7 +42,7 @@ Params.J=100-Params.agejshifter; % =81, Number of period in life-cycle
 % Grid sizes to use
 n_d = [51]; % Decision: absolute amount invested in risky asset
 n_a = [51, 51]; % [Safe Asset, Risky Asset]
-n_z=21; % Exogenous labor productivity units shock
+n_z=11; % Exogenous labor productivity units shock
 n_e=3; % i.i.d labor productivity units shock
 n_u=5; % Between period i.i.d. shock
 N_j=Params.J; % Number of periods in finite horizon
@@ -176,8 +176,8 @@ ReturnFn = @(d_m, aprime, a, m, z, e, w, r, sigma, agej, Jr, pension, kappa_j) .
 % vfoptions.refine_d: only (d1,d3,..) are input to ReturnFn [this model has no d1, so here just d3]
 
 % ENABLE DIVIDE-AND-CONQUER & GRID INTERPOLATION
-vfoptions.divideandconquer = 1; 
-vfoptions.gridinterplayer = 0;
+vfoptions.divideandconquer = 0; 
+vfoptions.gridinterplayer = 1;
 vfoptions.ngridinterp = 20; 
 simoptions.gridinterplayer = vfoptions.gridinterplayer; 
 simoptions.ngridinterp = vfoptions.ngridinterp;

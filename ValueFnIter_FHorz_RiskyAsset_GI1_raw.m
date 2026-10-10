@@ -47,9 +47,10 @@ n2long=vfoptions.ngridinterp*2+3; % total number of aprime points we end up look
 a1prime_grid=interp1(1:1:n_a1(1),a1_gridvals,linspace(1,n_a1(1),n_a1(1)+(n_a1(1)-1)*n2short));
 N_a1prime=length(a1prime_grid);
 
-z_base  = gpuArray(0:N_z-1)';
+z_base = gpuArray(0:N_z-1)';
 zind  = shiftdim(z_base, -4); % Dim 5 for da1primez
 zBind = shiftdim(z_base, -2); % Dim 3 for allind
+aind=gpuArray(0:1:N_a-1); % Dim 2 for aind
 
 %% j=N_j
 
