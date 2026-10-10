@@ -85,8 +85,8 @@ DiscountFactorParamNames = {'beta', 'sj'};
 ReturnFn = @(d_m, aprime_safe, aprime_future, a_safe, a_future, m, z, w, r_safe, r_future, sigma, agej, Jr, pension, kappa_j) ...
     LifeCycleModel31_2A_ReturnFn(d_m, aprime_safe, aprime_future, a_safe, a_future, m, z, w, r_safe, r_future, sigma, agej, Jr, pension, kappa_j);
 
-vfoptions.divideandconquer = 1;
-vfoptions.gridinterplayer = 1;
+vfoptions.divideandconquer = 0;
+vfoptions.gridinterplayer = 0;
 vfoptions.ngridinterp = 20;
 simoptions.gridinterplayer = vfoptions.gridinterplayer;
 simoptions.ngridinterp = vfoptions.ngridinterp;

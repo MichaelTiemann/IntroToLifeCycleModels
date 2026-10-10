@@ -6,23 +6,25 @@ function [V,Policy]=ValueFnIter_FHorz_RiskyAsset_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_
 N_d1=max(1,prod(n_d1(n_d1>0)));
 N_d2=max(1,prod(n_d2(n_d2>0)));
 N_d3=max(1,prod(n_d3(n_d3>0)));
+N_d=N_d1*N_d2*N_d3;
 N_a1=max(1,prod(n_a1(n_a1>0)));
 N_a2=max(1,prod(n_a2(n_a2>0)));
+N_a  = N_a1 * N_a2;
 N_z =max(1,prod(n_z(n_z>0)));
 N_u =max(1,prod(n_u(n_u>0)));
-
-N_d=N_d1*N_d2*N_d3;
-N_a=N_a1*N_a2;
 
 % (For _e_raw only, also add):
 % N_e=max(1, prod(n_e(n_e>0)));
 
-% For ReturnFn
-n_d13=[n_d1,n_d3];
-% For aprimeFn
-n_d23=[n_d2,n_d3];
-N_d23=prod(n_d23);
-d23_grid=[d2_grid; d3_grid];
+% For ReturnFn (d1 and d3 only)
+n_d13 = [n_d1(n_d1 > 0), n_d3(n_d3 > 0)];
+N_d13 = N_d1 * N_d3;
+d13_grid = [d1_grid; d3_grid];
+
+% For aprimeFn (d2 and d3)
+n_d23 = [n_d2(n_d2 > 0), n_d3(n_d3 > 0)];
+N_d23 = N_d2 * N_d3;
+d23_grid = [d2_grid; d3_grid];
 
 V=zeros(N_a,N_z,N_j,'gpuArray');
 Policy=zeros(4,N_a,N_z,N_j,'gpuArray'); % d1, d2, d3 and a1prime
@@ -298,6 +300,24 @@ for jj=N_j:-1:1
     end
 end
 
+%% Shrink-wrap Policy to remove inactive choice dimensions
+% The raw evaluator statically allocates 4 rows: [d1, d2, d3, a1prime]
+% We must dynamically strip the dummy rows before returning.
+has_d1 = (sum(n_d1) > 0);
+has_d2 = (sum(n_d2) > 0);
+has_d3 = (sum(n_d3) > 0);
+has_a1 = (sum(n_a1(1)) > 0); 
+
+active_rows = [];
+if has_d1, active_rows(end+1) = 1; end
+if has_d2, active_rows(end+1) = 2; end
+if has_d3, active_rows(end+1) = 3; end
+if has_a1, active_rows(end+1) = 4; end
+
+% Slice out only the active rows
+slice_idx = repmat({':'}, 1, ndims(Policy));
+slice_idx{1} = active_rows;
+Policy = Policy(slice_idx{:});
 
 
 end

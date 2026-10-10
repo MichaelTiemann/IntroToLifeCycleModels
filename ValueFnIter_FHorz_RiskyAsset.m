@@ -128,11 +128,14 @@ V = reshape(VKron, target_sz);
 % 3. Extract Policy dynamically
 has_z = (N_z > 1);
 has_e = (N_e > 1);
-has_a1 = (sum(n_a1) > 0); 
 has_d1 = (sum(n_d1) > 0);
+has_d2 = (sum(n_d2) > 0);
+has_d3 = (sum(n_d3) > 0);
+has_a1 = (sum(n_a1) > 0); 
 
-% The base number of channels is 2 (d2, d3). Add 1 for d1, Add 1 for a1.
-num_channels = 2 + has_a1 + has_d1; 
+% Pure raw (no DC, no GI) ALWAYS Kroneckers all standard assets into 'a1prime'.
+% There is NO separate 'a2prime' choice passed to UnKron here!
+num_channels = has_d1 + has_d2 + has_d3 + has_a1;
 
 if has_e && has_z
     suffix = '_z_e';
@@ -141,25 +144,18 @@ elseif has_z || has_e
 else
     suffix = '_noz';
 end
-
 base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', num_channels);
 UnKronFn = str2func([base_fn, suffix]);
 
-% 4. Dynamically build the arguments list and shrink-wrap PolicyKron
-active_rows = [];
-if has_d1, active_rows = [active_rows, 1]; end
-active_rows = [active_rows, 2, 3]; % d2 and d3 are always present for RiskyAsset
-if has_a1, active_rows = [active_rows, 4]; end
-
-% Dynamically slice dimension 1 regardless of how many trailing dimensions exist
-slice_idx = repmat({':'}, 1, ndims(PolicyKron));
-slice_idx{1} = active_rows;
-PolicyKronSliced = PolicyKron(slice_idx{:});
-
-args = {PolicyKronSliced};
+% 4. Dynamically build the arguments list
+% Note: PolicyKron is already perfectly shrink-wrapped by the _raw functions!
+% We do NOT slice it again here.
+args = {PolicyKron};
 if has_d1, args{end+1} = n_d1; end
-args = [args, {n_d2, n_d3}];
+if has_d2, args{end+1} = n_d2; end
+if has_d3, args{end+1} = n_d3; end
 if has_a1, args{end+1} = n_a1; end
+
 args{end+1} = n_a; % The full combined asset grid size
 
 if has_z && has_e
@@ -169,7 +165,6 @@ elseif has_z
 elseif has_e
     args{end+1} = vfoptions.n_e;
 end
-
 args = [args, {N_j, vfoptions}];
 
 % 5. Execute
