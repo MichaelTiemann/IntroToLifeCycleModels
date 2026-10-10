@@ -68,7 +68,12 @@ if vfoptions.outputkron==1
     return
 end
 
-n_a = [n_a1, n_a2, n_a3];
+%% Reconstruct full n_a array
+if exist('n_a3', 'var')
+    n_a = [n_a1, n_a2, n_a3]; % DC2A: [Safe, Future, Risky]
+else
+    n_a = [n_a1, n_a2];       % DC1: [Safe, Risky]
+end
 
 %% Transform Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
 % 1. Dynamically reconstruct the state-space dimensions
