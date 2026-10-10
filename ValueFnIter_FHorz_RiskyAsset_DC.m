@@ -14,6 +14,18 @@ N_e=prod(vfoptions.n_e);
 if N_a1==0
     error('Cannot use vfoptions.divideandconquer with riskyasset if there is no standard endogenous state (N_a1==0)')
 end
+
+if ~isfield(vfoptions,'level1n')
+    vfoptions.level1n=floor(sqrt(n_a1(1)));
+    if n_a1(1)<5
+        error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable (you need to turn off divide-and-conquer, or put more points into the a variable)')
+    end
+    if vfoptions.verbose==1
+        fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n (for smaller models 7 or 9 is good, but for larger models something 15 or 21 can be better) \n')
+    end
+end
+vfoptions.level1n=min(vfoptions.level1n,n_a1(1)); % n_a1(1): level1n is scalar, and with two standard assets it is a1_1 that is divide-conquered
+
 % Two standard endogenous assets -> the DC2A raws (all eight, nod1 and d1, are written).
 if length(n_a1)>1
     if length(n_a1)>2
@@ -45,88 +57,11 @@ if length(n_a1)>1
     % d1:   5 policy channels: d1, d2, d3, a1prime, a2prime.
     % UnKronPolicyIndexes4/5 unpack each channel against its own n_daprime, so the channel
     % meanings do not matter to them -- only how many there are and their grid sizes.
-    n_a=[n_a1,n_a2,n_a3];
-    if N_d1==0
-        if N_e==0
-            if N_z==0
-                V=reshape(VKron,[n_a,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_noz(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, N_j, vfoptions);
-            else
-                V=reshape(VKron,[n_a,n_z,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_z(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, n_z, N_j, vfoptions);
-            end
-        else
-            if N_z==0
-                V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_z(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-            else
-                V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes4_FHorz_z_e(PolicyKron, n_d2, n_d3, n_a1, n_a2, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-            end
-        end
-    else % N_d1
-        if N_e==0
-            if N_z==0
-                V=reshape(VKron,[n_a,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_noz(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, N_j, vfoptions);
-            else
-                V=reshape(VKron,[n_a,n_z,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_z(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, n_z, N_j, vfoptions);
-            end
-        else
-            if N_z==0
-                V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_z(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-            else
-                V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-                Policy=UnKronPolicyIndexes5_FHorz_z_e(PolicyKron, n_d1, n_d2, n_d3, n_a1, n_a2, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-            end
-        end
-    end
-    return
-end
-if ~isfield(vfoptions,'level1n')
-    vfoptions.level1n=floor(sqrt(n_a1(1)));
-    if n_a1(1)<5
-        error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable (you need to turn off divide-and-conquer, or put more points into the a variable)')
-    end
-    if vfoptions.verbose==1
-        fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n (for smaller models 7 or 9 is good, but for larger models something 15 or 21 can be better) \n')
-    end
-end
-vfoptions.level1n=min(vfoptions.level1n,n_a1(1)); % n_a1(1): level1n is scalar, and with two standard assets it is a1_1 that is divide-conquered
-
-%% Dispatch
-if N_e==0 % no e variable
-    if N_d1==0
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_nod1_noz_raw(n_d2,n_d3,n_a1,n_a2,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, u_grid, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_nod1_raw(n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    else
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_noz_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, u_grid, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    end
+elseif N_e==0 % no e variable
+    [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, u_grid, pi_z_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
 else % N_e
-    if N_d1==0
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_nod1_noz_e_raw(n_d2,n_d3,n_a1,n_a2,vfoptions.n_e,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, vfoptions.e_gridvals_J, u_grid, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_nod1_e_raw(n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    else % d1 variable
-        if N_z==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_noz_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, vfoptions.e_gridvals_J, u_grid, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-        end
-    end
+    [VKron, PolicyKron]=ValueFnIter_FHorz_RiskyAsset_DC1_e_raw(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_e,n_u, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, u_grid, pi_z_J, vfoptions.pi_e_J, pi_u, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
 end
-
 
 %%
 if vfoptions.outputkron==1
@@ -135,11 +70,16 @@ if vfoptions.outputkron==1
     return
 end
 
-n_a=[n_a1,n_a2];
+%% Reconstruct full n_a array
+if exist('n_a3', 'var')
+    n_a = [n_a1, n_a2, n_a3]; % DC2A: [Safe, Future, Risky]
+else
+    n_a = [n_a1, n_a2];       % DC1: [Safe, Risky]
+end
 
 %% Transform Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
 % 1. Dynamically reconstruct the state-space dimensions
-target_sz = n_a; 
+target_sz = n_a;
 if N_z > 1, target_sz = [target_sz, n_z]; end
 if N_e > 1, target_sz = [target_sz, vfoptions.n_e]; end
 target_sz = [target_sz, N_j];
@@ -147,16 +87,18 @@ target_sz = [target_sz, N_j];
 % 2. Reshape the Value Function
 V = reshape(VKron, target_sz);
 
-% 3. Extract Policy dynamically
+% 3. Un-Kronecker the Policy Function
 has_z = (N_z > 1);
 has_e = (N_e > 1);
-has_d1 = (N_d1 > 0);
+has_d1 = (sum(n_d1) > 0);
+has_d2 = (sum(n_d2) > 0);
+has_d3 = (sum(n_d3) > 0);
+has_a1 = (sum(n_a1) > 0); 
+has_a2 = (length(n_a) > 2); % 3rd asset is risky, so > 2 means 2 standard assets
 
-% The number of policy channels is: 
-% 1 (for d2, d3 bundled logic) + d1 (if present) + number of standard endogenous assets
-num_channels = 1 + has_d1 + length(n_a); 
+% Dynamically count the number of active choice variables
+num_channels = has_d1 + has_d2 + has_d3 + has_a1 + has_a2; 
 
-% Determine suffix
 if has_e && has_z
     suffix = '_z_e';
 elseif has_z || has_e
@@ -168,20 +110,38 @@ end
 base_fn = sprintf('UnKronPolicyIndexes%d_FHorz', num_channels);
 UnKronFn = str2func([base_fn, suffix]);
 
-% 4. Dynamically build the arguments list
-args = {PolicyKron};
-if has_d1, args{end+1} = n_d1; end
-args = [args, {n_d2, n_d3}];
+% 4. Dynamically build the arguments list and shrink-wrap PolicyKron
+active_rows = [];
+if has_d1, active_rows(end+1) = 1; end
+if has_d2, active_rows(end+1) = 2; end
+if has_d3, active_rows(end+1) = 3; end
+if has_a1, active_rows(end+1) = 4; end
+if has_a2, active_rows(end+1) = 5; end
+% Pure DC does not output Grid Interpolation flags!
 
-% Append the standard asset grids (everything in n_a except the risky asset at the end)
-for i = 1:(length(n_a)-1)
-    args{end+1} = n_a(i);
-end
+% Slice out only the active rows
+slice_idx = repmat({':'}, 1, ndims(PolicyKron));
+slice_idx{1} = active_rows;
+PolicyKronSliced = PolicyKron(slice_idx{:});
+
+% Build the argument list based ONLY on active dimensions
+args = {PolicyKronSliced};
+if has_d1, args{end+1} = n_d1; end
+if has_d2, args{end+1} = n_d2; end
+if has_d3, args{end+1} = n_d3; end
+if has_a1, args{end+1} = n_a1; end
+if has_a2, args{end+1} = n_a2; end
 
 args{end+1} = n_a; % The full combined asset grid size
 
-if has_z, args{end+1} = n_z; end
-if has_e, args{end+1} = vfoptions.n_e; end
+if has_z && has_e
+    args = [args, {n_z, vfoptions.n_e}];
+elseif has_z
+    args{end+1} = n_z;
+elseif has_e
+    args{end+1} = vfoptions.n_e;
+end
+
 args = [args, {N_j, vfoptions}];
 
 % 5. Execute
