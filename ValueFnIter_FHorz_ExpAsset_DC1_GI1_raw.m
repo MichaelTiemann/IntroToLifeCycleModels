@@ -57,7 +57,7 @@ N_a1prime=length(a1prime_grid);
 
 aind=gpuArray(0:1:N_a-1); % already includes -1
 zind=shiftdim(gpuArray(0:1:N_z-1),-3); % already includes -1
-zindB=shiftdim(gpuArray(0:1:N_z-1),-1); % already includes -1
+zBind=shiftdim(gpuArray(0:1:N_z-1),-1); % already includes -1
 
 a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2); % already includes -1
 d2ind=repelem(gpuArray(1:1:N_d2)',N_d1,1); % [N_d,1]; maps full d-index to d2-component
@@ -107,7 +107,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,N_d)+1;
-        allind=d_ind+N_d*aind+N_d*N_a*zindB; % midpoint is n_d-by-1-by-n_a1-by-n_a2-by-n_z
+        allind=d_ind+N_d*aind+N_d*N_a*zBind; % midpoint is n_d-by-1-by-n_a1-by-n_a2-by-n_z
         if has_d
             Policy(1,:,:,N_j) = d_ind; % Combined d index (really d2)
         end
@@ -116,8 +116,8 @@ if ~isfield(vfoptions,'V_Jplus1')
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
         L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind                     + N_d*n2long*aind + N_d*n2long*N_a*zindB;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zindB;
+        linidx_lower = d_ind                     + N_d*n2long*aind + N_d*n2long*N_a*zBind;
+        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zBind;
         isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
@@ -252,7 +252,7 @@ else
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,N_d)+1;
-        allind=d_ind+N_d*aind+N_d*N_a*zindB; % midpoint is n_d-by-1-by-n_a1-by-n_a2-by-n_z
+        allind=d_ind+N_d*aind+N_d*N_a*zBind; % midpoint is n_d-by-1-by-n_a1-by-n_a2-by-n_z
         if has_d
             Policy(1,:,:,N_j) = d_ind; % Combined d index
         end
@@ -261,8 +261,8 @@ else
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
         L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind                     + N_d*n2long*aind + N_d*n2long*N_a*zindB;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zindB;
+        linidx_lower = d_ind                     + N_d*n2long*aind + N_d*n2long*N_a*zBind;
+        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zBind;
         isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
@@ -423,7 +423,7 @@ for reverse_j=1:N_j-1
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
         V(:,:,jj)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,N_d)+1;
-        allind=d_ind+N_d*aind+N_d*N_a*zindB; % midpoint is n_d-by-1-by-n_a1-by-n_a2-by-n_z
+        allind=d_ind+N_d*aind+N_d*N_a*zBind; % midpoint is n_d-by-1-by-n_a1-by-n_a2-by-n_z
         if has_d
             Policy(1,:,:,jj) = d_ind; % Combined d index
         end
@@ -432,8 +432,8 @@ for reverse_j=1:N_j-1
 
         % L2 flag to later avoid -Inf ReturnFn (1=all to lower, 2=usual, 3=all to upper)
         L2offset = ceil(maxindexL2/N_d);
-        linidx_lower = d_ind                     + N_d*n2long*aind + N_d*n2long*N_a*zindB;
-        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zindB;
+        linidx_lower = d_ind                     + N_d*n2long*aind + N_d*n2long*N_a*zBind;
+        linidx_upper = d_ind + N_d*(n2long-1) + N_d*n2long*aind + N_d*n2long*N_a*zBind;
         isInfLower = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);

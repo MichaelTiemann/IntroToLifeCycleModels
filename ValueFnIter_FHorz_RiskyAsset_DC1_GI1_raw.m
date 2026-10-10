@@ -47,7 +47,7 @@ N_a1prime = length(a1prime_grid);
 
 % Precompute Array Indices
 aind = gpuArray(0:1:N_a-1);
-zindB = shiftdim(gpuArray(0:1:N_z-1), -1); % [1, 1, N_z]
+zBind = shiftdim(gpuArray(0:1:N_z-1), -1); % [1, 1, N_z]
 d3ind = repelem(gpuArray(1:1:N_d3)', N_d1, 1); % [N_d13,1]; maps full d13-index to d3-component
 
 %% Iterate backwards through j
@@ -113,7 +113,7 @@ for jj = N_j:-1:1
         if vfoptions.lowmemory == 0
             z_val = z_gridvals_J(:, :, jj);
             z_idx = 1:N_z;
-            z_offset = zindB; % Strict vector matching
+            z_offset = zBind; % Strict vector matching
         else
             z_val = z_gridvals_J(z_c, :, jj);
             z_idx = z_c;
@@ -214,9 +214,9 @@ for jj = N_j:-1:1
         d_ind = rem(maxindexL2-1, N_d13) + 1; % Index within d13
 
         if vfoptions.lowmemory == 0
-            allind = d_ind + N_d13*aind + N_d13*N_a*zindB;
-            linidx_lower = d_ind + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-            linidx_upper = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
+            allind = d_ind + N_d13*aind + N_d13*N_a*zBind;
+            linidx_lower = d_ind + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
+            linidx_upper = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
             ReturnMatrix_ii_resh = reshape(ReturnMatrix_ii, [N_d13, n2long, N_a1, N_a2, N_z]);
         else
             allind = d_ind + N_d13*aind;
@@ -243,7 +243,7 @@ for jj = N_j:-1:1
         else
             a1mid = midpoint_jj(allind);
             if vfoptions.lowmemory == 0
-                linlookup = ceil(d_ind/N_d1) + N_d3*(a1mid-1) + N_d3*N_a1*zindB;
+                linlookup = ceil(d_ind/N_d1) + N_d3*(a1mid-1) + N_d3*N_a1*zBind;
                 Policy(2, :, z_idx, jj) = d2index_resh(linlookup);
             else
                 linlookup = ceil(d_ind/N_d1) + N_d3*(a1mid-1);

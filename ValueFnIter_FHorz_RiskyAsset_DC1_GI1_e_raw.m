@@ -60,7 +60,7 @@ N_a1prime=length(a1prime_grid);
 % Precompute
 aind=gpuArray(0:1:N_a-1);
 zind=shiftdim(gpuArray(0:1:N_z-1),-3);
-zindB=shiftdim(gpuArray(0:1:N_z-1),-1);
+zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
 eBind=shiftdim(gpuArray(0:1:N_e-1),-2);
 a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2);
 a2Bind=gpuArray(0:1:N_a2-1);
@@ -114,7 +114,7 @@ for jj = N_j:-1:1
     for z_c = z_iter
         if vfoptions.lowmemory <= 1
             z_val = z_gridvals_J(:,:,jj);
-            z_idx = 1:N_z; z_offset = zindB;
+            z_idx = 1:N_z; z_offset = zBind;
         else
             z_val = z_gridvals_J(z_c,:,jj);
             z_idx = z_c; z_offset = 0;
@@ -155,13 +155,13 @@ for jj = N_j:-1:1
         for e_c = e_iter
             if vfoptions.lowmemory == 0
                 e_val = e_gridvals_J(:,:,jj);
-                e_idx = 1:N_e; ze_offset = zindB + N_z*eBind;
+                e_idx = 1:N_e; ze_offset = zBind + N_z*eBind;
                 midpoint_jj = zeros(N_d13, 1, N_a1, N_a2, N_z, N_e, 'gpuArray');
             else
                 e_val = e_gridvals_J(e_c,:,jj);
                 e_idx = e_c;
                 if vfoptions.lowmemory == 1
-                    ze_offset = zindB; % e singular
+                    ze_offset = zBind; % e singular
                     midpoint_jj = zeros(N_d13, 1, N_a1, N_a2, N_z, 1, 'gpuArray');
                 else
                     ze_offset = 0;

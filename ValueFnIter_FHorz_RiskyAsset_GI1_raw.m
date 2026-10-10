@@ -49,7 +49,7 @@ N_a1prime=length(a1prime_grid);
 
 aind=gpuArray(0:1:N_a-1); % already includes -1
 zind=shiftdim(gpuArray(0:1:N_z-1),-3); % already includes -1
-zindB=shiftdim(gpuArray(0:1:N_z-1),-1); % already includes -1
+zBind=shiftdim(gpuArray(0:1:N_z-1),-1); % already includes -1
 
 a2ind=shiftdim(gpuArray(0:1:N_a2-1),-2); % already includes -1
 
@@ -74,7 +74,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         d_ind=rem(maxindexL2-1,N_d13)+1; % d13 combined
         d1_ind=rem(d_ind-1,N_d1)+1;
         d3_ind=ceil(d_ind/N_d1);
-        allind=d_ind+N_d13*aind+N_d13*N_a*zindB;
+        allind=d_ind+N_d13*aind+N_d13*N_a*zBind;
         Policy(1,:,:,N_j)=d1_ind;                                        % d1
         Policy(3,:,:,N_j)=d3_ind;                                        % d3
         Policy(4,:,:,N_j)=shiftdim(squeeze(midpoint_jj(allind)),-1);     % midpoint
@@ -82,8 +82,8 @@ if ~isfield(vfoptions,'V_Jplus1')
 
         % L2flag
         L2offset      = ceil(maxindexL2/N_d13);
-        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
+        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
+        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
         isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
@@ -192,7 +192,7 @@ else % V_Jplus1
         d_ind=rem(maxindexL2-1,N_d13)+1; % d13 combined
         d1_ind=rem(d_ind-1,N_d1)+1;
         d3_ind=ceil(d_ind/N_d1);
-        allind=d_ind+N_d13*aind+N_d13*N_a*zindB;
+        allind=d_ind+N_d13*aind+N_d13*N_a*zBind;
         Policy(1,:,:,N_j)=d1_ind;                                        % d1
         Policy(3,:,:,N_j)=d3_ind;                                        % d3
         Policy(4,:,:,N_j)=shiftdim(squeeze(midpoint_jj(allind)),-1);     % midpoint
@@ -200,8 +200,8 @@ else % V_Jplus1
 
         % L2flag
         L2offset      = ceil(maxindexL2/N_d13);
-        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
+        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
+        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
         isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);
@@ -327,7 +327,7 @@ for reverse_j=1:N_j-1
         d_ind=rem(maxindexL2-1,N_d13)+1;
         d1_ind=rem(d_ind-1,N_d1)+1;
         d3_ind=ceil(d_ind/N_d1);
-        allind=d_ind+N_d13*aind+N_d13*N_a*zindB;
+        allind=d_ind+N_d13*aind+N_d13*N_a*zBind;
         Policy(1,:,:,jj)=d1_ind;                                        % d1
         Policy(3,:,:,jj)=d3_ind;                                        % d3
         Policy(4,:,:,jj)=shiftdim(squeeze(midpoint_jj(allind)),-1);     % midpoint
@@ -335,8 +335,8 @@ for reverse_j=1:N_j-1
 
         % L2flag
         L2offset      = ceil(maxindexL2/N_d13);
-        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
-        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zindB;
+        linidx_lower  = d_ind                    + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
+        linidx_upper  = d_ind + N_d13*(n2long-1) + N_d13*n2long*aind + N_d13*n2long*N_a*zBind;
         isInfLower    = (ReturnMatrix_ii(linidx_lower) == -Inf);
         isInfUpper    = (ReturnMatrix_ii(linidx_upper) == -Inf);
         inLowerStrict = (L2offset >= 2)         & (L2offset <= n2short+1);

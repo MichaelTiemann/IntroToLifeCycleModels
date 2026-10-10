@@ -55,7 +55,7 @@ N_a1fine = length(a1prime_grid);
 
 % Precompute Arrays
 aind = gpuArray(0:1:N_a-1);
-zindB = shiftdim(gpuArray(0:1:N_z-1), -1); % [1,1,N_z]
+zBind = shiftdim(gpuArray(0:1:N_z-1), -1); % [1,1,N_z]
 d3ind = repelem(gpuArray(1:1:N_d3)', N_d1, 1); % [N_d13,1]; maps full d13-index to d3-component
 a1pcol = reshape(0:1:N_a1-1, [1, N_a1]);       % [1,N_a1prime]
 a2pcol = reshape(0:1:N_a2-1, [1, 1, N_a2]);    % [1,1,N_a2prime]
@@ -126,7 +126,7 @@ for jj = N_j:-1:1
         if vfoptions.lowmemory == 0
             z_val = z_gridvals_J(:, :, jj);
             z_idx = 1:N_z;
-            z_offset = zindB; % Strict vector matching
+            z_offset = zBind; % Strict vector matching
         else
             z_val = z_gridvals_J(z_c, :, jj);
             z_idx = z_c;
@@ -227,10 +227,10 @@ for jj = N_j:-1:1
         maxindexL2a2 = floor((maxindexL2-1)/(N_d13*n2long)) + 1;
 
         if vfoptions.lowmemory == 0
-            allind = d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zindB;
+            allind = d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zBind;
             ReturnMatrix_ii_flat = reshape(ReturnMatrix_ii, [N_d13*n2long*N_a2, N_a, N_z]);
-            linidx_lower = d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
-            linidx_upper = d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
+            linidx_lower = d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
+            linidx_upper = d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
         else
             allind = d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind;
             ReturnMatrix_ii_flat = reshape(ReturnMatrix_ii, [N_d13*n2long*N_a2, N_a]);
@@ -256,7 +256,7 @@ for jj = N_j:-1:1
             Policy(2, :, z_idx, jj) = ones(1, N_a, length(z_idx), 'gpuArray');
         else
             if vfoptions.lowmemory == 0
-                lin = d3_ind + N_d3*(a1mid-1) + N_d3*N_a1*(maxindexL2a2-1) + N_d3*N_a1*N_a2*zindB;
+                lin = d3_ind + N_d3*(a1mid-1) + N_d3*N_a1*(maxindexL2a2-1) + N_d3*N_a1*N_a2*zBind;
                 Policy(2, :, z_idx, jj) = d2index_resh(lin);
             else
                 lin = d3_ind + N_d3*(a1mid-1) + N_d3*N_a1*(maxindexL2a2-1);

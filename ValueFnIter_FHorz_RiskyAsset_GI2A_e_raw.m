@@ -61,8 +61,8 @@ N_a1fine=length(a1prime_grid);
 
 % Precompute
 aind=gpuArray(0:1:N_a-1);
-zindB=shiftdim(gpuArray(0:1:N_z-1),-1);
-zeindB=zindB+N_z*shiftdim((0:1:N_e-1),-2);
+zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
+zeBind=zBind+N_z*shiftdim((0:1:N_e-1),-2);
 
 %% Unified Time Loop
 for jj = N_j:-1:1
@@ -113,7 +113,7 @@ for jj = N_j:-1:1
     for z_c = z_iter
         if vfoptions.lowmemory <= 1
             z_val = z_gridvals_J(:,:,jj);
-            z_idx = 1:N_z; z_offset = zindB;
+            z_idx = 1:N_z; z_offset = zBind;
         else
             z_val = z_gridvals_J(z_c,:,jj);
             z_idx = z_c; z_offset = 0;
@@ -154,12 +154,12 @@ for jj = N_j:-1:1
         for e_c = e_iter
             if vfoptions.lowmemory == 0
                 e_val = e_gridvals_J(:,:,jj);
-                e_idx = 1:N_e; ze_offset = zeindB;
+                e_idx = 1:N_e; ze_offset = zeBind;
             else
                 e_val = e_gridvals_J(e_c,:,jj);
                 e_idx = e_c;
                 if vfoptions.lowmemory == 1
-                    ze_offset = zindB; % e is singular, ze_offset maps strictly to z
+                    ze_offset = zBind; % e is singular, ze_offset maps strictly to z
                 else
                     ze_offset = 0;
                 end

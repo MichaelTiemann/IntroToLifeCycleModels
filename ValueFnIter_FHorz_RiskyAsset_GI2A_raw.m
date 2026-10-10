@@ -56,7 +56,7 @@ N_a1fine=length(a1prime_grid);
 
 % Precompute
 aind=gpuArray(0:1:N_a-1);
-zindB=shiftdim(gpuArray(0:1:N_z-1),-1);
+zBind=shiftdim(gpuArray(0:1:N_z-1),-1);
 
 %% j=N_j
 ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
@@ -83,7 +83,7 @@ if ~isfield(vfoptions,'V_Jplus1')
         d1_ind=rem(d_ind-1,N_d1)+1;
         d3_ind=ceil(d_ind/N_d1);
 
-        allind=d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zindB;
+        allind=d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zBind;
         Policy(1,:,:,N_j)=d1_ind;                       % d1
         Policy(3,:,:,N_j)=d3_ind;                       % d3
         Policy(4,:,:,N_j)=midpoint_jj(allind);          % a1prime midpoint
@@ -91,8 +91,8 @@ if ~isfield(vfoptions,'V_Jplus1')
         Policy(6,:,:,N_j)=maxindexL2a1;                 % L2ind
 
         % L2flag
-        linidx_lower=d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
-        linidx_upper=d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
+        linidx_lower=d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
+        linidx_upper=d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
         isInfLower   =(ReturnMatrix_ii(linidx_lower)==-Inf);
         isInfUpper   =(ReturnMatrix_ii(linidx_upper)==-Inf);
         inLowerStrict=(maxindexL2a1>=2)         & (maxindexL2a1<=n2short+1);
@@ -207,7 +207,7 @@ else % V_Jplus1
         d1_ind=rem(d_ind-1,N_d1)+1;
         d3_ind=ceil(d_ind/N_d1);
 
-        allind=d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zindB;
+        allind=d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zBind;
         Policy(1,:,:,N_j)=d1_ind;
         Policy(3,:,:,N_j)=d3_ind;
         Policy(4,:,:,N_j)=midpoint_jj(allind);
@@ -215,8 +215,8 @@ else % V_Jplus1
         Policy(6,:,:,N_j)=maxindexL2a1;
 
         % L2flag
-        linidx_lower=d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
-        linidx_upper=d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
+        linidx_lower=d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
+        linidx_upper=d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
         isInfLower   =(ReturnMatrix_ii(linidx_lower)==-Inf);
         isInfUpper   =(ReturnMatrix_ii(linidx_upper)==-Inf);
         inLowerStrict=(maxindexL2a1>=2)         & (maxindexL2a1<=n2short+1);
@@ -349,7 +349,7 @@ for reverse_j=1:N_j-1
         d1_ind=rem(d_ind-1,N_d1)+1;
         d3_ind=ceil(d_ind/N_d1);
 
-        allind=d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zindB;
+        allind=d_ind + N_d13*(maxindexL2a2-1) + N_d13*N_a2*aind + N_d13*N_a2*N_a*zBind;
         Policy(1,:,:,jj)=d1_ind;
         Policy(3,:,:,jj)=d3_ind;
         Policy(4,:,:,jj)=midpoint_jj(allind);
@@ -357,8 +357,8 @@ for reverse_j=1:N_j-1
         Policy(6,:,:,jj)=maxindexL2a1;
 
         % L2flag
-        linidx_lower=d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
-        linidx_upper=d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zindB;
+        linidx_lower=d_ind                    + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
+        linidx_upper=d_ind + N_d13*(n2long-1) + N_d13*n2long*(maxindexL2a2-1) + N_d13*n2long*N_a2*aind + N_d13*n2long*N_a2*N_a*zBind;
         isInfLower   =(ReturnMatrix_ii(linidx_lower)==-Inf);
         isInfUpper   =(ReturnMatrix_ii(linidx_upper)==-Inf);
         inLowerStrict=(maxindexL2a1>=2)         & (maxindexL2a1<=n2short+1);
