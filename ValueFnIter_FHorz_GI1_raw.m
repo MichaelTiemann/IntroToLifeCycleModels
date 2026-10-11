@@ -42,7 +42,7 @@ ReturnFnParamsVec=CreateVectorFromParams(Parameters, ReturnFnParamNames,N_j);
 if ~isfield(vfoptions,'V_Jplus1')
     if vfoptions.lowmemory==0
 
-        ReturnMatrix=CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
+        ReturnMatrix=CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
         % If needed, fix the missing 'd' dimension shift:
         ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a, N_a, N_z]);
         % Calc the max and it's index
@@ -77,7 +77,7 @@ if ~isfield(vfoptions,'V_Jplus1')
 
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            ReturnMatrix_z=CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec,1);
+            ReturnMatrix_z=CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec,1);
             % If needed, fix the missing 'd' dimension shift:
             ReturnMatrix_z=reshape(ReturnMatrix_z, [N_d, N_a, N_a, 1]);
             % Calc the max and it's index
@@ -128,7 +128,7 @@ else
 
     if vfoptions.lowmemory==0
 
-        ReturnMatrix=CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
+        ReturnMatrix=CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1);
         % (d,aprime,a,z)
         % If needed, fix the missing 'd' dimension shift:
         ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a, N_a, N_z]);
@@ -172,7 +172,7 @@ else
             EV_z=EV(:,:,z_c);
             EVinterp_z=EVinterp(:,:,z_c);
 
-            ReturnMatrix_z=CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec,1);
+            ReturnMatrix_z=CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec,1);
             % If needed, fix the missing 'd' dimension shift:
             ReturnMatrix_z=reshape(ReturnMatrix_z, [N_d, N_a, N_a, 1]);
 
@@ -240,7 +240,7 @@ for reverse_j=1:N_j-1
 
     if vfoptions.lowmemory==0
 
-        ReturnMatrix=CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,1);
+        ReturnMatrix=CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals_J(:,:,jj), ReturnFnParamsVec,1);
         % (d,aprime,a,z)
         % If needed, fix the missing 'd' dimension shift:
         ReturnMatrix=reshape(ReturnMatrix, [N_d, N_a, N_a, N_z]);
@@ -284,7 +284,7 @@ for reverse_j=1:N_j-1
             EV_z=EV(:,:,z_c);
             EVinterp_z=EVinterp(:,:,z_c);
 
-            ReturnMatrix_z=CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec,1);
+            ReturnMatrix_z=CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, special_n_z, d_gridvals, a_grid, z_val, ReturnFnParamsVec,1);
             % If needed, fix the missing 'd' dimension shift:
             ReturnMatrix_z=reshape(ReturnMatrix_z, [N_d, N_a, N_a, 1]);
 

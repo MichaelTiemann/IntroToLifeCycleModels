@@ -123,7 +123,7 @@ end
         % LOW MEMORY 0
         if vfoptions.lowmemory == 0
             if ~has_continuation
-                ReturnMatrix = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_bothz, d_gridvals, a_grid, bothz_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                ReturnMatrix = CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_bothz, d_gridvals, a_grid, bothz_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
                 [V_j, maxindex] = max(ReturnMatrix, [], 1);
                 if has_d2
                     Pol_j = extract_policy_no_d2(maxindex, N_d, N_d1);
@@ -135,7 +135,7 @@ end
 
             for d2_c = 1:N_d2
                 pi_bothz = kron(pi_z_J(:,:,j), pi_semiz_J(:,:,d2_c,j));
-                ReturnMatrix_d2 = CreateReturnFnMatrix_Disc(ReturnFn, special_n_d, n_a, n_bothz, d12_gridvals(:,:,d2_c), a_grid, bothz_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                ReturnMatrix_d2 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, special_n_d, n_a, n_bothz, d12_gridvals(:,:,d2_c), a_grid, bothz_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
 
                 EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                 entireRHS = ReturnMatrix_d2 + DiscountFactorParamsVec * repelem(EV_d2, N_d1, 1);
@@ -151,7 +151,7 @@ end
                 pi_bothz = kron(pi_z_J(:,:,j), pi_semiz_J(:,:,d2_c,j));
                 for z_c = 1:N_z
                     semizblock = (z_c-1)*N_semiz + (1:N_semiz);
-                    ReturnMatrix_d2z = CreateReturnFnMatrix_Disc(ReturnFn, special_n_d, n_a, [n_semiz, special_n_z], d12_gridvals(:,:,d2_c), a_grid, bothz_gridvals_J(semizblock,:,j), ReturnFnParamsVec, 0);
+                    ReturnMatrix_d2z = CreateReturnFnMatrix_Disc_uraw(ReturnFn, special_n_d, n_a, [n_semiz, special_n_z], d12_gridvals(:,:,d2_c), a_grid, bothz_gridvals_J(semizblock,:,j), ReturnFnParamsVec, 0);
 
                     if has_continuation
                         EV_d2z = compute_expected_value_cond(EV, pi_bothz(semizblock,:)', N_a);
@@ -171,7 +171,7 @@ end
             for d2_c = 1:N_d2
                 pi_bothz = kron(pi_z_J(:,:,j), pi_semiz_J(:,:,d2_c,j));
                 for z_c = 1:N_bothz
-                    ReturnMatrix_d2z = CreateReturnFnMatrix_Disc(ReturnFn, special_n_d, n_a, special_n_bothz, d12_gridvals(:,:,d2_c), a_grid, bothz_gridvals_J(z_c,:,j), ReturnFnParamsVec, 0);
+                    ReturnMatrix_d2z = CreateReturnFnMatrix_Disc_uraw(ReturnFn, special_n_d, n_a, special_n_bothz, d12_gridvals(:,:,d2_c), a_grid, bothz_gridvals_J(z_c,:,j), ReturnFnParamsVec, 0);
 
                     if has_continuation
                         EV_d2z = compute_expected_value_cond(EV, pi_bothz(z_c,:)', N_a);

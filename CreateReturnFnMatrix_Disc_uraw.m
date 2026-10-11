@@ -1,4 +1,4 @@
-function Fmatrix = CreateReturnFnMatrix_Disc(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals, ReturnFnParamsVec, Refine)
+function Fmatrix = CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals, ReturnFnParamsVec, Refine)
 % If no d variable, just input n_d=0 and d_gridvals=[]
 
 if nargin < 9
