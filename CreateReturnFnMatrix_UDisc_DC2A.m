@@ -1,59 +1,43 @@
-function Fmatrix = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, n_z, n_e, d_gridvals, a1prime_grid, a2prime_grid, a1_grid, a2_grid, z_gridvals, e_gridvals, ReturnFnParamsVec, Level, ~)
-
+function Fmatrix = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, n_bothz, n_e, d_gridvals, a1prime_gridvals, a2prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec, step)
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
-N_d_raw = prod(n_d);
-N_d = max(N_d_raw, 1);
-N_a1 = length(a1_grid);
-N_a2 = length(a2_grid);
-N_z_raw = prod(n_z);
-N_z = max(N_z_raw, 1);
-N_e_raw = prod(n_e);
-N_e = max(N_e_raw, 1);
+% Robust dimension lengths
+l_d = length(n_d);      if prod(n_d) == 0; l_d = 0; end
+l_a1 = length(a1_gridvals);
+l_a2 = length(a2_gridvals);
+l_bz = length(n_bothz); if prod(n_bothz) == 0; l_bz = 0; end
+l_e = length(n_e);      if prod(n_e) == 0; l_e = 0; end
 
-if Level == 1 || Level == 4 || Level == 5
-    N_a1prime = size(a1prime_grid, 1);
-    a1prime_arg = {shiftdim(a1prime_grid, -1)};
-elseif Level == 2 || Level == 3 || Level == 6
-    N_a1prime = size(a1prime_grid, 2);
-    a1prime_arg = {a1prime_grid};
-end
-
-a2prime_arg = {shiftdim(a2prime_grid, -2)};
-a1_arg = {shiftdim(a1_grid, -3)};
-a2_arg = {shiftdim(a2_grid, -4)};
-
-% Build dynamic parameters
-if N_d_raw == 0 || isempty(d_gridvals)
-    d_args = {};
+% Shift dimensions for implicit expansion
+d_vals = cell(1, l_d);
+if step == 1
+    for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
 else
-    d_args = num2cell(d_gridvals, 1);
+    % Step 2: Dynamically replicate d to match the flattened a1prime array length
+    if l_d > 0
+        maxgap_plus_1 = size(a1prime_gridvals, 1) / size(d_gridvals, 1);
+        for i = 1:l_d; d_vals{i} = repmat(d_gridvals(:, i), maxgap_plus_1, 1); end
+    end
 end
 
-if N_z_raw == 0 || isempty(z_gridvals)
-    z_args = {};
+a1prime_vals = cell(1, 1);
+if step == 1
+    a1prime_vals{1} = shiftdim(a1prime_gridvals, -1);
 else
-    z_args = cellfun(@(x) shiftdim(x, -5), num2cell(z_gridvals, 1), 'UniformOutput', false);
+    a1prime_vals{1} = a1prime_gridvals;
 end
 
-if N_e_raw == 0 || isempty(e_gridvals)
-    e_args = {};
-else
-    e_args = cellfun(@(x) shiftdim(x, -6), num2cell(e_gridvals, 1), 'UniformOutput', false);
-end
+a2prime_vals = {shiftdim(a2prime_gridvals, -2)};
+a1_vals = {shiftdim(a1_gridvals, -3)};
+a2_vals = {shiftdim(a2_gridvals, -4)};
 
-% Combine all inputs
-all_inputs = [d_args, a1prime_arg, a2prime_arg, a1_arg, a2_arg, z_args, e_args, ReturnFnParamsCell'];
+bz_vals = cell(1, l_bz); for i = 1:l_bz; bz_vals{i} = shiftdim(bothz_gridvals(:, i), -5); end
+e_vals = cell(1, l_e); for i = 1:l_e; e_vals{i} = shiftdim(e_gridvals(:, i), -6); end
 
-% Evaluate function using arrayfun
-Fmatrix = arrayfun(ReturnFn, all_inputs{:});
+GridParamsCell = [d_vals, a1prime_vals, a2prime_vals, a1_vals, a2_vals, bz_vals, e_vals];
 
-% Reshape output matrix
-if Level == 2 || Level == 5
-    Fmatrix = reshape(Fmatrix, [N_d * N_a1prime * N_a2, N_a1, N_a2, N_z, N_e]);
-else
-    Fmatrix = reshape(Fmatrix, [N_d, N_a1prime, N_a2, N_a1, N_a2, N_z, N_e]);
-end
+% Evaluate function using arrayfun (No trailing reshapes required!)
+Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
 
 end
