@@ -1,4 +1,4 @@
-function [Dims, Grids, Probs] = Setup_uraw_FHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions)
+function [Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions)
 
 % Helper to robustly expand stationary grids/probs across time
     function out = expand_time(in, target_dim, N)

@@ -1,4 +1,4 @@
-function [V, Policy] = ValueFnIter_FHorz_ExpAssetSemiExo_uraw(n_d1, n_d2, n_d3, n_a1, n_a2, n_z, n_semiz, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, semiz_gridvals_J, pi_z_J, pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
+function [V, Policy] = ValueFnIter_UFHorz_ExpAssetSemiExo(n_d1, n_d2, n_d3, n_a1, n_a2, n_z, n_semiz, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, semiz_gridvals_J, pi_z_J, pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 % 1. Reconstruct unified arguments for the underlying core engine
 N_d1 = max(prod(n_d1), 1);

@@ -1,4 +1,4 @@
-function Fmatrix = CreateReturnFnMatrix_ExpAsset_uraw(ReturnFn, n_d, n_a1, n_a2, n_bothz, n_e, d_gridvals, a1prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec)
+function Fmatrix = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d, n_a1, n_a2, n_bothz, n_e, d_gridvals, a1prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec)
 
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
