@@ -54,36 +54,24 @@ end
 
         % LOW MEMORY 0
         if vfoptions.lowmemory == 0
-            if ~has_continuation
-                ReturnMatrix = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.n_d_comb, n_a, Dims.n_bothz, Dims.n_e, d_gridvals, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
-                [V_j, maxindex] = max(ReturnMatrix, [], 1);
-                if has_d2 && N_semiz_raw > 0
-                    Pol_j = extract_policy_no_d2(maxindex, N_d, N_d1);
-                else
-                    Pol_j = shiftdim(maxindex, -1);
-                end
-                return;
-            end
-
             for d2_c = 1:N_d2
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
 
                 if has_continuation
-                    if N_semiz_raw > 0
-                        pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
-                    else
-                        pi_bothz = Probs.pi_z_J(:,:,j);
-                    end
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
                     EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                 end
 
-                ReturnMatrix_d2 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, N_e]);
 
                 if has_continuation
-                    entireRHS = ReturnMatrix_d2 + DiscountFactorParamsVec * repelem(EV_d2, N_d1, 1);
+                    entireRHS = RM + DiscountFactorParamsVec * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]);
                 else
-                    entireRHS = ReturnMatrix_d2;
+                    entireRHS = RM;
                 end
+
+                entireRHS = reshape(entireRHS, [N_d1 * N_a, N_a, N_bothz, N_e]);
 
                 [Vtemp, maxindex] = max(entireRHS, [], 1);
                 V_ford2_jj(:,:,:,d2_c) = shiftdim(Vtemp, 1);
@@ -96,17 +84,22 @@ end
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
 
                 if has_continuation
-                    if N_semiz_raw > 0
-                        pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
-                    else
-                        pi_bothz = Probs.pi_z_J(:,:,j);
-                    end
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
                     EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                 end
 
                 for e_c = 1:N_e
-                    ReturnMatrix_d2e = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
-                    if has_continuation; entireRHS = ReturnMatrix_d2e + DiscountFactorParamsVec * repelem(EV_d2, N_d1, 1); else; entireRHS = ReturnMatrix_d2e; end
+                    e_val = Grids.e_gridvals_J(e_c,:,j);
+                    RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 0);
+                    RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, 1]);
+
+                    if has_continuation
+                        entireRHS = RM + DiscountFactorParamsVec * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]);
+                    else
+                        entireRHS = RM;
+                    end
+
+                    entireRHS = reshape(entireRHS, [N_d1 * N_a, N_a, N_bothz, 1]);
 
                     [Vtemp, maxindex] = max(entireRHS, [], 1);
                     V_ford2_jj(:,:,e_c,d2_c) = shiftdim(Vtemp, 1);
@@ -117,16 +110,26 @@ end
             % LOW MEMORY 2
         elseif vfoptions.lowmemory == 2
             for d2_c = 1:N_d2
-                pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
-
+                if has_continuation
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
+                end
                 for z_c = 1:N_z
                     semizblock = (z_c-1)*N_semiz + (1:N_semiz);
                     if has_continuation; EV_d2z = compute_expected_value_cond(EV, pi_bothz(semizblock,:)', N_a); end
 
                     for e_c = 1:N_e
-                        ReturnMatrix_d2ze = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(semizblock,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
-                        if has_continuation; entireRHS = ReturnMatrix_d2ze + DiscountFactorParamsVec * repelem(EV_d2z, N_d1, 1); else; entireRHS = ReturnMatrix_d2ze; end
+                        e_val = Grids.e_gridvals_J(e_c,:,j);
+                        RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 0);
+                        RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, 1]);
+
+                        if has_continuation
+                            entireRHS = RM + DiscountFactorParamsVec * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]);
+                        else
+                            entireRHS = RM;
+                        end
+
+                        entireRHS = reshape(entireRHS, [N_d1 * N_a, N_a, N_semiz, 1]);
 
                         [Vtemp, maxindex] = max(entireRHS, [], 1);
                         V_ford2_jj(:,semizblock,e_c,d2_c) = shiftdim(Vtemp, 1);
@@ -139,24 +142,28 @@ end
         elseif vfoptions.lowmemory == 3
             for d2_c = 1:N_d2
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
-
+                if has_continuation
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
+                end
                 for z_c = 1:N_bothz
-                    if has_continuation
-                        if N_semiz_raw > 0
-                            pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
-                        else
-                            pi_bothz = Probs.pi_z_J(:,:,j);
-                        end
-                        EV_d2z = compute_expected_value_cond(EV, pi_bothz(z_c,:)', N_a);
-                    end
+                    if has_continuation; EV_d2z = compute_expected_value_cond(EV, pi_bothz(z_c,:)', N_a); end
 
                     for e_c = 1:N_e
-                        ReturnMatrix_d2ze = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
-                        if has_continuation; entireRHS = ReturnMatrix_d2ze + DiscountFactorParamsVec * repelem(EV_d2z, N_d1, 1); else; entireRHS = ReturnMatrix_d2ze; end
+                        e_val = Grids.e_gridvals_J(e_c,:,j);
+                        RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 0);
+                        RM = reshape(RM, [N_d1, N_a, N_a, 1, 1]);
+
+                        if has_continuation
+                            entireRHS = RM + DiscountFactorParamsVec * reshape(EV_d2z, [1, N_a, 1, 1, 1]);
+                        else
+                            entireRHS = RM;
+                        end
+
+                        entireRHS = reshape(entireRHS, [N_d1 * N_a, N_a, 1, 1]);
 
                         [Vtemp, maxindex] = max(entireRHS, [], 1);
-                        V_ford2_jj(:,z_c,e_c,d2_c) = Vtemp;
-                        Policy_ford2_jj(:,z_c,e_c,d2_c) = maxindex;
+                        V_ford2_jj(:,z_c,e_c,d2_c) = shiftdim(Vtemp, 1);
+                        Policy_ford2_jj(:,z_c,e_c,d2_c) = shiftdim(maxindex, 1);
                     end
                 end
             end
