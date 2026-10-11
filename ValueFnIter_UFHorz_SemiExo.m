@@ -1,6 +1,6 @@
 function [V, Policy] = ValueFnIter_UFHorz_SemiExo(n_d1, n_d2, n_a, n_semiz, n_z, N_j, d1_gridvals, d2_gridvals, a_grid, z_gridvals_J, semiz_gridvals_J, pi_z_J, pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-% 1. Reconstruct unified arguments for uraw
+% 1. Reconstruct unified arguments for raw engine
 N_d1 = max(prod(n_d1), 1);
 N_d2 = max(prod(n_d2), 1);
 
@@ -27,28 +27,31 @@ end
 
 % 3. Extract dimensions for decoding
 N_d = N_d1 * N_d2;
+l_d = length(n_d);
+if N_d == 1 && n_d(1) == 0; l_d = 0; end
+
 s2 = size(PolicyKron, 2);
 s3 = size(PolicyKron, 3);
 s4 = size(PolicyKron, 4);
 s5 = size(PolicyKron, 5);
 
-% 4. Decode the 1-row linear index into 2 or 3 distinct choice rows
-if has_d2 && has_d1
-    n_rows = 3;
-    Pol_decoded = zeros(3, s2, s3, s4, s5, 'gpuArray');
-    d12_idx = rem(PolicyKron - 1, N_d) + 1;
-    Pol_decoded(1,:,:,:,:) = rem(d12_idx - 1, N_d1) + 1; % d1_idx
-    Pol_decoded(2,:,:,:,:) = ceil(d12_idx / N_d1);       % d2_idx
-    Pol_decoded(3,:,:,:,:) = ceil(PolicyKron / N_d);     % aprime_idx
-elseif has_d2 && ~has_d1
-    n_rows = 2;
-    Pol_decoded = zeros(2, s2, s3, s4, s5, 'gpuArray');
-    Pol_decoded(1,:,:,:,:) = rem(PolicyKron - 1, N_d2) + 1; % d2_idx
-    Pol_decoded(2,:,:,:,:) = ceil(PolicyKron / N_d2);       % aprime_idx
-else
-    n_rows = 1;
-    Pol_decoded = PolicyKron;
+% 4. Decode the 1-row linear index into [l_d + 1] distinct choice rows
+n_rows = l_d + 1;
+Pol_decoded = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
+
+d_idx = rem(PolicyKron - 1, N_d) + 1;
+
+if l_d == 1
+    Pol_decoded(1,:,:,:,:) = d_idx;
+elseif l_d > 1
+    d_cum = 1;
+    for i = 1:l_d
+        Pol_decoded(i,:,:,:,:) = rem(ceil(d_idx / d_cum) - 1, n_d(i)) + 1;
+        d_cum = d_cum * n_d(i);
+    end
 end
+
+Pol_decoded(n_rows,:,:,:,:) = ceil(PolicyKron / N_d); % aprime_idx
 
 % 5. Dynamically determine state dimensions for final Unkronned Reshape
 state_dims = n_a;
