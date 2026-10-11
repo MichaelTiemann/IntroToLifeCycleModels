@@ -160,7 +160,7 @@ end
                     d_val = d_gridvals( (d_outer_c-1)*N_d1*N_d2 + (d2_c-1)*N_d1 + (1:N_d1), : );
 
                     if has_cont
-                        EV_interp_d2 = EV_interp( (d2_c-1)*N_a1*N_a2 + (1:N_a1*N_a2), : );
+                        EV_interp_d2 = EV_interp(d2_c : N_d2 : end, :); % <--- THE FIX
                         EV_expected = compute_expected_value(EV_interp_d2, pi_bz);
                         DiscountedEV_flat = df * reshape(EV_expected, [N_a1 * N_a2 * N_bothz, 1]);
                         DiscountedEV = reshape(DiscountedEV_flat, [1, N_a1, 1, N_a2, N_bothz, 1]);
@@ -186,7 +186,7 @@ end
 
                         loweredge = min(min(maxindex1(:,1,ii,:,:,:), [], 1), N_a1-maxgap(ii));
 
-                        % Cleanly Flatten N-D matrices to 2D exactly for RefineSearch routing
+                        % Cleanly Flatten N-D matrices to 2D exactly for the ReturnMatrix routing
                         base_idx = bsxfun(@plus, loweredge, N_a1*a2_idx + N_a1*N_a2*bothz_idx);
                         base_idx = repmat(base_idx, [1, 1, L, 1, 1, 1]);
                         n_states = numel(base_idx);
@@ -194,25 +194,32 @@ end
                         base_flat = reshape(base_idx, 1, n_states);
                         le_flat = reshape(repmat(loweredge, [1, 1, L, 1, 1, 1]), 1, n_states);
 
+                        % Choice Dimension: a1prime
                         aprimez = bsxfun(@plus, base_flat, (0:maxgap(ii))'); % [maxgap+1, n_states]
                         reshape_size = [N_d1*(maxgap(ii)+1), 1, L, N_a2, N_bothz, N_e];
 
-                        ReturnFnHandle = @(ap) reshape( ...
-                            CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                            reshape(a1_gridvals(ap,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
-                            Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2), ...
-                            [N_d1*(maxgap(ii)+1), n_states] ...
-                            );
+                        a1p = bsxfun(@plus, le_flat, (0:maxgap(ii))');
+                        if N_d1 > 1; a1p_rep = repelem(a1p, N_d1, 1); else; a1p_rep = a1p; end
+
+                        RM = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
+                            reshape(a1_gridvals(a1p_rep,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
+                            Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2);
+
+                        entireRHS = reshape(RM, [N_d1*(maxgap(ii)+1), n_states]);
 
                         if has_cont
                             EV_slice = DiscountedEV_flat(aprimez);
-                            [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size, EV_slice);
-                        else
-                            [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size);
+                            if N_d1 > 1; EV_slice = repelem(EV_slice, N_d1, 1); end
+                            entireRHS = entireRHS + EV_slice;
                         end
 
+                        [Vtempii, maxindex] = max(entireRHS, [], 1);
+
+                        dind = rem(maxindex - 1, N_d1) + 1;
+                        a1primeind = ceil(maxindex / N_d1) - 1;
+
                         V_ford23(curraindex,:,:,:,d23_idx) = reshape(Vtempii, [L, N_a2, N_bothz, N_e]);
-                        pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
+                        pol_flat = dind + N_d1 * (le_flat + a1primeind - 1);
                         Policy_ford23(curraindex,:,:,:,d23_idx) = reshape(pol_flat, [L, N_a2, N_bothz, N_e]);
                     end
                 end
@@ -231,7 +238,7 @@ end
                     d_val = d_gridvals( (d_outer_c-1)*N_d1*N_d2 + (d2_c-1)*N_d1 + (1:N_d1), : );
 
                     if has_cont
-                        EV_interp_d2 = EV_interp( (d2_c-1)*N_a1*N_a2 + (1:N_a1*N_a2), : );
+                        EV_interp_d2 = EV_interp(d2_c : N_d2 : end, :); % <--- THE FIX
                         EV_expected = compute_expected_value(EV_interp_d2, pi_bz);
                         DiscountedEV_flat = df * reshape(EV_expected, [N_a1 * N_a2 * N_bothz, 1]);
                         DiscountedEV = reshape(DiscountedEV_flat, [1, N_a1, 1, N_a2, N_bothz, 1]);
@@ -268,22 +275,28 @@ end
                             aprimez = bsxfun(@plus, base_flat, (0:maxgap(ii))');
                             reshape_size = [N_d1*(maxgap(ii)+1), 1, L, N_a2, N_bothz, 1];
 
-                            ReturnFnHandle = @(ap) reshape( ...
-                                CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                                reshape(a1_gridvals(ap,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
-                                Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 2), ...
-                                [N_d1*(maxgap(ii)+1), n_states] ...
-                                );
+                            a1p = bsxfun(@plus, le_flat, (0:maxgap(ii))');
+                            if N_d1 > 1; a1p_rep = repelem(a1p, N_d1, 1); else; a1p_rep = a1p; end
+
+                            RM = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
+                                reshape(a1_gridvals(a1p_rep,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
+                                Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 2);
+
+                            entireRHS = reshape(RM, [N_d1*(maxgap(ii)+1), n_states]);
 
                             if has_cont
                                 EV_slice = DiscountedEV_flat(aprimez);
-                                [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size, EV_slice);
-                            else
-                                [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size);
+                                if N_d1 > 1; EV_slice = repelem(EV_slice, N_d1, 1); end
+                                entireRHS = entireRHS + EV_slice;
                             end
 
+                            [Vtempii, maxindex] = max(entireRHS, [], 1);
+
+                            dind = rem(maxindex - 1, N_d1) + 1;
+                            a1primeind = ceil(maxindex / N_d1) - 1;
+
                             V_ford23(curraindex,:,:,e_c,d23_idx) = reshape(Vtempii, [L, N_a2, N_bothz, 1]);
-                            pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
+                            pol_flat = dind + N_d1 * (le_flat + a1primeind - 1);
                             Policy_ford23(curraindex,:,:,e_c,d23_idx) = reshape(pol_flat, [L, N_a2, N_bothz, 1]);
                         end
                     end
@@ -306,7 +319,7 @@ end
                         semizblock = (z_c-1)*N_semiz + (1:N_semiz);
 
                         if has_cont
-                            EV_interp_d2 = EV_interp( (d2_c-1)*N_a1*N_a2 + (1:N_a1*N_a2), : );
+                            EV_interp_d2 = EV_interp(d2_c : N_d2 : end, :); % <--- THE FIX
                             EV_expected = compute_expected_value_cond(EV_interp_d2, pi_bz(semizblock,:)', N_a1*N_a2);
                             DiscountedEV_flat = df * reshape(EV_expected, [N_a1 * N_a2 * N_semiz, 1]);
                             DiscountedEV_z = reshape(DiscountedEV_flat, [1, N_a1, 1, N_a2, N_semiz, 1]);
@@ -343,22 +356,28 @@ end
                                 aprimez = bsxfun(@plus, base_flat, (0:maxgap(ii))');
                                 reshape_size = [N_d1*(maxgap(ii)+1), 1, L, N_a2, N_semiz, 1];
 
-                                ReturnFnHandle = @(ap) reshape( ...
-                                    CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, ...
-                                    reshape(a1_gridvals(ap,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
-                                    Grids.bothz_gridvals_J(semizblock,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 2), ...
-                                    [N_d1*(maxgap(ii)+1), n_states] ...
-                                    );
+                                a1p = bsxfun(@plus, le_flat, (0:maxgap(ii))');
+                                if N_d1 > 1; a1p_rep = repelem(a1p, N_d1, 1); else; a1p_rep = a1p; end
+
+                                RM = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, ...
+                                    reshape(a1_gridvals(a1p_rep,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
+                                    Grids.bothz_gridvals_J(semizblock,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 2);
+
+                                entireRHS = reshape(RM, [N_d1*(maxgap(ii)+1), n_states]);
 
                                 if has_cont
                                     EV_slice = DiscountedEV_flat(aprimez);
-                                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size, EV_slice);
-                                else
-                                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size);
+                                    if N_d1 > 1; EV_slice = repelem(EV_slice, N_d1, 1); end
+                                    entireRHS = entireRHS + EV_slice;
                                 end
 
+                                [Vtempii, maxindex] = max(entireRHS, [], 1);
+
+                                dind = rem(maxindex - 1, N_d1) + 1;
+                                a1primeind = ceil(maxindex / N_d1) - 1;
+
                                 V_ford23(curraindex,:,semizblock,e_c,d23_idx) = reshape(Vtempii, [L, N_a2, N_semiz, 1]);
-                                pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
+                                pol_flat = dind + N_d1 * (le_flat + a1primeind - 1);
                                 Policy_ford23(curraindex,:,semizblock,e_c,d23_idx) = reshape(pol_flat, [L, N_a2, N_semiz, 1]);
                             end
                         end
@@ -380,7 +399,7 @@ end
 
                     for z_c = 1:N_bothz
                         if has_cont
-                            EV_interp_d2 = EV_interp( (d2_c-1)*N_a1*N_a2 + (1:N_a1*N_a2), : );
+                            EV_interp_d2 = EV_interp(d2_c : N_d2 : end, :); % <--- THE FIX
                             EV_expected = compute_expected_value_cond(EV_interp_d2, pi_bz(z_c,:)', N_a1*N_a2);
                             DiscountedEV_flat = df * reshape(EV_expected, [N_a1 * N_a2, 1]);
                             DiscountedEV_z = reshape(DiscountedEV_flat, [1, N_a1, 1, N_a2, 1, 1]);
@@ -417,22 +436,28 @@ end
                                 aprimez = bsxfun(@plus, base_flat, (0:maxgap(ii))');
                                 reshape_size = [N_d1*(maxgap(ii)+1), 1, L, N_a2, 1, 1];
 
-                                ReturnFnHandle = @(ap) reshape( ...
-                                    CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                                    reshape(a1_gridvals(ap,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
-                                    Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 2), ...
-                                    [N_d1*(maxgap(ii)+1), n_states] ...
-                                    );
+                                a1p = bsxfun(@plus, le_flat, (0:maxgap(ii))');
+                                if N_d1 > 1; a1p_rep = repelem(a1p, N_d1, 1); else; a1p_rep = a1p; end
+
+                                RM = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
+                                    reshape(a1_gridvals(a1p_rep,:), reshape_size), a1_gridvals(curraindex,:), a2_gridvals, ...
+                                    Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 2);
+
+                                entireRHS = reshape(RM, [N_d1*(maxgap(ii)+1), n_states]);
 
                                 if has_cont
                                     EV_slice = DiscountedEV_flat(aprimez);
-                                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size, EV_slice);
-                                else
-                                    [Vtempii, maxindex, dind] = RefineSearch_DC1(ReturnFnHandle, le_flat, maxgap(ii), N_d1, reshape_size);
+                                    if N_d1 > 1; EV_slice = repelem(EV_slice, N_d1, 1); end
+                                    entireRHS = entireRHS + EV_slice;
                                 end
 
+                                [Vtempii, maxindex] = max(entireRHS, [], 1);
+
+                                dind = rem(maxindex - 1, N_d1) + 1;
+                                a1primeind = ceil(maxindex / N_d1) - 1;
+
                                 V_ford23(curraindex,:,z_c,e_c,d23_idx) = reshape(Vtempii, [L, N_a2, 1, 1]);
-                                pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
+                                pol_flat = dind + N_d1 * (le_flat + a1primeind - 1);
                                 Policy_ford23(curraindex,:,z_c,e_c,d23_idx) = reshape(pol_flat, [L, N_a2, 1, 1]);
                             end
                         end

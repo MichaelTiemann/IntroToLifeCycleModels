@@ -10,29 +10,21 @@ l_e = length(n_e);      if prod(n_e) == 0; l_e = 0; end
 
 % Shift dimensions for implicit expansion
 d_vals = cell(1, l_d);
-if step == 1
-    for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
-else
-    % Step 2: Dynamically replicate d to match the flattened a1prime array length
-    if l_d > 0
-        maxgap_plus_1 = size(a1prime_gridvals, 1) / size(d_gridvals, 1);
-        for i = 1:l_d; d_vals{i} = repmat(d_gridvals(:, i), maxgap_plus_1, 1); end
-    end
-end
+for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end % Dim 1
 
 a1prime_vals = cell(1, 1);
 if step == 1
-    a1prime_vals{1} = shiftdim(a1prime_gridvals, -1);
+    a1prime_vals{1} = shiftdim(a1prime_gridvals, -1); % Dim 2
 else
-    a1prime_vals{1} = a1prime_gridvals;
+    a1prime_vals{1} = a1prime_gridvals; % Passed exactly as shaped (N-D array)
 end
 
-a2prime_vals = {shiftdim(a2prime_gridvals, -2)};
-a1_vals = {shiftdim(a1_gridvals, -3)};
-a2_vals = {shiftdim(a2_gridvals, -4)};
+a2prime_vals = {shiftdim(a2prime_gridvals, -2)}; % Dim 3
+a1_vals = {shiftdim(a1_gridvals, -3)};           % Dim 4
+a2_vals = {shiftdim(a2_gridvals, -4)};           % Dim 5
 
-bz_vals = cell(1, l_bz); for i = 1:l_bz; bz_vals{i} = shiftdim(bothz_gridvals(:, i), -5); end
-e_vals = cell(1, l_e); for i = 1:l_e; e_vals{i} = shiftdim(e_gridvals(:, i), -6); end
+bz_vals = cell(1, l_bz); for i = 1:l_bz; bz_vals{i} = shiftdim(bothz_gridvals(:, i), -5); end % Dim 6
+e_vals = cell(1, l_e); for i = 1:l_e; e_vals{i} = shiftdim(e_gridvals(:, i), -6); end         % Dim 7
 
 GridParamsCell = [d_vals, a1prime_vals, a2prime_vals, a1_vals, a2_vals, bz_vals, e_vals];
 
