@@ -8,6 +8,7 @@ if prod(vfoptions.n_e) > 0
 else
     n_e = 0; e_gridvals_J = []; pi_e_J = [];
 end
+Dims.n_e=n_e;
 
 if prod(vfoptions.n_semiz) > 0
     n_semiz = vfoptions.n_semiz;

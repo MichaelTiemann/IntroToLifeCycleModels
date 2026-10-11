@@ -1,26 +1,29 @@
-function Fmatrix = CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_z, d_gridvals, a_grid, z_gridvals, ReturnFnParamsVec, Refine)
+function Fmatrix = CreateReturnFnMatrix_Disc_uraw(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals, e_gridvals, ReturnFnParamsVec, Refine)
 % If no d variable, just input n_d=0 and d_gridvals=[]
-
-if nargin < 9
+if nargin < 11
     Refine = 0;
 end
 
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
 N_d_raw = prod(n_d);
-N_d=max(N_d_raw,1);
+N_d = max(N_d_raw, 1);
 N_a = prod(n_a);
 N_z_raw = prod(n_z);
+N_e_raw = prod(n_e);
 
-l_d = length(n_d); if N_d_raw == 0; l_d = 0; end
+l_d = length(n_d);
+if N_d_raw == 0; l_d = 0; end
 l_a = length(n_a);
-l_z = length(n_z); if N_z_raw == 0; l_z = 0; end
+l_z = length(n_z);
+if N_z_raw == 0; l_z = 0; end
+l_e = length(n_e);
+if N_e_raw == 0; l_e = 0; end
 
 % Collect 'a' and 'a_prime' values dynamically
 a_prime_vals = cell(1, l_a);
 a_vals = cell(1, l_a);
 a_cum = 0;
-
 for i = 1:l_a
     n_ai = n_a(i);
     idx_range = (a_cum + 1):(a_cum + n_ai);
@@ -46,22 +49,37 @@ else
         z_vals{i} = shiftdim(z_gridvals(:, i), -(1 + z_shift_base));
     end
 end
-N_z=max(N_z_raw,1);
+
+% Collect 'e' values dynamically
+if l_e == 0
+    e_vals = {};
+else
+    e_vals = cell(1, l_e);
+    e_shift_base = 2 * l_a + 1; % z combined grid takes 1 dimension
+    for i = 1:l_e
+        e_vals{i} = shiftdim(e_gridvals(:, i), -(1 + e_shift_base));
+    end
+end
+
+N_z = max(N_z_raw, 1);
+N_e = max(N_e_raw, 1);
 
 % Combine all inputs into a single argument cell array for arrayfun
-all_inputs = [d_vals, a_prime_vals, a_vals, z_vals, ReturnFnParamsCell'];
+all_inputs = [d_vals, a_prime_vals, a_vals, z_vals, e_vals, ReturnFnParamsCell'];
 
 % Evaluate function using arrayfun
 Fmatrix = arrayfun(ReturnFn, all_inputs{:});
 
 % Reshape output matrix
 if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_z]);
+    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_z, N_e]);
 else
     if Refine == 1
-        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_z]);
+        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_z, N_e]);
     else
-        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_z]);
+        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_z, N_e]);
     end
 end
+
+
 end

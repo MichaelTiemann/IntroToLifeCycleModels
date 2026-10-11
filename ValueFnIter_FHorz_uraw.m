@@ -55,7 +55,7 @@ end
         % LOW MEMORY 0
         if vfoptions.lowmemory == 0
             if ~has_continuation
-                ReturnMatrix = CreateReturnFnMatrix_Disc_e(ReturnFn, Dims.n_d_comb, n_a, Dims.n_bothz, Dims.n_e, d_gridvals, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                ReturnMatrix = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.n_d_comb, n_a, Dims.n_bothz, Dims.n_e, d_gridvals, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
                 [V_j, maxindex] = max(ReturnMatrix, [], 1);
                 if has_d2 && N_semiz_raw > 0
                     Pol_j = extract_policy_no_d2(maxindex, N_d, N_d1);
@@ -69,7 +69,7 @@ end
                 pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
 
-                ReturnMatrix_d2 = CreateReturnFnMatrix_Disc_e(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                ReturnMatrix_d2 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
                 EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                 entireRHS = ReturnMatrix_d2 + DiscountFactorParamsVec * repelem(EV_d2, N_d1, 1);
 
@@ -87,7 +87,7 @@ end
                 if has_continuation; EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz); end
 
                 for e_c = 1:N_e
-                    ReturnMatrix_d2e = CreateReturnFnMatrix_Disc_e(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                    ReturnMatrix_d2e = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
                     if has_continuation; entireRHS = ReturnMatrix_d2e + DiscountFactorParamsVec * repelem(EV_d2, N_d1, 1); else; entireRHS = ReturnMatrix_d2e; end
 
                     [Vtemp, maxindex] = max(entireRHS, [], 1);
@@ -107,7 +107,7 @@ end
                     if has_continuation; EV_d2z = compute_expected_value_cond(EV, pi_bothz(semizblock,:)', N_a); end
 
                     for e_c = 1:N_e
-                        ReturnMatrix_d2ze = CreateReturnFnMatrix_Disc_e(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(semizblock,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                        ReturnMatrix_d2ze = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(semizblock,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
                         if has_continuation; entireRHS = ReturnMatrix_d2ze + DiscountFactorParamsVec * repelem(EV_d2z, N_d1, 1); else; entireRHS = ReturnMatrix_d2ze; end
 
                         [Vtemp, maxindex] = max(entireRHS, [], 1);
@@ -127,7 +127,7 @@ end
                     if has_continuation; EV_d2z = compute_expected_value_cond(EV, pi_bothz(z_c,:)', N_a); end
 
                     for e_c = 1:N_e
-                        ReturnMatrix_d2ze = CreateReturnFnMatrix_Disc_e(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                        ReturnMatrix_d2ze = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
                         if has_continuation; entireRHS = ReturnMatrix_d2ze + DiscountFactorParamsVec * repelem(EV_d2z, N_d1, 1); else; entireRHS = ReturnMatrix_d2ze; end
 
                         [Vtemp, maxindex] = max(entireRHS, [], 1);
