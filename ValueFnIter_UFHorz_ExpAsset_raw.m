@@ -56,12 +56,19 @@ if Dims.exp_flag > 0
     l_z_len  = length(n_z);  if prod(n_z) == 0;  l_z_len = 0; end
     l_e_len  = length(n_e);  if prod(n_e) == 0;  l_e_len = 0; end
     l_bothz_len = length(Dims.n_bothz); if prod(Dims.n_bothz) == 0; l_bothz_len = 0; end
+    if isfield(vfoptions, 'n_u')
+        l_u_len = length(vfoptions.n_u); if prod(vfoptions.n_u) == 0; l_u_len = 0; end
+    else
+        l_u_len = 0;
+    end
 
     % Calculate expected state arguments based on the active variant
     if Dims.exp_flag == 3 || Dims.exp_flag == 4 % e or ze
         num_state_args = l_d2_len + l_a2_len + l_z_len + l_e_len + (l_a2_len >= 2);
     elseif Dims.exp_flag == 2 || Dims.exp_flag == 5 % z or semiz
         num_state_args = l_d2_len + l_a2_len + l_bothz_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 6 % experienceassetu
+        num_state_args = l_d2_len + l_a2_len + l_u_len + (l_a2_len >= 2);
     else % 1 (experienceasset)
         num_state_args = l_d2_len + l_a2_len + (l_a2_len >= 2);
     end
@@ -100,6 +107,9 @@ for j = N_j:-1:1
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, Grids.e_gridvals_J(:,:,j));
         elseif Dims.exp_flag == 2 || Dims.exp_flag == 5 % experienceassetz or experienceassetsemiz
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, Dims.n_bothz, Grids.bothz_gridvals_J(:,:,j));
+        elseif Dims.exp_flag == 6 % experienceassetu
+            u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, u_gridvals);
         else
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2);
         end
@@ -130,8 +140,21 @@ end
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
             EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
-            EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
-            EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+
+            if Dims.exp_flag == 6 % experienceassetu EV integration
+                N_u = prod(vfoptions.n_u);
+                EV_interp_sum = zeros(N_d2 * N_a1 * N_a2, N_bothz, 'gpuArray');
+                for u_c = 1:N_u
+                    idx_u = ExpAsset_J.a2primeIndex(:,:,u_c);
+                    prob_u = ExpAsset_J.a2primeProbs(:,:,u_c);
+                    EV_interp_u = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, idx_u, prob_u);
+                    EV_interp_sum = EV_interp_sum + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * N_a1 * N_a2, N_bothz]);
+                end
+                EV_interp = EV_interp_sum;
+            else
+                EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
+                EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+            end
         end
 
         V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
@@ -168,7 +191,21 @@ end
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
             EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
-            EV_interp = reshape(InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs), [N_d2 * N_a1 * N_a2, N_bothz]);
+
+            if Dims.exp_flag == 6 % experienceassetu EV integration
+                N_u = prod(vfoptions.n_u);
+                EV_interp_sum = zeros(N_d2 * N_a1 * N_a2, N_bothz, 'gpuArray');
+                for u_c = 1:N_u
+                    idx_u = ExpAsset_J.a2primeIndex(:,:,u_c);
+                    prob_u = ExpAsset_J.a2primeProbs(:,:,u_c);
+                    EV_interp_u = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, idx_u, prob_u);
+                    EV_interp_sum = EV_interp_sum + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * N_a1 * N_a2, N_bothz]);
+                end
+                EV_interp = EV_interp_sum;
+            else
+                EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
+                EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+            end
         end
 
         V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
@@ -207,7 +244,21 @@ end
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
             EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
-            EV_interp = reshape(InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs), [N_d2 * N_a1 * N_a2, N_bothz]);
+
+            if Dims.exp_flag == 6 % experienceassetu EV integration
+                N_u = prod(vfoptions.n_u);
+                EV_interp_sum = zeros(N_d2 * N_a1 * N_a2, N_bothz, 'gpuArray');
+                for u_c = 1:N_u
+                    idx_u = ExpAsset_J.a2primeIndex(:,:,u_c);
+                    prob_u = ExpAsset_J.a2primeProbs(:,:,u_c);
+                    EV_interp_u = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, idx_u, prob_u);
+                    EV_interp_sum = EV_interp_sum + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * N_a1 * N_a2, N_bothz]);
+                end
+                EV_interp = EV_interp_sum;
+            else
+                EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
+                EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+            end
         end
 
         V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
@@ -248,7 +299,21 @@ end
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
             EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
-            EV_interp = reshape(InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs), [N_d2 * N_a1 * N_a2, N_bothz]);
+
+            if Dims.exp_flag == 6 % experienceassetu EV integration
+                N_u = prod(vfoptions.n_u);
+                EV_interp_sum = zeros(N_d2 * N_a1 * N_a2, N_bothz, 'gpuArray');
+                for u_c = 1:N_u
+                    idx_u = ExpAsset_J.a2primeIndex(:,:,u_c);
+                    prob_u = ExpAsset_J.a2primeProbs(:,:,u_c);
+                    EV_interp_u = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, idx_u, prob_u);
+                    EV_interp_sum = EV_interp_sum + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * N_a1 * N_a2, N_bothz]);
+                end
+                EV_interp = EV_interp_sum;
+            else
+                EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
+                EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+            end
         end
 
         V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
@@ -286,7 +351,21 @@ end
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
             EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
-            EV_interp = reshape(InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs), [N_d2 * N_a1 * N_a2, N_bothz]);
+
+            if Dims.exp_flag == 6 % experienceassetu EV integration
+                N_u = prod(vfoptions.n_u);
+                EV_interp_sum = zeros(N_d2 * N_a1 * N_a2, N_bothz, 'gpuArray');
+                for u_c = 1:N_u
+                    idx_u = ExpAsset_J.a2primeIndex(:,:,u_c);
+                    prob_u = ExpAsset_J.a2primeProbs(:,:,u_c);
+                    EV_interp_u = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, idx_u, prob_u);
+                    EV_interp_sum = EV_interp_sum + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * N_a1 * N_a2, N_bothz]);
+                end
+                EV_interp = EV_interp_sum;
+            else
+                EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
+                EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+            end
         end
 
         V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
@@ -328,7 +407,21 @@ end
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
             EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
-            EV_interp = reshape(InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs), [N_d2 * N_a1 * N_a2, N_bothz]);
+
+            if Dims.exp_flag == 6 % experienceassetu EV integration
+                N_u = prod(vfoptions.n_u);
+                EV_interp_sum = zeros(N_d2 * N_a1 * N_a2, N_bothz, 'gpuArray');
+                for u_c = 1:N_u
+                    idx_u = ExpAsset_J.a2primeIndex(:,:,u_c);
+                    prob_u = ExpAsset_J.a2primeProbs(:,:,u_c);
+                    EV_interp_u = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, idx_u, prob_u);
+                    EV_interp_sum = EV_interp_sum + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * N_a1 * N_a2, N_bothz]);
+                end
+                EV_interp = EV_interp_sum;
+            else
+                EV_interp = InterpolateExpAssetEV(EVpre, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex, ExpAsset_J.a2primeProbs);
+                EV_interp = reshape(EV_interp, [N_d2 * N_a1 * N_a2, N_bothz]);
+            end
         end
 
         V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
