@@ -45,10 +45,8 @@ end
 V = zeros(N_a, N_bothz, N_e, N_j, 'gpuArray');
 if has_d2 && N_semiz_raw
     Policy = zeros(3, N_a, N_bothz, N_e, N_j, 'gpuArray');
-    Policy(3,:,:,:,:) = 2;
 else
     Policy = zeros(2, N_a, N_bothz, N_e, N_j, 'gpuArray');
-    Policy(2,:,:,:,:) = 2;
 end
 
 % --- 4. Backward Induction Loop ---
@@ -76,11 +74,7 @@ for j = N_j:-1:1
             [V(:,:,:,j), Pol_j] = solve_period_loop_bothz_e(j, V_next);
     end
 
-    if has_d2 && N_semiz_raw
-        Policy(:,:,:,:,j) = Pol_j;
-    else
-        Policy(1,:,:,:,j) = Pol_j(1,:,:,:);
-    end
+    Policy(:,:,:,:,j) = Pol_j;
 end
 
 if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
@@ -104,7 +98,7 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
                 EV_d2 = compute_expected_value(EV, pi_bz, N_a, N_bothz);
             end
 
-            RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+            RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
             RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, N_e]);
             if has_cont; RHS = RM + df * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]); else; RHS = RM; end
 
@@ -130,7 +124,7 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
             end
 
             for e_c = 1:N_e
-                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
                 RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, 1]);
                 if has_cont; RHS = RM + df * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]); else; RHS = RM; end
 
@@ -155,7 +149,7 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
 
             for z_c = 1:N_bothz
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a); end
-                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz_lm2, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
                 RM = reshape(RM, [N_d1, N_a, N_a, 1, N_e]);
                 if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, 1, 1]); else; RHS = RM; end
 
@@ -181,7 +175,7 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
             for z_c = 1:N_z
                 sb = (z_c-1)*N_semiz + (1:N_semiz);
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(sb,:)', N_a); end
-                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz_lm2, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
                 RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, N_e]);
                 if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]); else; RHS = RM; end
 
@@ -207,7 +201,7 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
             for z_c = 1:N_bothz
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a); end
                 for e_c = 1:N_e
-                    RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz_lm2, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                    RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
                     RM = reshape(RM, [N_d1, N_a, N_a, 1, 1]);
                     if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, 1, 1]); else; RHS = RM; end
 
@@ -235,7 +229,7 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
                 sb = (z_c-1)*N_semiz + (1:N_semiz);
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(sb,:)', N_a); end
                 for e_c = 1:N_e
-                    RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                    RM = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz_lm2, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
                     RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, 1]);
                     if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]); else; RHS = RM; end
 
@@ -258,11 +252,11 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
             linear_d2 = reshape(maxindex_d2, [N_a * N_bothz * N_e, 1]);
             lin_idx = (1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (linear_d2 - 1);
             Pol_out(1,:,:,:) = reshape(rem(Pol_d2(lin_idx) - 1, N_d1) + 1, [1, N_a, N_bothz, N_e]);
-            Pol_out(3,:,:,:) = 2;
+            Pol_out(3,:,:,:) = reshape(ceil(Pol_d2(lin_idx) / N_d1), [1, N_a, N_bothz, N_e]);
         else
             Pol_out = zeros(2, N_a, N_bothz, N_e, 'gpuArray');
             Pol_out(1,:,:,:) = shiftdim(rem(Pol_d2(:,:,:,1) - 1, N_d1) + 1, -1);
-            Pol_out(2,:,:,:) = 2;
+            Pol_out(2,:,:,:) = shiftdim(ceil(Pol_d2(:,:,:,1) / N_d1), -1);
         end
     end
 
