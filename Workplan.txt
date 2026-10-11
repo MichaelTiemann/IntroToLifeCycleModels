@@ -1,0 +1,9 @@
+WorkPlan
+
+Let's do basic FHorz first.  To be efficient, I should share a standard package of files for each task.  For the first round it should be: 
+FHorz (_e_raw, _SemiExo_e_raw) to make FHorz_uraw
+round 2: FHorz_DC, FHorz_DC1_e_raw, _SemiExo_e_raw, FHorz_DC2, FHorz_DC2A_e_raw to make FHorz_DC_uraw
+round 3: FHorz_GI, FHorz_GH1_e_raw, _SemiExo_e_raw, FHorz_GI2, FHorz_GI2A_e_raw to make FHorz_GI_uraw
+round 4: FHorz_DC_GI, FHorz_DC1_GI1_e_raw, _SemiExo_e_raw, FHorz_DC2A_GI2A_e_raw to make FHorz_DC_GI_uraw.
+
+Lather, rinse, repeat for ExpAsset, RiskyAsset, and ExoticAsset(QH).
