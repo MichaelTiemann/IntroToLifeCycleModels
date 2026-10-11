@@ -511,8 +511,14 @@ end
 %% Just do the standard case
 if vfoptions.divideandconquer==1 && vfoptions.gridinterplayer==1
     % Solve by doing Divide-and-Conquer, and then a grid interpolation layer
-    [V,Policy]=ValueFnIter_FHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-    varargout={V, Policy};
+    tic;
+    [VKron,PolicyKron]=ValueFnIter_FHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_ref=toc;
+    tic;
+    [V_new,Policy_new]=ValueFnIter_FHorz_DC_GI_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_new=toc;
+    benchcheck();
+    varargout={VKron,PolicyKron};
     return
 elseif vfoptions.divideandconquer==1
     % Solve using Divide-and-Conquer algorithm
