@@ -79,7 +79,7 @@ end
 
                 EV_expected = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                 DiscountedEV_flat = df * reshape(EV_expected, [N_a1 * N_a2 * N_bothz, 1]);
-                DiscountedEV = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, N_bothz, 1]); % PERFECT BROADCAST
+                DiscountedEV = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, N_bothz, 1]);
             end
 
             RM_ii = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 1);
@@ -88,8 +88,10 @@ end
             if has_cont; entireRHS_ii = RM_ii + DiscountedEV; else; entireRHS_ii = RM_ii; end
 
             [~, maxindex1] = max(entireRHS_ii, [], 2);
-            min_a1prime = min(min(maxindex1, [], 1), [], 3); % Collapse d (Dim 1) and a2prime (Dim 3)
-            diff_a1p = min_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:);
+            min_a1prime = min(min(maxindex1, [], 1), [], 3);
+            max_a1prime = max(max(maxindex1, [], 1), [], 3);
+
+            diff_a1p = max(0, max_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:));
             maxgap = squeeze(max(max(max(diff_a1p, [], 7), [], 6), [], 5));
 
             [Vtempii, maxindex2] = max(reshape(entireRHS_ii, [N_d1*N_a1*N_a2, vfoptions.level1n, N_a2, N_bothz, N_e]), [], 1);
@@ -103,9 +105,9 @@ end
                 if isempty(curra_a1_idx); continue; end
                 L = length(curra_a1_idx);
 
-                loweredge = min(min_a1prime(1,1,1,ii,:,:,:), N_a1-maxgap(ii)); % [1, 1, 1, 1, N_a2, N_bothz, N_e]
+                loweredge = min(min_a1prime(1,1,1,ii,:,:,:), N_a1-maxgap(ii));
 
-                le_tiled = repmat(loweredge, [1, 1, 1, L, 1, 1, 1]); % [1, 1, 1, L, N_a2, N_bothz, N_e]
+                le_tiled = repmat(loweredge, [1, 1, 1, L, 1, 1, 1]);
                 a1p_idx = bsxfun(@plus, le_tiled, reshape(gpuArray(0:maxgap(ii)), 1, maxgap(ii)+1, 1, 1, 1, 1, 1));
 
                 RM = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a1_grid(a1p_idx), a2_grid, a1_grid(curra_a1_idx), a2_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2);
@@ -158,7 +160,7 @@ end
 
                 EV_expected = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                 DiscountedEV_flat = df * reshape(EV_expected, [N_a1 * N_a2 * N_bothz, 1]);
-                DiscountedEV = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, N_bothz, 1]); % PERFECT BROADCAST
+                DiscountedEV = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, N_bothz, 1]);
             end
 
             for e_c = 1:N_e
@@ -170,7 +172,9 @@ end
 
                 [~, maxindex1] = max(entireRHS_ii, [], 2);
                 min_a1prime = min(min(maxindex1, [], 1), [], 3);
-                diff_a1p = min_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:);
+                max_a1prime = max(max(maxindex1, [], 1), [], 3);
+
+                diff_a1p = max(0, max_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:));
                 maxgap = squeeze(max(max(diff_a1p, [], 6), [], 5));
 
                 [Vtempii, maxindex2] = max(reshape(entireRHS_ii, [N_d1*N_a1*N_a2, vfoptions.level1n, N_a2, N_bothz]), [], 1);
@@ -245,7 +249,7 @@ end
                 if has_cont
                     EV_d2z = compute_expected_value_cond(EV, pi_bothz(semizblock,:)', N_a);
                     DiscountedEV_flat = df * reshape(EV_d2z, [N_a1 * N_a2 * N_semiz, 1]);
-                    DiscountedEV_z = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, N_semiz, 1]); % PERFECT BROADCAST
+                    DiscountedEV_z = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, N_semiz, 1]);
                 end
 
                 for e_c = 1:N_e
@@ -257,7 +261,9 @@ end
 
                     [~, maxindex1] = max(entireRHS_ii, [], 2);
                     min_a1prime = min(min(maxindex1, [], 1), [], 3);
-                    diff_a1p = min_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:);
+                    max_a1prime = max(max(maxindex1, [], 1), [], 3);
+
+                    diff_a1p = max(0, max_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:));
                     maxgap = squeeze(max(max(diff_a1p, [], 6), [], 5));
 
                     [Vtempii, maxindex2] = max(reshape(entireRHS_ii, [N_d1*N_a1*N_a2, vfoptions.level1n, N_a2, N_semiz]), [], 1);
@@ -331,7 +337,7 @@ end
                 if has_cont
                     EV_d2z = compute_expected_value_cond(EV, pi_bothz(z_c,:)', N_a);
                     DiscountedEV_flat = df * reshape(EV_d2z, [N_a1 * N_a2, 1]);
-                    DiscountedEV_z = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, 1, 1]); % PERFECT BROADCAST
+                    DiscountedEV_z = reshape(DiscountedEV_flat, [1, N_a1, N_a2, 1, 1, 1, 1]);
                 end
 
                 for e_c = 1:N_e
@@ -343,7 +349,9 @@ end
 
                     [~, maxindex1] = max(entireRHS_ii, [], 2);
                     min_a1prime = min(min(maxindex1, [], 1), [], 3);
-                    diff_a1p = min_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:);
+                    max_a1prime = max(max(maxindex1, [], 1), [], 3);
+
+                    diff_a1p = max(0, max_a1prime(1,1,1,2:end,:,:,:) - min_a1prime(1,1,1,1:end-1,:,:,:));
                     maxgap = squeeze(max(diff_a1p, [], 5));
 
                     [Vtempii, maxindex2] = max(reshape(entireRHS_ii, [N_d1*N_a1*N_a2, vfoptions.level1n, N_a2]), [], 1);
