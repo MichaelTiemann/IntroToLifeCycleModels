@@ -498,7 +498,7 @@ if prod(vfoptions.n_semiz)>0
     % profile clear
     % profile on
     tic;
-    [V_new, Policy_new] = ValueFnIter_FHorz_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new] = ValueFnIter_FHorz_SemiExo_uraw(n_d1,n_d2,n_a,vfoptions.n_semiz,n_z,N_j,d1_gridvals,d2_gridvals, a_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     % profile off
     % profile viewer

@@ -43,11 +43,7 @@ end
 
 % --- 3. Preallocate Outputs ---
 V = zeros(N_a, N_bothz, N_e, N_j, 'gpuArray');
-if has_d2 && N_semiz_raw
-    Policy = zeros(3, N_a, N_bothz, N_e, N_j, 'gpuArray');
-else
-    Policy = zeros(2, N_a, N_bothz, N_e, N_j, 'gpuArray');
-end
+Policy = zeros(1, N_a, N_bothz, N_e, N_j, 'gpuArray');
 
 % --- 4. Backward Induction Loop ---
 for j = N_j:-1:1
@@ -76,8 +72,6 @@ for j = N_j:-1:1
 
     Policy(:,:,:,:,j) = Pol_j;
 end
-
-if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
 
 % =====================================================================
 % SPECIALIZED SOLVE FUNCTIONS
@@ -247,16 +241,18 @@ if ~Dims.has_d1 && ~Dims.has_d2; Policy = Policy(2:end, :, :, :, :); end
     function [V_out, Pol_out] = extract_pol(V_d2, Pol_d2)
         [V_out, maxindex_d2] = max(V_d2, [], 4);
         if has_d2 && N_semiz_raw
-            Pol_out = zeros(3, N_a, N_bothz, N_e, 'gpuArray');
-            Pol_out(2,:,:,:) = shiftdim(maxindex_d2, -1);
             linear_d2 = reshape(maxindex_d2, [N_a * N_bothz * N_e, 1]);
             lin_idx = (1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (linear_d2 - 1);
-            Pol_out(1,:,:,:) = reshape(rem(Pol_d2(lin_idx) - 1, N_d1) + 1, [1, N_a, N_bothz, N_e]);
-            Pol_out(3,:,:,:) = reshape(ceil(Pol_d2(lin_idx) / N_d1), [1, N_a, N_bothz, N_e]);
+            inner_pol = reshape(Pol_d2(lin_idx), [1, N_a, N_bothz, N_e]);
+            
+            % Unpack inner_pol to d1 and aprime
+            d1_idx = rem(inner_pol - 1, N_d1) + 1;
+            aprime_idx = ceil(inner_pol / N_d1);
+            
+            % Re-pack into strict d1 x d2 x aprime order for standard UnKron
+            Pol_out = d1_idx + reshape(maxindex_d2 - 1, [1, N_a, N_bothz, N_e]) * N_d1 + (aprime_idx - 1) * (N_d1 * N_d2);
         else
-            Pol_out = zeros(2, N_a, N_bothz, N_e, 'gpuArray');
-            Pol_out(1,:,:,:) = shiftdim(rem(Pol_d2(:,:,:,1) - 1, N_d1) + 1, -1);
-            Pol_out(2,:,:,:) = shiftdim(ceil(Pol_d2(:,:,:,1) / N_d1), -1);
+            Pol_out = shiftdim(Pol_d2(:,:,:,1), -1);
         end
     end
 
