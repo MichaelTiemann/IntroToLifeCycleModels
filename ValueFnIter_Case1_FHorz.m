@@ -369,9 +369,9 @@ if vfoptions.experienceasset>=1 || vfoptions.experienceassetu>=1 || vfoptions.ex
     % profile on
     tic;
     if prod(vfoptions.n_semiz)>0
-        [V_new, Policy_new] = ValueFnIter_FHorz_ExpAssetSemiExo_uraw(n_d1, n_d2, n_d3, n_a1, n_a2, n_z, vfoptions.n_semiz, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+        [V_new, Policy_new] = ValueFnIter_UFHorz_ExpAssetSemiExo(n_d1, n_d2, n_d3, n_a1, n_a2, n_z, vfoptions.n_semiz, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     else
-        [V_new, Policy_new] = ValueFnIter_FHorz_ExpAsset_uraw(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+        [V_new, Policy_new] = ValueFnIter_FHorz_ExpAsset(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     end
     time_new=toc;
     % profile off
@@ -521,7 +521,7 @@ if prod(vfoptions.n_semiz)>0
     % profile clear
     % profile on
     tic;
-    [V_new,Policy_new] = ValueFnIter_FHorz_SemiExo_uraw(n_d1,n_d2,n_a,vfoptions.n_semiz,n_z,N_j,d1_gridvals,d2_gridvals, a_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new] = ValueFnIter_UFHorz_SemiExo(n_d1,n_d2,n_a,vfoptions.n_semiz,n_z,N_j,d1_gridvals,d2_gridvals, a_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     % profile off
     % profile viewer
@@ -538,7 +538,7 @@ if vfoptions.divideandconquer==1 && vfoptions.gridinterplayer==1
     [V_ref,Policy_ref]=ValueFnIter_FHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
-    [V_new,Policy_new]=ValueFnIter_FHorz_DC_GI_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new]=ValueFnIter_UFHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
     varargout={V_ref,Policy_ref};
@@ -549,7 +549,7 @@ elseif vfoptions.divideandconquer==1
     [V_ref,Policy_ref]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
-    [V_new,Policy_new]=ValueFnIter_FHorz_DC_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new]=ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
     varargout={V_ref,Policy_ref};
@@ -560,7 +560,7 @@ elseif vfoptions.gridinterplayer==1
     [V_ref,Policy_ref]=ValueFnIter_FHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
-    [V_new,Policy_new]=ValueFnIter_FHorz_GI_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new]=ValueFnIter_UFHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
     varargout={V_ref,Policy_ref};
@@ -609,7 +609,7 @@ time_ref=toc;
 % profile clear
 % profile on
 tic;
-[VKron_new, PolicyKron_new] = ValueFnIter_FHorz_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+[VKron_new, PolicyKron_new] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 time_new=toc;
 % profile off
 % profile viewer

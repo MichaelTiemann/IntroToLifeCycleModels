@@ -6,12 +6,12 @@ N_e=prod(vfoptions.n_e);
 
 %% 1 endogenous state
 if isscalar(n_a)
-    [VKron, PolicyKron]=ValueFnIter_FHorz_GI1_uraw(n_d,n_a,n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [VKron, PolicyKron]=ValueFnIter_UFHorz_GI1(n_d,n_a,n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 
     %% 2 endogenous states
 elseif length(n_a)==2
     if isscalar(vfoptions.ngridinterp)
-        [VKron, PolicyKron]=ValueFnIter_FHorz_GI2A_uraw(n_d,n_a,n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+        [VKron, PolicyKron]=ValueFnIter_UFHorz_GI2A(n_d,n_a,n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     else
         error('vfoptions.gridinterplayer=1*0 with two endogenous states can only be applied to the first of the two endo states (you have length(vfoptions.ngridinterp)>1)')
     end

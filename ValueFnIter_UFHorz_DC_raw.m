@@ -23,7 +23,7 @@ end
 
 %% 1 endogenous state
 if isscalar(n_a)
-    [VKron, PolicyKron] = ValueFnIter_FHorz_DC1_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [VKron, PolicyKron] = ValueFnIter_UFHorz_DC1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 
 %% 2 endogenous states
 elseif length(n_a)>=2
@@ -34,7 +34,7 @@ elseif length(n_a)>=2
             error('With two endogenous states, can only do divide-and-conquer in the first endogenous state (not in both)')
         end
     end
-    [VKron, PolicyKron] = ValueFnIter_FHorz_DC2A_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [VKron, PolicyKron] = ValueFnIter_UFHorz_DC2A_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 end
 
 %% Transforming Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form

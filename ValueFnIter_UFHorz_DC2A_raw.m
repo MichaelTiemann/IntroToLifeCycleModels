@@ -1,7 +1,7 @@
 function [V, Policy] = ValueFnIter_UFHorz_DC2A_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 % --- 1. Universal Setup ---
-[Dims, Grids, Probs] = Setup_uraw_FHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
+[Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
 
 N_a = Dims.N_a; N_bothz = Dims.N_bothz; N_e = Dims.N_e;
 N_d = Dims.N_d; N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_z = Dims.N_z; N_semiz = Dims.N_semiz;
@@ -70,7 +70,7 @@ end
 
                 if has_continuation; EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz); end
 
-                RM_ii = CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 1);
+                RM_ii = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 1);
 
                 if has_continuation
                     DiscountedEV = DiscountFactorParamsVec * reshape(EV_d2, [1, N_a1, N_a2, 1, 1, N_bothz]);
@@ -92,7 +92,7 @@ end
                     loweredge = min(maxindex1(:,1,:,ii,:,:,:), N_a1-maxgap(ii));
                     reshape_size = [N_d1*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_bothz, N_e];
 
-                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2);
+                    ReturnFnHandle = @(a1p) CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2);
 
                     if has_continuation
                         aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*bothzBind;
@@ -119,7 +119,7 @@ end
 
                 for e_c = 1:N_e
                     e_val = Grids.e_gridvals_J(e_c,:,j);
-                    RM_ii = CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 1);
+                    RM_ii = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 1);
 
                     if has_continuation
                         DiscountedEV = DiscountFactorParamsVec * reshape(EV_d2, [1, N_a1, N_a2, 1, 1, N_bothz]);
@@ -141,7 +141,7 @@ end
                         loweredge = min(maxindex1(:,1,:,ii,:,:), N_a1-maxgap(ii));
                         reshape_size = [N_d1*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_bothz, 1];
 
-                        ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 2);
+                        ReturnFnHandle = @(a1p) CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 2);
 
                         if has_continuation
                             aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*bothzBind;
@@ -171,7 +171,7 @@ end
 
                     for e_c = 1:N_e
                         e_val = Grids.e_gridvals_J(e_c,:,j);
-                        RM_ii = CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 1);
+                        RM_ii = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 1);
 
                         if has_continuation
                             DiscountedEV_z = DiscountFactorParamsVec * reshape(EV_d2z, [1, N_a1, N_a2, 1, 1, N_semiz]);
@@ -193,7 +193,7 @@ end
                             loweredge = min(maxindex1(:,1,:,ii,:), N_a1-maxgap(ii));
                             reshape_size = [N_d1*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, N_semiz, 1];
 
-                            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 2);
+                            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 2);
 
                             if has_continuation
                                 aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind + N_a*semizBind;
@@ -223,7 +223,7 @@ end
 
                     for e_c = 1:N_e
                         e_val = Grids.e_gridvals_J(e_c,:,j);
-                        RM_ii = CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 1);
+                        RM_ii = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_grid, a2_grid, a1_grid(level1ii), a2_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 1);
 
                         if has_continuation
                             DiscountedEV_z = DiscountFactorParamsVec * reshape(EV_d2z, [1, N_a1, N_a2, 1, 1, 1]);
@@ -245,7 +245,7 @@ end
                             loweredge = min(maxindex1(:,1,:,ii), N_a1-maxgap(ii));
                             reshape_size = [N_d1*(maxgap(ii)+1)*N_a2, level1iidiff(ii)*N_a2, 1, 1];
 
-                            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_Disc_DC2A_uraw(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 2);
+                            ReturnFnHandle = @(a1p) CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_grid(a1p), a2_grid, a1_grid(level1ii(ii)+1:level1ii(ii+1)-1), a2_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 2);
 
                             if has_continuation
                                 aprimez = repelem(loweredge+(0:1:maxgap(ii)),1,1,1,level1iidiff(ii),1,1) + N_a1*a2Bind;

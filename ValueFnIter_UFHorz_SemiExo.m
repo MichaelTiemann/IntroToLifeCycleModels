@@ -23,7 +23,7 @@ else
 end
 
 % 2. Call the unified raw engine
-[VKron, PolicyKron] = ValueFnIter_FHorz_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+[VKron, PolicyKron] = ValueFnIter_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 
 % 3. Extract dimensions for decoding
 N_d = N_d1 * N_d2;

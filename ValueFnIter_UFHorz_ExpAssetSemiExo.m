@@ -19,7 +19,7 @@ n_a = [n_a1, n_a2];
 a_grid = [a1_grid; a2_grid];
 
 % 2. Call the unified ExpAsset raw engine
-[VKron, PolicyKron] = ValueFnIter_FHorz_ExpAsset_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+[VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 
 % 3. Extract dimensions for decoding
 N_d_comb = N_d1 * N_d2 * N_d3;
