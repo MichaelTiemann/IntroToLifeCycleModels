@@ -516,8 +516,14 @@ if vfoptions.divideandconquer==1 && vfoptions.gridinterplayer==1
     return
 elseif vfoptions.divideandconquer==1
     % Solve using Divide-and-Conquer algorithm
-    [V,Policy]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-    varargout={V, Policy};
+    tic;
+    [VKron,PolicyKron]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_ref=toc;
+    tic;
+    [V_new,Policy_new]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_new=toc;
+    benchcheck();
+    varargout={VKron, PolicyKron};
     return
 elseif vfoptions.gridinterplayer==1
     % Solve using grid interpolation layer
