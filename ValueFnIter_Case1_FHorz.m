@@ -520,15 +520,21 @@ elseif vfoptions.divideandconquer==1
     [VKron,PolicyKron]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
-    [V_new,Policy_new]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new]=ValueFnIter_FHorz_DC_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
     varargout={VKron, PolicyKron};
     return
 elseif vfoptions.gridinterplayer==1
     % Solve using grid interpolation layer
-    [V,Policy]=ValueFnIter_FHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-    varargout={V, Policy};
+    tic;
+    [VKron,PolicyKron]=ValueFnIter_FHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_ref=toc;
+    tic;
+    [V_new,Policy_new]=ValueFnIter_FHorz_GI_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_ref=toc;
+    benchcheck();
+    varargout={VKron,PolicyKron};
     return
 end
 
