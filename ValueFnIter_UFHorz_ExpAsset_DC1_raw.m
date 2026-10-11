@@ -212,7 +212,7 @@ end
                         end
 
                         V_ford23(curraindex,:,:,:,d23_idx) = reshape(Vtempii, [L, N_a2, N_bothz, N_e]);
-                        pol_flat = dind + 1 + (le_flat + maxindex - 2) * N_d1;
+                        pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
                         Policy_ford23(curraindex,:,:,:,d23_idx) = reshape(pol_flat, [L, N_a2, N_bothz, N_e]);
                     end
                 end
@@ -283,7 +283,7 @@ end
                             end
 
                             V_ford23(curraindex,:,:,e_c,d23_idx) = reshape(Vtempii, [L, N_a2, N_bothz, 1]);
-                            pol_flat = dind + 1 + (le_flat + maxindex - 2) * N_d1;
+                            pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
                             Policy_ford23(curraindex,:,:,e_c,d23_idx) = reshape(pol_flat, [L, N_a2, N_bothz, 1]);
                         end
                     end
@@ -358,7 +358,7 @@ end
                                 end
 
                                 V_ford23(curraindex,:,semizblock,e_c,d23_idx) = reshape(Vtempii, [L, N_a2, N_semiz, 1]);
-                                pol_flat = dind + 1 + (le_flat + maxindex - 2) * N_d1;
+                                pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
                                 Policy_ford23(curraindex,:,semizblock,e_c,d23_idx) = reshape(pol_flat, [L, N_a2, N_semiz, 1]);
                             end
                         end
@@ -432,7 +432,7 @@ end
                                 end
 
                                 V_ford23(curraindex,:,z_c,e_c,d23_idx) = reshape(Vtempii, [L, N_a2, 1, 1]);
-                                pol_flat = dind + 1 + (le_flat + maxindex - 2) * N_d1;
+                                pol_flat = dind + (le_flat + maxindex - 2) * N_d1;
                                 Policy_ford23(curraindex,:,z_c,e_c,d23_idx) = reshape(pol_flat, [L, N_a2, 1, 1]);
                             end
                         end
