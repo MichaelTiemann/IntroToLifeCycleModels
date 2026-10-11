@@ -489,7 +489,7 @@ if prod(vfoptions.n_semiz)>0
     % profile clear
     % profile on
     tic;
-    [VKron, PolicyKron]=ValueFnIter_FHorz_SemiExo(n_d1,n_d2,n_a,vfoptions.n_semiz,n_z,N_j,d1_gridvals,d2_gridvals, a_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_ref,Policy_ref]=ValueFnIter_FHorz_SemiExo(n_d1,n_d2,n_a,vfoptions.n_semiz,n_z,N_j,d1_gridvals,d2_gridvals, a_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     % profile off
     % profile viewer
@@ -504,7 +504,7 @@ if prod(vfoptions.n_semiz)>0
     % profile viewer
 
     benchcheck();
-    varargout={VKron, PolicyKron};
+    varargout={V_ref,Policy_ref};
     return
 end
 
@@ -512,35 +512,35 @@ end
 if vfoptions.divideandconquer==1 && vfoptions.gridinterplayer==1
     % Solve by doing Divide-and-Conquer, and then a grid interpolation layer
     tic;
-    [VKron,PolicyKron]=ValueFnIter_FHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_ref,Policy_ref]=ValueFnIter_FHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
     [V_new,Policy_new]=ValueFnIter_FHorz_DC_GI_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
-    varargout={VKron,PolicyKron};
+    varargout={V_ref,Policy_ref};
     return
 elseif vfoptions.divideandconquer==1
     % Solve using Divide-and-Conquer algorithm
     tic;
-    [VKron,PolicyKron]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_ref,Policy_ref]=ValueFnIter_FHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
     [V_new,Policy_new]=ValueFnIter_FHorz_DC_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
-    varargout={VKron, PolicyKron};
+    varargout={V_ref,Policy_ref};
     return
 elseif vfoptions.gridinterplayer==1
     % Solve using grid interpolation layer
     tic;
-    [VKron,PolicyKron]=ValueFnIter_FHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_ref,Policy_ref]=ValueFnIter_FHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
     tic;
     [V_new,Policy_new]=ValueFnIter_FHorz_GI_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_new=toc;
     benchcheck();
-    varargout={VKron,PolicyKron};
+    varargout={V_ref,Policy_ref};
     return
 end
 
@@ -586,13 +586,10 @@ time_ref=toc;
 % profile clear
 % profile on
 tic;
-[V_new, Policy_new] = ValueFnIter_FHorz_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+[VKron_new, PolicyKron_new] = ValueFnIter_FHorz_uraw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 time_new=toc;
 % profile off
 % profile viewer
-
-benchcheck();
-
 
 %% Transforming Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
 if vfoptions.outputkron==1
@@ -608,64 +605,84 @@ end
 
 if N_e==0
     if N_z==0
-        V=reshape(VKron,[n_a,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_noz(PolicyKron,n_daprime,n_a,N_j,vfoptions);
+        V_ref=reshape(VKron,[n_a,N_j]);
+        Policy_ref=UnKronPolicyIndexes1_FHorz_noz(PolicyKron,n_daprime,n_a,N_j,vfoptions);
     else
-        V=reshape(VKron,[n_a,n_z,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_z(PolicyKron,n_daprime,n_a,n_z,N_j,vfoptions);
+        V_ref=reshape(VKron,[n_a,n_z,N_j]);
+        Policy_ref=UnKronPolicyIndexes1_FHorz_z(PolicyKron,n_daprime,n_a,n_z,N_j,vfoptions);
     end
 else
     if N_z==0
-        V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_z(PolicyKron,n_daprime,n_a,vfoptions.n_e,N_j,vfoptions);  % Treat e as z (because no z)
+        V_ref=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
+        Policy_ref=UnKronPolicyIndexes1_FHorz_z(PolicyKron,n_daprime,n_a,vfoptions.n_e,N_j,vfoptions);  % Treat e as z (because no z)
     else
-        V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_z_e(PolicyKron,n_daprime,n_a,n_z,vfoptions.n_e,N_j,vfoptions);
+        V_ref=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
+        Policy_ref=UnKronPolicyIndexes1_FHorz_z_e(PolicyKron,n_daprime,n_a,n_z,vfoptions.n_e,N_j,vfoptions);
     end
 end
 
-varargout={V, Policy};
+if N_e==0
+    if N_z==0
+        V_new=reshape(VKron_new,[n_a,N_j]);
+        Policy_new=UnKronPolicyIndexes1_FHorz_noz(PolicyKron_new,n_daprime,n_a,N_j,vfoptions);
+    else
+        V_new=reshape(VKron_new,[n_a,n_z,N_j]);
+        Policy_new=UnKronPolicyIndexes1_FHorz_z(PolicyKron_new,n_daprime,n_a,n_z,N_j,vfoptions);
+    end
+else
+    if N_z==0
+        V_new=reshape(VKron_new,[n_a,vfoptions.n_e,N_j]);
+        Policy_new=UnKronPolicyIndexes1_FHorz_z(PolicyKron_new,n_daprime,n_a,vfoptions.n_e,N_j,vfoptions);  % Treat e as z (because no z)
+    else
+        V_new=reshape(VKron_new,[n_a,n_z,vfoptions.n_e,N_j]);
+        Policy_new=UnKronPolicyIndexes1_FHorz_z_e(PolicyKron_new,n_daprime,n_a,n_z,vfoptions.n_e,N_j,vfoptions);
+    end
+end
+
+benchcheck();
+
+varargout={V_ref, Policy_ref};
 
 
     function benchcheck()
 
         % --- AUTOMATED POLICY MISMATCH MASKING ---
         % Identify all valid states where the agent can actually survive (V_ref > -Inf)
-        valid_states = (VKron > -Inf);
+        valid_states = (V_ref > -Inf);
 
         % Check if policies match ONLY on valid, reachable states
-        if any(Policy_new(:, valid_states) ~= PolicyKron(:, valid_states))
-            sum(Policy_new(:) ~= PolicyKron(:))
-            idx = find(Policy_new(:) ~= PolicyKron(:), 1); [r, c, p, q, t] = ind2sub(size(Policy_new), idx); disp(['Mismatch at [', num2str([r,c,p,q,t]), ']']);
+        if any(Policy_new(:, valid_states) ~= Policy_ref(:, valid_states))
+            sum(Policy_new(:) ~= Policy_ref(:))
+            idx = find(Policy_new(:) ~= Policy_ref(:), 1); [r, c, p, q, t] = ind2sub(size(Policy_new), idx); disp(['Mismatch at [', num2str([r,c,p,q,t]), ']']);
             error('Policy_new ~= Policy_ref on reachable states');
-        elseif any(Policy_new(:) ~= PolicyKron(:))
+        elseif any(Policy_new(:) ~= Policy_ref(:))
             disp('Policy check passed on all reachable states! (Ignored dead -Inf states)');
         end
 
         tol = 1e-3; % Could need to loosen as necessary
 
         % Mask out non-finite states in the reference solution
-        valid_mask = isfinite(VKron(:));
+        valid_mask = isfinite(V_ref(:));
 
         % Option A: Mean absolute level of finite states (The Scale Benchmark)
-        ref_scale = mean(abs(VKron(valid_mask)));
+        ref_scale = mean(abs(V_ref(valid_mask)));
 
         % Option B: Dynamic Range Benchmark (invariant to constant shifts in utility)
         % ref_scale = max(V_ref(valid_mask)) - min(V_ref(valid_mask));
 
         % Safe relative difference across all reachable states
-        diff_vec = abs(V_new(valid_mask) - VKron(valid_mask));
+        diff_vec = abs(V_new(valid_mask) - V_ref(valid_mask));
         rel_diff = max(diff_vec) / max(ref_scale, eps);
 
         if rel_diff > tol
             % Is this a floating-point rounding difference or a massive math failure?
-            max_diff = max(abs(V_new(:) - VKron(:)));
+            max_diff = max(abs(V_new(:) - V_ref(:)));
             disp(['Maximum absolute difference: ', num2str(max_diff)]);
-            fprintf('Legacy NaNs: %d | Legacy -Infs: %d\n', sum(isnan(VKron(:))), sum(VKron(:) == -Inf));
+            fprintf('Legacy NaNs: %d | Legacy -Infs: %d\n', sum(isnan(V_ref(:))), sum(V_ref(:) == -Inf));
             fprintf('Tensor NaNs: %d | Tensor -Infs: %d\n', sum(isnan(V_new(:))), sum(V_new(:) == -Inf));
 
             % Find the exact linear coordinate of the biggest difference
-            [~, bad_idx] = max(abs(V_new(:) - VKron(:)));
+            [~, bad_idx] = max(abs(V_new(:) - V_ref(:)));
 
             % Dynamically resolve the N-dimensional coordinates using a cell array
             ndim_V = ndims(V_new);
@@ -679,7 +696,7 @@ varargout={V, Policy};
             fprintf('Worst mismatch at -> ND-Coords: [%s] (Linear Idx: %d)\n', coord_str, bad_idx);
 
             % Show the actual values and signed difference (New - Ref)
-            val_ref = VKron(bad_idx);
+            val_ref = V_ref(bad_idx);
             val_new = V_new(bad_idx);
             signed_diff = val_new - val_ref;
 
