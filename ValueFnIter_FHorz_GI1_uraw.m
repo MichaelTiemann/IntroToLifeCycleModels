@@ -78,15 +78,15 @@ end
         % LOW MEMORY 0
         if vfoptions.lowmemory == 0
             for d2_c = 1:N_d2
-                pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
 
                 if has_continuation
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
                     EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
                     EVinterp = interp1(a_grid, EV_d2, aprime_grid);
                 end
 
-                RM_L1 = call_RM_L1(Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
+                RM_L1 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec,1);
                 RM_L1 = reshape(RM_L1, [N_d1, N_a, N_a, N_bothz, N_e]);
 
                 if has_continuation; entireRHS_L1 = RM_L1 + DiscountFactorParamsVec * shiftdim(EV_d2, -1); else; entireRHS_L1 = RM_L1; end
@@ -95,7 +95,7 @@ end
                 midpoint = max(min(maxindex1, N_a-1), 2);
                 aprimeindexes = (midpoint + (midpoint-1)*n2short) + (-n2short-1:1:1+n2short);
 
-                RM_L2 = call_RM_L2(Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
+                RM_L2 = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec,2);
                 RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_bothz, N_e]);
 
                 if has_continuation
@@ -115,8 +115,7 @@ end
                 linidx_upper = d1_ind + N_d1*(n2long-1) + N_d1*n2long*aind + N_d1*n2long*N_a*bothzind + N_d1*n2long*N_a*N_bothz*eind;
 
                 isInfLower = (RM_L2(linidx_lower) == -Inf); isInfUpper = (RM_L2(linidx_upper) == -Inf);
-                inLowerStrict = (L2offset >= 2) & (L2offset <= n2short+1);
-                inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
+                inLowerStrict = (L2offset >= 2) & (L2offset <= n2short+1); inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
                 flag_ford2_jj(:,:,:,d2_c) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), 1);
 
                 allind = d1_ind + N_d1*aind + N_d1*N_a*bothzind + N_d1*N_a*N_bothz*eind;
@@ -126,13 +125,16 @@ end
             % LOW MEMORY 1
         elseif vfoptions.lowmemory == 1
             for d2_c = 1:N_d2
-                pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
-                if has_continuation; EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz); EVinterp = interp1(a_grid, EV_d2, aprime_grid); end
+                if has_continuation
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
+                    EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
+                    EVinterp = interp1(a_grid, EV_d2, aprime_grid);
+                end
 
                 for e_c = 1:N_e
                     e_val = Grids.e_gridvals_J(e_c,:,j);
-                    RM_L1 = call_RM_L1(Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec);
+                    RM_L1 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec,1);
                     RM_L1 = reshape(RM_L1, [N_d1, N_a, N_a, N_bothz, 1]);
 
                     if has_continuation; entireRHS_L1 = RM_L1 + DiscountFactorParamsVec * shiftdim(EV_d2, -1); else; entireRHS_L1 = RM_L1; end
@@ -141,7 +143,7 @@ end
                     midpoint = max(min(maxindex1, N_a-1), 2);
                     aprimeindexes = (midpoint + (midpoint-1)*n2short) + (-n2short-1:1:1+n2short);
 
-                    RM_L2 = call_RM_L2(Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec);
+                    RM_L2 = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn, Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec,2);
                     RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_bothz, 1]);
 
                     if has_continuation
@@ -172,15 +174,17 @@ end
             % LOW MEMORY 2
         elseif vfoptions.lowmemory == 2
             for d2_c = 1:N_d2
-                pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
+                if has_continuation
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
+                end
                 for z_c = 1:N_z
                     semizblock = (z_c-1)*N_semiz + (1:N_semiz);
                     if has_continuation; EV_d2z = compute_expected_value_cond(EV, pi_bothz(semizblock,:)', N_a); EVinterp_z = interp1(a_grid, EV_d2z, aprime_grid); end
 
                     for e_c = 1:N_e
                         e_val = Grids.e_gridvals_J(e_c,:,j);
-                        RM_L1 = call_RM_L1(Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec);
+                        RM_L1 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec,1);
                         RM_L1 = reshape(RM_L1, [N_d1, N_a, N_a, N_semiz, 1]);
 
                         if has_continuation; entireRHS_L1 = RM_L1 + DiscountFactorParamsVec * shiftdim(EV_d2z, -1); else; entireRHS_L1 = RM_L1; end
@@ -189,7 +193,7 @@ end
                         midpoint = max(min(maxindex1, N_a-1), 2);
                         aprimeindexes = (midpoint + (midpoint-1)*n2short) + (-n2short-1:1:1+n2short);
 
-                        RM_L2 = call_RM_L2(Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec);
+                        RM_L2 = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn, Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec,2);
                         RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_semiz, 1]);
 
                         if has_continuation
@@ -221,14 +225,16 @@ end
             % LOW MEMORY 3
         elseif vfoptions.lowmemory == 3
             for d2_c = 1:N_d2
-                pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
+                if has_continuation
+                    if N_semiz_raw > 0; pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bothz = Probs.pi_z_J(:,:,j); end
+                end
                 for z_c = 1:N_bothz
                     if has_continuation; EV_d2z = compute_expected_value_cond(EV, pi_bothz(z_c,:)', N_a); EVinterp_z = interp1(a_grid, EV_d2z, aprime_grid); end
 
                     for e_c = 1:N_e
                         e_val = Grids.e_gridvals_J(e_c,:,j);
-                        RM_L1 = call_RM_L1(Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec);
+                        RM_L1 = CreateReturnFnMatrix_Disc_uraw(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec,1);
                         RM_L1 = reshape(RM_L1, [N_d1, N_a, N_a, 1, 1]);
 
                         if has_continuation; entireRHS_L1 = RM_L1 + DiscountFactorParamsVec * shiftdim(EV_d2z, -1); else; entireRHS_L1 = RM_L1; end
@@ -237,7 +243,7 @@ end
                         midpoint = max(min(maxindex1, N_a-1), 2);
                         aprimeindexes = (midpoint + (midpoint-1)*n2short) + (-n2short-1:1:1+n2short);
 
-                        RM_L2 = call_RM_L2(Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec);
+                        RM_L2 = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, reshape(aprime_grid(aprimeindexes), size(aprimeindexes)), a_grid, Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec,2);
                         RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, 1, 1]);
 
                         if has_continuation
@@ -279,22 +285,6 @@ end
 % =====================================================================
 % SUB-HELPERS
 % =====================================================================
-    function RM = call_RM_L1(n_d_in, n_bothz_in, n_e_in, d_val, a_val, z_val, e_val, ParamsVec)
-        if Dims.N_e_raw == 0
-            RM = CreateReturnFnMatrix_Disc(ReturnFn, n_d_in, n_a, n_bothz_in, d_val, a_val, z_val, ParamsVec, 1);
-        else
-            RM = CreateReturnFnMatrix_Disc_e(ReturnFn, n_d_in, n_a, n_bothz_in, n_e_in, d_val, a_val, z_val, e_val, ParamsVec, 1);
-        end
-    end
-
-    function RM = call_RM_L2(n_d_in, n_bothz_in, n_e_in, d_val, aprime_val, a_val, z_val, e_val, ParamsVec)
-        if Dims.N_e_raw == 0
-            RM = CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d_in, n_bothz_in, d_val, aprime_val, a_val, z_val, ParamsVec, 2);
-        else
-            RM = CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d_in, n_bothz_in, n_e_in, d_val, aprime_val, a_val, z_val, e_val, ParamsVec, 2);
-        end
-    end
-
     function d_slice = get_d_slice(d12_gridvals, d2_c, has_d2, has_d1)
         if has_d2 && has_d1; d_slice = d12_gridvals(:,:,d2_c); else; d_slice = d12_gridvals; end
     end
