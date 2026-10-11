@@ -346,7 +346,7 @@ for reverse_j=1:N_j-1
 
                 % 2. Extract EV and define reshape
                 d2aprimez = d2ind + N_d2*(a1primeindexes-1) + N_d2*N_a1*a2ind;
-                EV_RHS_slice = DiscountedEV(d2aprimez);
+                EV_RHS_slice = DiscountedEV_z(d2aprimez);
                 reshape_size = [N_d*(maxgap(ii)+1), level1iidiff(ii)*N_a2, 1];
 
                 % 3. Call the helper!
