@@ -290,12 +290,11 @@ end
     end
 
     function Pol4 = extract_policy_GI_no_d2(maxidx, midpoint, flag, N_d1)
-        Pol4 = zeros(4, size(maxidx, 2), size(maxidx, 3), size(maxidx, 4), 'gpuArray');
-        d_ind = shiftdim(rem(maxidx - 1, N_d1) + 1, -1);
-        Pol4(1,:,:,:) = d_ind; % d
-        Pol4(2,:,:,:) = shiftdim(midpoint, -1); % midpoint
-        Pol4(3,:,:,:) = shiftdim(ceil(maxidx / N_d1), -1); % aprimeL2ind
-        Pol4(4,:,:,:) = shiftdim(flag, -1); % flag
+        Pol4 = zeros(4, size(maxidx, 1), size(maxidx, 2), size(maxidx, 3), 'gpuArray');
+        Pol4(1,:,:,:) = shiftdim(rem(maxidx(:,:,:,1) - 1, N_d1) + 1, -1); % d
+        Pol4(2,:,:,:) = shiftdim(midpoint(:,:,:,1), -1); % midpoint
+        Pol4(3,:,:,:) = shiftdim(ceil(maxidx(:,:,:,1) / N_d1), -1); % aprimeL2ind
+        Pol4(4,:,:,:) = shiftdim(flag(:,:,:,1), -1); % flag
     end
 
     function Pol5 = extract_policy_GI_d2(maxidx_ford2, midpoint_ford2, flag_ford2, maxindex_d2, N_a, N_bothz, N_e, N_d1)
