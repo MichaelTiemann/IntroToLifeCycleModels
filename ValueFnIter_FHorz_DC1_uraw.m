@@ -59,12 +59,18 @@ end
         % LOW MEMORY 0
         if vfoptions.lowmemory == 0
             for d2_c = 1:N_d2
-                pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
                 d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
 
-                if has_continuation; EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz); end
+                if has_continuation
+                    if N_semiz_raw > 0
+                        pi_bothz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
+                    else
+                        pi_bothz = Probs.pi_z_J(:,:,j);
+                    end
+                    EV_d2 = compute_expected_value(EV, pi_bothz, N_a, N_bothz);
+                end
 
-                RM_ii = call_ReturnMatrix_DC1(Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 1);
+                RM_ii = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 1);
                 RM_ii = reshape(RM_ii, [N_d1, N_a, vfoptions.level1n, N_bothz, N_e]);
 
                 if has_continuation; entireRHS_ii = RM_ii + DiscountFactorParamsVec * shiftdim(EV_d2, -1); else; entireRHS_ii = RM_ii; end
@@ -80,7 +86,7 @@ end
                     loweredge = min(maxindex1(:,1,ii,:,:), N_a-maxgap(ii));
                     reshape_size = [N_d1*(maxgap(ii)+1), 1, N_bothz, N_e];
 
-                    ReturnFnHandle = @(ap) call_ReturnMatrix_DC1(Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2);
+                    ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, Dims.n_bothz, Dims.n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 2);
 
                     if has_continuation
                         aprimez = loweredge + (0:1:maxgap(ii)) + N_a*bothzBind;
@@ -106,7 +112,7 @@ end
 
                 for e_c = 1:N_e
                     e_val = Grids.e_gridvals_J(e_c,:,j);
-                    RM_ii = call_ReturnMatrix_DC1(Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 1);
+                    RM_ii = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 1);
                     RM_ii = reshape(RM_ii, [N_d1, N_a, vfoptions.level1n, N_bothz, 1]);
 
                     if has_continuation; entireRHS_ii = RM_ii + DiscountFactorParamsVec * shiftdim(EV_d2, -1); else; entireRHS_ii = RM_ii; end
@@ -122,7 +128,7 @@ end
                         loweredge = min(maxindex1(:,1,ii,:), N_a-maxgap(ii));
                         reshape_size = [N_d1*(maxgap(ii)+1), 1, N_bothz, 1];
 
-                        ReturnFnHandle = @(ap) call_ReturnMatrix_DC1(Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 2);
+                        ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, Dims.n_bothz, Dims.special_n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(:,:,j), e_val, ReturnFnParamsVec, 2);
 
                         if has_continuation
                             aprimez = loweredge + (0:1:maxgap(ii)) + N_a*bothzBind;
@@ -151,7 +157,7 @@ end
 
                     for e_c = 1:N_e
                         e_val = Grids.e_gridvals_J(e_c,:,j);
-                        RM_ii = call_ReturnMatrix_DC1(Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 1);
+                        RM_ii = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 1);
                         RM_ii = reshape(RM_ii, [N_d1, N_a, vfoptions.level1n, N_semiz, 1]);
 
                         if has_continuation; entireRHS_ii = RM_ii + DiscountFactorParamsVec * shiftdim(EV_d2z, -1); else; entireRHS_ii = RM_ii; end
@@ -167,7 +173,7 @@ end
                             loweredge = min(maxindex1(:,1,ii,:), N_a-maxgap(ii));
                             reshape_size = [N_d1*(maxgap(ii)+1), 1, N_semiz, 1];
 
-                            ReturnFnHandle = @(ap) call_ReturnMatrix_DC1(Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 2);
+                            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(semizblock,:,j), e_val, ReturnFnParamsVec, 2);
 
                             if has_continuation
                                 aprimez = loweredge + (0:1:maxgap(ii)) + N_a*semizBind;
@@ -196,7 +202,7 @@ end
 
                     for e_c = 1:N_e
                         e_val = Grids.e_gridvals_J(e_c,:,j);
-                        RM_ii = call_ReturnMatrix_DC1(Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 1);
+                        RM_ii = CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, a_grid(level1ii), Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 1);
                         RM_ii = reshape(RM_ii, [N_d1, N_a, vfoptions.level1n, 1, 1]);
 
                         if has_continuation; entireRHS_ii = RM_ii + DiscountFactorParamsVec * shiftdim(EV_d2z, -1); else; entireRHS_ii = RM_ii; end
@@ -212,7 +218,7 @@ end
                             loweredge = min(maxindex1(:,1,ii), N_a-maxgap(ii));
                             reshape_size = [N_d1*(maxgap(ii)+1), 1, 1, 1];
 
-                            ReturnFnHandle = @(ap) call_ReturnMatrix_DC1(Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 2);
+                            ReturnFnHandle = @(ap) CreateReturnFnMatrix_Disc_DC1_uraw(ReturnFn,Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, reshape(a_grid(ap), size(ap)), a_grid(curraindex), Grids.bothz_gridvals_J(z_c,:,j), e_val, ReturnFnParamsVec, 2);
 
                             if has_continuation
                                 aprimez = loweredge + (0:1:maxgap(ii));
@@ -242,13 +248,6 @@ end
 % =====================================================================
 % SUB-HELPERS
 % =====================================================================
-    function RM = call_ReturnMatrix_DC1(n_d_in, n_bothz_in, n_e_in, d_val, aprime_val, a_val, z_val, e_val, ParamsVec, Refine)
-        if Dims.N_e_raw == 0
-            RM = CreateReturnFnMatrix_Disc_DC1(ReturnFn, n_d_in, n_bothz_in, d_val, aprime_val, a_val, z_val, ParamsVec, Refine);
-        else
-            RM = CreateReturnFnMatrix_Disc_DC1_e(ReturnFn, n_d_in, n_bothz_in, n_e_in, d_val, aprime_val, a_val, z_val, e_val, ParamsVec, Refine);
-        end
-    end
 
     function d_slice = get_d_slice(d12_gridvals, d2_c, has_d2, has_d1)
         if has_d2 && has_d1; d_slice = d12_gridvals(:,:,d2_c); else; d_slice = d12_gridvals; end
