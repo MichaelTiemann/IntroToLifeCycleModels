@@ -1,24 +1,25 @@
 function [V, Policy] = ValueFnIter_FHorz_SemiExo_uraw(n_d1, n_d2, n_a, n_semiz, n_z, N_j, d1_gridvals, d2_gridvals, a_grid, z_gridvals_J, semiz_gridvals_J, pi_z_J, pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 % 1. Reconstruct unified arguments for uraw
+N_d1 = max(prod(n_d1), 1);
+N_d2 = max(prod(n_d2), 1);
+
 if isempty(n_d1) || (length(n_d1)==1 && n_d1==0)
     n_d = n_d2;
     d_gridvals = d2_gridvals;
     has_d1 = false;
-    N_d1 = 1;
 else
     n_d = [n_d1, n_d2];
-    d_gridvals = [d1_gridvals; d2_gridvals];
+    % Fully expand the joint grid (CreateGridvals outputs tall N_d x l_d arrays)
+    % d1 cycles fast (repmat vertically), d2 cycles slow (kron vertically)
+    d_gridvals = [repmat(d1_gridvals, N_d2, 1), kron(d2_gridvals, ones(N_d1, 1))];
     has_d1 = true;
-    N_d1 = prod(n_d1);
 end
 
 if isempty(n_d2) || (length(n_d2)==1 && n_d2==0)
     has_d2 = false;
-    N_d2 = 1;
 else
     has_d2 = true;
-    N_d2 = prod(n_d2);
 end
 
 % 2. Call the unified raw engine
