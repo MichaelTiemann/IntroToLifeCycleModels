@@ -318,6 +318,9 @@ if vfoptions.experienceasset>=1 || vfoptions.experienceassetu>=1 || vfoptions.ex
     end
 
     % Now just send all this to the right value fn iteration command
+    % profile clear
+    % profile on
+    tic;
     if vfoptions.experienceasset>=1 || vfoptions.experienceassetz>=1 || vfoptions.experienceassete>=1 || vfoptions.experienceassetze>=1
         if prod(vfoptions.n_semiz)>0
             [V,Policy]=ValueFnIter_FHorz_ExpAssetSemiExo(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_semiz, N_j, d1_grid , d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
@@ -355,8 +358,28 @@ if vfoptions.experienceasset>=1 || vfoptions.experienceassetu>=1 || vfoptions.ex
         end
         [V,Policy]=ValueFnIter_FHorz_ExpAssetsemiz(n_d1,n_d2,n_d3,n_a1,n_a2,n_z,vfoptions.n_semiz, N_j, d1_grid , d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     end
+    time_ref=toc;
+    % profile off
+    % profile viewer
 
-    varargout={V, Policy};
+    V_ref=V; Policy_ref=Policy;
+
+    %% GPU Solve
+    % profile clear
+    % profile on
+    tic;
+    if prod(vfoptions.n_semiz)>0
+        [V_new, Policy_new] = ValueFnIter_FHorz_ExpAssetSemiExo_uraw(n_d1, n_d2, n_d3, n_a1, n_a2, n_z, vfoptions.n_semiz, N_j, d1_grid, d2_grid, d3_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    else
+        [V_new, Policy_new] = ValueFnIter_FHorz_ExpAsset_uraw(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    end
+    time_new=toc;
+    % profile off
+    % profile viewer
+
+    benchcheck();
+
+    varargout={V_ref, Policy_ref};
     return
 end
 

@@ -37,7 +37,27 @@ else
     n_d1 = n_d; n_d2 = 0;
 end
 
-% --- 2. Build Dimensions (Dims) ---
+% --- 2. ExpAsset Parsing ---
+Dims.exp_flag = 0;
+if vfoptions.experienceasset == 1; Dims.exp_flag = 1; end
+if vfoptions.experienceassetz == 1; Dims.exp_flag = 2; end
+if vfoptions.experienceassete == 1; Dims.exp_flag = 3; end
+if vfoptions.experienceassetze == 1; Dims.exp_flag = 4; end
+if vfoptions.experienceassetsemiz == 1; Dims.exp_flag = 5; end
+if vfoptions.experienceassetu == 1; Dims.exp_flag = 6; end
+
+if Dims.exp_flag > 0
+    % n_a1 and n_a2 are guaranteed to be populated by SetupNonStandardEndoStates
+    Dims.n_a1 = vfoptions.n_a1;
+    Dims.n_a2 = vfoptions.n_a2;
+    Dims.N_a1 = max(prod(Dims.n_a1), 1);
+    Dims.N_a2 = max(prod(Dims.n_a2), 1);
+else
+    Dims.n_a1 = n_a; Dims.n_a2 = 1;
+    Dims.N_a1 = max(prod(n_a), 1); Dims.N_a2 = 1;
+end
+
+% --- 3. Build Dimensions (Dims) ---
 if n_d1==0; Dims.n_d_comb = n_d2; elseif n_d2==0; Dims.n_d_comb = n_d1; else; Dims.n_d_comb = [n_d1, n_d2]; end
 if n_semiz==0; Dims.n_bothz = n_z; elseif n_z==0; Dims.n_bothz = n_semiz; else; Dims.n_bothz = [n_semiz, n_z]; end
 
@@ -63,20 +83,17 @@ if N_z_raw == 0; Dims.special_n_z = 0; else; Dims.special_n_z = ones(1, length(n
 if N_e_raw == 0; Dims.special_n_e = 0; else; Dims.special_n_e = ones(1, length(n_e)); end
 
 if N_semiz_raw == 0 && N_z_raw == 0
-    Dims.special_n_bothz = 0;
-    Dims.n_bothz_lm2 = 0;
+    Dims.special_n_bothz = 0; Dims.n_bothz_lm2 = 0;
 elseif N_semiz_raw == 0
-    Dims.special_n_bothz = ones(1, length(n_z));
-    Dims.n_bothz_lm2 = ones(1, length(n_z));
+    Dims.special_n_bothz = ones(1, length(n_z)); Dims.n_bothz_lm2 = ones(1, length(n_z));
 elseif N_z_raw == 0
-    Dims.special_n_bothz = ones(1, length(n_semiz));
-    Dims.n_bothz_lm2 = n_semiz;
+    Dims.special_n_bothz = ones(1, length(n_semiz)); Dims.n_bothz_lm2 = n_semiz;
 else
     Dims.special_n_bothz = ones(1, length(n_semiz) + length(n_z));
     Dims.n_bothz_lm2 = [n_semiz, ones(1, length(n_z))];
 end
 
-% --- 3. Build Grids & Probs ---
+% --- 4. Build Grids & Probs ---
 if N_z_raw == 0
     Probs.pi_z_J = ones(1, 1, N_j); Grids.z_gridvals_J = zeros(1, 1, N_j);
 else
