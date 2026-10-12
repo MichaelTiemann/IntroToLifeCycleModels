@@ -1,51 +1,37 @@
 function [Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions)
 
-% Helper to robustly expand stationary grids/probs across time
-    function out = expand_time(in, target_dim, N)
-        if size(in, target_dim) == 1 && N > 1
-            rep_dims = ones(1, target_dim);
-            rep_dims(target_dim) = N;
-            out = repmat(in, rep_dims);
-        else
-            out = in;
-        end
-    end
+% --- 1. Endogenous States (a) ---
+Dims.N_a = max(prod(n_a), 1);
 
-% --- 1. Unpack Exotic Dimensions from vfoptions ---
-if prod(vfoptions.n_e) > 0
-    n_e = vfoptions.n_e;
-    e_gridvals_J = expand_time(vfoptions.e_gridvals_J, 3, N_j);
-    pi_e_J = expand_time(shiftdim(vfoptions.pi_e_J, -2), 4, N_j+1);
-else
-    n_e = 0; e_gridvals_J = []; pi_e_J = [];
-end
+% --- 2. Decisions (d) ---
+Dims.N_d = max(prod(n_d), 1);
 
-if prod(vfoptions.n_semiz) > 0
-    n_semiz = vfoptions.n_semiz;
-    semiz_gridvals_J = expand_time(vfoptions.semiz_gridvals_J, 3, N_j);
-    pi_semiz_J = expand_time(vfoptions.pi_semiz_J, 4, N_j);
+% --- 3. Exogenous Shocks (z, semiz, e) ---
+Dims.n_z = n_z;
+Dims.n_semiz = vfoptions.n_semiz;
+Dims.n_e = vfoptions.n_e;
 
-    % Split n_d into n_d1 (standard) and n_d2 (drives semiz transition)
-    if length(n_d) > vfoptions.l_dsemiz
-        n_d1 = n_d(1:end-vfoptions.l_dsemiz);
-        n_d2 = n_d(end-vfoptions.l_dsemiz+1:end);
-    else
-        n_d1 = 0; n_d2 = n_d;
-    end
-else
-    n_semiz = 0; semiz_gridvals_J = []; pi_semiz_J = [];
-    n_d1 = n_d; n_d2 = 0;
-end
+Dims.N_z = max(prod(n_z), 1);
+Dims.N_semiz = max(prod(vfoptions.n_semiz), 1);
+Dims.N_e = max(prod(vfoptions.n_e), 1);
 
-% --- 2. ExpAsset Parsing ---
+Dims.N_semiz_raw = prod(Dims.n_semiz);
+Dims.N_e_raw     = prod(Dims.n_e);
+
+% CRITICAL: The zeros are structurally load-bearing. We never drop them.
+Dims.n_bothz = [Dims.n_semiz, Dims.n_z];
+Dims.N_bothz = Dims.N_semiz * Dims.N_z;
+
+% --- 4. Experience Asset Flags ---
 Dims.exp_flag = 0;
-if vfoptions.experienceasset == 1; Dims.exp_flag = 1; end
-if vfoptions.experienceassetz == 1; Dims.exp_flag = 2; end
-if vfoptions.experienceassete == 1; Dims.exp_flag = 3; end
-if vfoptions.experienceassetze == 1; Dims.exp_flag = 4; end
-if vfoptions.experienceassetsemiz == 1; Dims.exp_flag = 5; end
-if vfoptions.experienceassetu == 1; Dims.exp_flag = 6; end
+if vfoptions.experienceasset>=1; Dims.exp_flag=1; end
+if vfoptions.experienceassetz>=1; Dims.exp_flag=2; end
+if vfoptions.experienceassete>=1; Dims.exp_flag=3; end
+if vfoptions.experienceassetze>=1; Dims.exp_flag=4; end
+if vfoptions.experienceassetsemiz>=1; Dims.exp_flag=5; end
+if vfoptions.experienceassetu>=1; Dims.exp_flag=6; end
 
+% --- 5. Unpack Splits for Endogenous States and Decisions ---
 if Dims.exp_flag > 0
     % n_a1 and n_a2 are guaranteed to be populated by SetupNonStandardEndoStates
     Dims.n_a1 = vfoptions.n_a1;
@@ -57,79 +43,69 @@ else
     Dims.N_a1 = max(prod(n_a), 1); Dims.N_a2 = 1;
 end
 
-% --- 3. Build Dimensions (Dims) ---
-if n_d1==0; Dims.n_d_comb = n_d2; elseif n_d2==0; Dims.n_d_comb = n_d1; else; Dims.n_d_comb = [n_d1, n_d2]; end
-if n_semiz==0; Dims.n_bothz = n_z; elseif n_z==0; Dims.n_bothz = n_semiz; else; Dims.n_bothz = [n_semiz, n_z]; end
-
-N_d1_raw = prod(n_d1); N_d2_raw = prod(n_d2);
-Dims.N_a = prod(n_a);
-N_z_raw = prod(n_z); N_semiz_raw = prod(n_semiz); N_e_raw = prod(n_e);
-
-Dims.has_d1 = (N_d1_raw > 0); Dims.l_d1 = Dims.has_d1 * length(n_d1); Dims.N_d1 = max(N_d1_raw, 1);
-Dims.has_d2 = (N_d2_raw > 0); Dims.l_d2 = Dims.has_d2 * length(n_d2); Dims.N_d2 = max(N_d2_raw, 1);
-Dims.N_d = Dims.N_d1 * Dims.N_d2;
-
-Dims.N_z = max(N_z_raw, 1);
-Dims.N_semiz_raw = N_semiz_raw;
-Dims.N_semiz = max(N_semiz_raw, 1);
-Dims.n_semiz = n_semiz;
-Dims.N_bothz = Dims.N_semiz * Dims.N_z;
-Dims.N_e_raw = N_e_raw;
-Dims.N_e = max(N_e_raw, 1);
-Dims.n_e = n_e;
-
-% Build memory dimensions unconditionally so remapping doesn't crash
-if N_z_raw == 0; Dims.special_n_z = 0; else; Dims.special_n_z = ones(1, length(n_z)); end
-if N_e_raw == 0; Dims.special_n_e = 0; else; Dims.special_n_e = ones(1, length(n_e)); end
-
-if N_semiz_raw == 0 && N_z_raw == 0
-    Dims.special_n_bothz = 0; Dims.n_bothz_lm2 = 0;
-elseif N_semiz_raw == 0
-    Dims.special_n_bothz = ones(1, length(n_z)); Dims.n_bothz_lm2 = ones(1, length(n_z));
-elseif N_z_raw == 0
-    Dims.special_n_bothz = ones(1, length(n_semiz)); Dims.n_bothz_lm2 = n_semiz;
+if isfield(vfoptions, 'n_d1') && isfield(vfoptions, 'n_d2')
+    Dims.n_d1 = vfoptions.n_d1;
+    Dims.n_d2 = vfoptions.n_d2;
 else
-    Dims.special_n_bothz = ones(1, length(n_semiz) + length(n_z));
-    Dims.n_bothz_lm2 = [n_semiz, ones(1, length(n_z))];
+    Dims.n_d1 = n_d;
+    Dims.n_d2 = 0;
+end
+Dims.N_d1 = max(prod(Dims.n_d1), 1);
+Dims.N_d2 = max(prod(Dims.n_d2), 1);
+
+if isfield(vfoptions, 'n_d3') && prod(vfoptions.n_d3) > 0
+    Dims.n_d3 = vfoptions.n_d3;
+    Dims.N_d3 = max(prod(Dims.n_d3), 1);
+else
+    Dims.n_d3 = 0;
+    Dims.N_d3 = 1;
 end
 
-% --- 4. Build Grids & Probs ---
-if N_z_raw == 0
-    Probs.pi_z_J = ones(1, 1, N_j); Grids.z_gridvals_J = zeros(1, 1, N_j);
+Dims.N_d_inner = Dims.N_d1 * Dims.N_d2;
+Dims.N_d_outer = Dims.N_d3;
+Dims.has_d1 = prod(Dims.n_d1) > 0;
+Dims.has_d2 = prod(Dims.n_d2) > 0;
+
+% Fallbacks for CreateReturnFnMatrix inputs
+Dims.special_n_d = n_d;
+if isempty(Dims.special_n_d); Dims.special_n_d = 0; end
+
+Dims.special_n_z = n_z;
+if isempty(Dims.special_n_z); Dims.special_n_z = 0; end
+
+Dims.special_n_semiz = Dims.n_semiz;
+if isempty(Dims.special_n_semiz); Dims.special_n_semiz = 0; end
+
+Dims.special_n_e = Dims.n_e;
+if isempty(Dims.special_n_e); Dims.special_n_e = 0; end
+
+Dims.special_n_bothz = Dims.n_bothz;
+if isempty(Dims.special_n_bothz); Dims.special_n_bothz = 0; end
+
+% --- 6. Grid and Prob Assignments ---
+Grids.d12_gridvals = d_gridvals;
+
+if Dims.N_semiz_raw > 0
+    rep_semiz = repmat(vfoptions.semiz_gridvals_J, [Dims.N_z, 1, 1]);
+    rep_z = repelem(z_gridvals_J, Dims.N_semiz, 1);
+    Grids.bothz_gridvals_J = [rep_semiz, rep_z];
 else
-    Probs.pi_z_J = expand_time(pi_z_J, 3, N_j);
-    Grids.z_gridvals_J = expand_time(z_gridvals_J, 3, N_j);
+    Grids.bothz_gridvals_J = z_gridvals_J;
 end
 
-if N_semiz_raw == 0
-    Probs.pi_semiz_J = ones(1, 1, Dims.N_d2, N_j); Grids.semiz_gridvals_J = zeros(1, 1, N_j);
+if Dims.N_e_raw > 0
+    Grids.e_gridvals_J = vfoptions.e_gridvals_J;
+    Probs.pi_e_J = vfoptions.pi_e_J;
 else
-    Probs.pi_semiz_J = pi_semiz_J; Grids.semiz_gridvals_J = semiz_gridvals_J;
+    Grids.e_gridvals_J = [];
+    Probs.pi_e_J = [];
 end
 
-if N_e_raw == 0
-    Probs.pi_e_J = ones(1, 1, 1, N_j+1); Grids.e_gridvals_J = zeros(1, 1, N_j);
+Probs.pi_z_J = pi_z_J;
+if Dims.N_semiz_raw > 0
+    Probs.pi_semiz_J = vfoptions.pi_semiz_J;
 else
-    Probs.pi_e_J = pi_e_J; Grids.e_gridvals_J = e_gridvals_J;
-end
-
-% Combined Grids
-if N_semiz_raw == 0 && N_z_raw == 0
-    Grids.bothz_gridvals_J = zeros(1, 1, N_j);
-elseif N_semiz_raw == 0
-    Grids.bothz_gridvals_J = Grids.z_gridvals_J;
-elseif N_z_raw == 0
-    Grids.bothz_gridvals_J = Grids.semiz_gridvals_J;
-else
-    Grids.bothz_gridvals_J = [repmat(Grids.semiz_gridvals_J, Dims.N_z, 1, 1), repelem(Grids.z_gridvals_J, Dims.N_semiz, 1, 1)];
-end
-
-if Dims.has_d2 && Dims.has_d1
-    Grids.d12_gridvals = permute(reshape(d_gridvals, [Dims.N_d1, Dims.N_d2, Dims.l_d1 + Dims.l_d2]), [1, 3, 2]);
-    Dims.special_n_d = [n_d1, ones(1, Dims.l_d2)];
-else
-    Grids.d12_gridvals = d_gridvals;
-    Dims.special_n_d = Dims.n_d_comb;
+    Probs.pi_semiz_J = [];
 end
 
 

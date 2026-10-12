@@ -1,21 +1,27 @@
 function Fmatrix = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, n_bothz, n_e, d_gridvals, a1prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec, step)
+
+% Required: Pack the vector of doubles into cells so arrayfun treats them as scalars
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
-% Extract raw sizes, but explicitly zero them out if the config declares them inactive
-l_d = size(d_gridvals, 2);      if prod(n_d) == 0; l_d = 0; end
-l_a1 = size(a1_gridvals, 2);    if prod(n_a1) == 0; l_a1 = 0; end
-l_a2 = size(a2_gridvals, 2);    if prod(n_a2) == 0; l_a2 = 0; end
-l_bz = size(bothz_gridvals, 2); if prod(n_bothz) == 0; l_bz = 0; end
-l_e = size(e_gridvals, 2);      if prod(n_e) == 0; l_e = 0; end
+% Extract raw sizes, explicitly zeroing out ONLY if the entire block sum is zero
+l_d = size(d_gridvals, 2);      if sum(n_d) == 0; l_d = 0; end
+l_a1 = size(a1_gridvals, 2);    if sum(n_a1) == 0; l_a1 = 0; end
+l_a2 = size(a2_gridvals, 2);    if sum(n_a2) == 0; l_a2 = 0; end
+l_bz = size(bothz_gridvals, 2); if sum(n_bothz) == 0; l_bz = 0; end
+l_e = size(e_gridvals, 2);      if sum(n_e) == 0; l_e = 0; end
 
 d_vals = cell(1, l_d);
 for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end % Dim 1
 
 a1prime_vals = cell(1, l_a1);
-if step == 1
-    for i = 1:l_a1; a1prime_vals{i} = shiftdim(a1prime_gridvals(:, i), -1); end % Dim 2
-else
-    for i = 1:l_a1; a1prime_vals{i} = a1prime_gridvals; end % N-D array exactly as passed
+for i = 1:l_a1
+    if step == 1
+        a1prime_vals{i} = shiftdim(a1prime_gridvals(:, i), -1); % Dim 2
+    else
+        % CRITICAL FIX: The DC1 solver pre-shapes the N-D array. Pass it exactly as is.
+        % Slicing it with (:, i) destroys the tensor!
+        a1prime_vals{i} = a1prime_gridvals;
+    end
 end
 
 a1_vals = cell(1, l_a1); for i = 1:l_a1; a1_vals{i} = shiftdim(a1_gridvals(:, i), -2); end % Dim 3
