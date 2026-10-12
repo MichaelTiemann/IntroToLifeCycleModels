@@ -18,8 +18,7 @@ for i = 1:l_a1
     if step == 1
         a1prime_vals{i} = shiftdim(a1prime_gridvals(:, i), -1); % Dim 2
     else
-        % CRITICAL FIX: The DC1 solver pre-shapes the N-D array. Pass it exactly as is.
-        % Slicing it with (:, i) destroys the tensor!
+        % CRITICAL FIX: Step 2 pre-shapes the N-D array. Slicing with (:, i) flattens it!
         a1prime_vals{i} = a1prime_gridvals;
     end
 end
