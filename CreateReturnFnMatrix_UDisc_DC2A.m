@@ -21,7 +21,6 @@ for i = 1:size(a1_grid, 2); GridParamsCell{end+1} = shiftdim(a1_grid(:, i), -3);
 for i = 1:size(a2_grid, 2); GridParamsCell{end+1} = shiftdim(a2_grid(:, i), -4); end % Dim 5
 
 if sum(n_bothz) > 0
-    if ~isempty(bothz_grid); bothz_grid = bothz_grid(:, n_bothz > 0); end
     for i = 1:size(bothz_grid, 2); GridParamsCell{end+1} = shiftdim(bothz_grid(:, i), -5); end % Dim 6
 end
 

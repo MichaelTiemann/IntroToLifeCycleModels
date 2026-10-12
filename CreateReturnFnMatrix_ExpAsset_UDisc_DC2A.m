@@ -35,7 +35,6 @@ if sum(n_exp) > 0
 end
 
 if sum(n_bothz) > 0
-    if ~isempty(bothz_grid); bothz_grid = bothz_grid(:, n_bothz > 0); end
     for i = 1:size(bothz_grid, 2); GridParamsCell{end+1} = shiftdim(bothz_grid(:, i), -6); end % Dim 7
 end
 
