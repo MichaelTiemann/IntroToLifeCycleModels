@@ -308,7 +308,7 @@ end
                     DiscountedEV = df * reshape(EV_interp(:,z_c,:), [1, N_d2*N_a1, 1, N_a2, 1, N_e_interp]);
                 end
 
-                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.n_bothz_lm2, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
+                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
                 RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, 1, N_e]);
 
                 if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -411,7 +411,7 @@ end
                         DiscountedEV = df * reshape(EV_interp(:,z_c,e_idx), [1, N_d2*N_a1, 1, N_a2, 1, 1]);
                     end
 
-                    RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.n_bothz_lm2, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec);
+                    RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec);
                     RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, 1, 1]);
 
                     if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end

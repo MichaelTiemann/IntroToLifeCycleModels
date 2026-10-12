@@ -1,36 +1,33 @@
 function Fmatrix = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d, n_a1, n_a2, n_bothz, n_e, d_gridvals, a1prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec)
 
+% Pack parameters into cells so arrayfun treats them as scalars
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
 
-% Robust dimension lengths to prevent length(0) == 1 phantom grids
-l_d = length(n_d);      if prod(n_d) == 0; l_d = 0; end
-l_a1 = length(n_a1);    if prod(n_a1) == 0; l_a1 = 0; end
-l_a2 = length(n_a2);    if prod(n_a2) == 0; l_a2 = 0; end
-l_bz = length(n_bothz); if prod(n_bothz) == 0; l_bz = 0; end
-l_e = length(n_e);      if prod(n_e) == 0; l_e = 0; end
+% Conditionally append grid states ONLY if the model actually defines them.
+% This cleanly filters out dummy zero-matrices so arrayfun signature matches perfectly.
+GridParamsCell = {};
 
-% Shift dimensions for implicit expansion
-d_vals = cell(1, l_d);
-for i = 1:l_d; d_vals{i} = d_gridvals(:, i); end
+if sum(n_d) > 0
+    for i = 1:size(d_gridvals, 2); GridParamsCell{end+1} = d_gridvals(:, i); end % Dim 1
+end
 
-a1prime_vals = cell(1, l_a1);
-for i = 1:l_a1; a1prime_vals{i} = shiftdim(a1prime_gridvals(:, i), -1); end
+if sum(n_a1) > 0
+    for i = 1:size(a1prime_gridvals, 2); GridParamsCell{end+1} = shiftdim(a1prime_gridvals(:, i), -1); end % Dim 2
+    for i = 1:size(a1_gridvals, 2); GridParamsCell{end+1} = shiftdim(a1_gridvals(:, i), -2); end % Dim 3
+end
 
-a1_vals = cell(1, l_a1);
-for i = 1:l_a1; a1_vals{i} = shiftdim(a1_gridvals(:, i), -2); end
+if sum(n_a2) > 0
+    for i = 1:size(a2_gridvals, 2); GridParamsCell{end+1} = shiftdim(a2_gridvals(:, i), -3); end % Dim 4
+end
 
-a2_vals = cell(1, l_a2);
-for i = 1:l_a2; a2_vals{i} = shiftdim(a2_gridvals(:, i), -3); end
+if sum(n_bothz) > 0
+    for i = 1:size(bothz_gridvals, 2); GridParamsCell{end+1} = shiftdim(bothz_gridvals(:, i), -4); end % Dim 5
+end
 
-bz_vals = cell(1, l_bz);
-for i = 1:l_bz; bz_vals{i} = shiftdim(bothz_gridvals(:, i), -4); end
+if sum(n_e) > 0
+    for i = 1:size(e_gridvals, 2); GridParamsCell{end+1} = shiftdim(e_gridvals(:, i), -5); end % Dim 6
+end
 
-e_vals = cell(1, l_e);
-for i = 1:l_e; e_vals{i} = shiftdim(e_gridvals(:, i), -5); end
-
-GridParamsCell = [d_vals, a1prime_vals, a1_vals, a2_vals, bz_vals, e_vals];
-
-% Evaluate ReturnFn and return the natively shaped matrix
 Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
 
