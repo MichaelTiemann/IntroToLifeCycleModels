@@ -12,7 +12,7 @@ has_e     = Dims.N_e_raw > 0;
 has_z     = Dims.special_n_z(1) > 0;
 has_bothz = has_semiz || has_z;
 
-n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e;
+n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e; n_semiz = Dims.n_semiz;
 
 N_d1 = Dims.N_d1; N_d2 = Dims.N_d2;
 n_d1 = Dims.n_d1; n_d2 = Dims.n_d2;
@@ -47,17 +47,25 @@ end
 
 % --- 3. Introspect ExpAsset Parameters ---
 if Dims.exp_flag > 0
-    l_d2_len = length(n_d2); if prod(n_d2) == 0; l_d2_len = 0; end
-    l_a2_len = length(n_a2); if prod(n_a2) == 0; l_a2_len = 0; end
-    l_z_len  = length(n_z);  if prod(n_z) == 0;  l_z_len = 0; end
-    l_e_len  = length(n_e);  if prod(n_e) == 0;  l_e_len = 0; end
-    l_bothz_len = length(Dims.n_bothz); if prod(Dims.n_bothz) == 0; l_bothz_len = 0; end
-    if isfield(vfoptions, 'n_u'); l_u_len = length(vfoptions.n_u); if prod(vfoptions.n_u) == 0; l_u_len = 0; end; else; l_u_len = 0; end
+    % CRITICAL FIX: Use sum() to prevent arrays with structural zeros from collapsing
+    l_d2_len = length(n_d2); if sum(n_d2) == 0; l_d2_len = 0; end
+    l_a2_len = length(n_a2); if sum(n_a2) == 0; l_a2_len = 0; end
+    l_z_len  = length(n_z);  if sum(n_z) == 0;  l_z_len = 0; end
+    l_e_len  = length(n_e);  if sum(n_e) == 0;  l_e_len = 0; end
+    l_semiz_len = length(n_semiz); if sum(n_semiz) == 0; l_semiz_len = 0; end
+    if isfield(vfoptions, 'n_u'); l_u_len = length(vfoptions.n_u); if sum(vfoptions.n_u) == 0; l_u_len = 0; end; else; l_u_len = 0; end
 
-    if Dims.exp_flag == 3 || Dims.exp_flag == 4; num_state_args = l_d2_len + l_a2_len + l_z_len + l_e_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 2 || Dims.exp_flag == 5; num_state_args = l_d2_len + l_a2_len + l_bothz_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 6; num_state_args = l_d2_len + l_a2_len + l_u_len + (l_a2_len >= 2);
-    else; num_state_args = l_d2_len + l_a2_len + (l_a2_len >= 2); end
+    if Dims.exp_flag == 3 || Dims.exp_flag == 4 % e or ze
+        num_state_args = l_d2_len + l_a2_len + l_z_len + l_e_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 2 % experienceassetz (z only)
+        num_state_args = l_d2_len + l_a2_len + l_z_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 5 % experienceassetsemiz (semiz only)
+        num_state_args = l_d2_len + l_a2_len + l_semiz_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 6 % experienceassetu
+        num_state_args = l_d2_len + l_a2_len + l_u_len + (l_a2_len >= 2);
+    else % 1 (experienceasset)
+        num_state_args = l_d2_len + l_a2_len + (l_a2_len >= 2);
+    end
 
     temp_args = getAnonymousFnInputNames(vfoptions.aprimeFn);
     if length(temp_args) > num_state_args; aprimeFnParamNames = temp_args(num_state_args + 1 : end); else; aprimeFnParamNames = {}; end
@@ -179,15 +187,19 @@ end
                     a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1, 1]);
                     a1p_idx = loweredge + a1p_offsets;
 
+                    a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
+
                     RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                        a1_gridvals(a1p_idx), a1_gridvals(curraindex,:), a2_gridvals, ...
+                        a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, ...
                         bz_val, e_val, ReturnFnParamsVec, 2);
 
                     if has_cont
                         EV_idx = a1p_idx + N_a1 * a2_idx;
                         if N_bothz > 1; EV_idx = EV_idx + N_a1*N_a2*bothz_idx; end
                         if N_e_interp > 1; EV_idx = EV_idx + N_a1*N_a2*N_bothz*e_idx_tensor; end
-                        entireRHS_L2 = RM_L2 + DiscountedEV_dense(EV_idx);
+
+                        EV_safe = reshape(DiscountedEV_dense(EV_idx), size(a1p_idx));
+                        entireRHS_L2 = RM_L2 + EV_safe;
                     else
                         entireRHS_L2 = RM_L2;
                     end
@@ -278,14 +290,18 @@ end
                         a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1, 1]);
                         a1p_idx = loweredge + a1p_offsets;
 
+                        a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
+
                         RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                            a1_gridvals(a1p_idx), a1_gridvals(curraindex,:), a2_gridvals, ...
+                            a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, ...
                             bz_val, e_val, ReturnFnParamsVec, 2);
 
                         if has_cont
                             EV_idx = a1p_idx + N_a1 * a2_idx;
                             if N_bothz > 1; EV_idx = EV_idx + N_a1*N_a2*bothz_idx; end
-                            entireRHS_L2 = RM_L2 + DiscountedEV_dense(EV_idx);
+
+                            EV_safe = reshape(DiscountedEV_dense(EV_idx), size(a1p_idx));
+                            entireRHS_L2 = RM_L2 + EV_safe;
                         else
                             entireRHS_L2 = RM_L2;
                         end
@@ -375,15 +391,19 @@ end
                         a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1, 1]);
                         a1p_idx = loweredge + a1p_offsets;
 
+                        a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
+
                         RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, ...
-                            a1_gridvals(a1p_idx), a1_gridvals(curraindex,:), a2_gridvals, ...
+                            a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, ...
                             bz_val, e_val, ReturnFnParamsVec, 2);
 
                         if has_cont
                             EV_idx = a1p_idx + N_a1 * a2_idx;
                             if N_semiz > 1; EV_idx = EV_idx + N_a1*N_a2*semiz_idx; end
                             if N_e_interp > 1; EV_idx = EV_idx + N_a1*N_a2*N_semiz*e_idx_tensor; end
-                            entireRHS_L2 = RM_L2 + DiscountedEV_dense(EV_idx);
+
+                            EV_safe = reshape(DiscountedEV_dense(EV_idx), size(a1p_idx));
+                            entireRHS_L2 = RM_L2 + EV_safe;
                         else
                             entireRHS_L2 = RM_L2;
                         end
@@ -474,14 +494,18 @@ end
                         a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1, 1]);
                         a1p_idx = loweredge + a1p_offsets;
 
+                        a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
+
                         RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                            a1_gridvals(a1p_idx), a1_gridvals(curraindex,:), a2_gridvals, ...
+                            a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, ...
                             bz_val, e_val, ReturnFnParamsVec, 2);
 
                         if has_cont
                             EV_idx = a1p_idx + N_a1 * a2_idx;
                             if N_e_interp > 1; EV_idx = EV_idx + N_a1*N_a2*e_idx_tensor; end
-                            entireRHS_L2 = RM_L2 + DiscountedEV_dense(EV_idx);
+
+                            EV_safe = reshape(DiscountedEV_dense(EV_idx), size(a1p_idx));
+                            entireRHS_L2 = RM_L2 + EV_safe;
                         else
                             entireRHS_L2 = RM_L2;
                         end
@@ -573,14 +597,18 @@ end
                             a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1, 1]);
                             a1p_idx = loweredge + a1p_offsets;
 
+                            a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
+
                             RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, ...
-                                a1_gridvals(a1p_idx), a1_gridvals(curraindex,:), a2_gridvals, ...
+                                a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, ...
                                 bz_val, e_val, ReturnFnParamsVec, 2);
 
                             if has_cont
                                 EV_idx = a1p_idx + N_a1 * a2_idx;
                                 if N_semiz > 1; EV_idx = EV_idx + N_a1*N_a2*semiz_idx; end
-                                entireRHS_L2 = RM_L2 + DiscountedEV_dense(EV_idx);
+
+                                EV_safe = reshape(DiscountedEV_dense(EV_idx), size(a1p_idx));
+                                entireRHS_L2 = RM_L2 + EV_safe;
                             else
                                 entireRHS_L2 = RM_L2;
                             end
@@ -671,13 +699,17 @@ end
                             a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1, 1]);
                             a1p_idx = loweredge + a1p_offsets;
 
+                            a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
+
                             RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, ...
-                                a1_gridvals(a1p_idx), a1_gridvals(curraindex,:), a2_gridvals, ...
+                                a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, ...
                                 bz_val, e_val, ReturnFnParamsVec, 2);
 
                             if has_cont
                                 EV_idx = a1p_idx + N_a1 * a2_idx;
-                                entireRHS_L2 = RM_L2 + DiscountedEV_dense(EV_idx);
+
+                                EV_safe = reshape(DiscountedEV_dense(EV_idx), size(a1p_idx));
+                                entireRHS_L2 = RM_L2 + EV_safe;
                             else
                                 entireRHS_L2 = RM_L2;
                             end
