@@ -12,7 +12,8 @@ has_e     = Dims.N_e_raw > 0;
 has_z     = Dims.special_n_z(1) > 0;
 has_bothz = has_semiz || has_z;
 
-n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e; n_semiz = Dims.n_semiz;
+n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e;
+n_semiz = Dims.n_semiz;
 
 N_d1 = Dims.N_d1; N_d2 = Dims.N_d2;
 n_d1 = Dims.n_d1; n_d2 = Dims.n_d2;
@@ -47,7 +48,6 @@ end
 
 % --- 3. Introspect ExpAsset Parameters ---
 if Dims.exp_flag > 0
-    % CRITICAL FIX: Use sum() to prevent arrays with structural zeros from collapsing
     l_d2_len = length(n_d2); if sum(n_d2) == 0; l_d2_len = 0; end
     l_a2_len = length(n_a2); if sum(n_a2) == 0; l_a2_len = 0; end
     l_z_len  = length(n_z);  if sum(n_z) == 0;  l_z_len = 0; end
@@ -55,17 +55,11 @@ if Dims.exp_flag > 0
     l_semiz_len = length(n_semiz); if sum(n_semiz) == 0; l_semiz_len = 0; end
     if isfield(vfoptions, 'n_u'); l_u_len = length(vfoptions.n_u); if sum(vfoptions.n_u) == 0; l_u_len = 0; end; else; l_u_len = 0; end
 
-    if Dims.exp_flag == 3 || Dims.exp_flag == 4 % e or ze
-        num_state_args = l_d2_len + l_a2_len + l_z_len + l_e_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 2 % experienceassetz (z only)
-        num_state_args = l_d2_len + l_a2_len + l_z_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 5 % experienceassetsemiz (semiz only)
-        num_state_args = l_d2_len + l_a2_len + l_semiz_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 6 % experienceassetu
-        num_state_args = l_d2_len + l_a2_len + l_u_len + (l_a2_len >= 2);
-    else % 1 (experienceasset)
-        num_state_args = l_d2_len + l_a2_len + (l_a2_len >= 2);
-    end
+    if Dims.exp_flag == 3 || Dims.exp_flag == 4; num_state_args = l_d2_len + l_a2_len + l_z_len + l_e_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 2; num_state_args = l_d2_len + l_a2_len + l_z_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 5; num_state_args = l_d2_len + l_a2_len + l_semiz_len + (l_a2_len >= 2);
+    elseif Dims.exp_flag == 6; num_state_args = l_d2_len + l_a2_len + l_u_len + (l_a2_len >= 2);
+    else; num_state_args = l_d2_len + l_a2_len + (l_a2_len >= 2); end
 
     temp_args = getAnonymousFnInputNames(vfoptions.aprimeFn);
     if length(temp_args) > num_state_args; aprimeFnParamNames = temp_args(num_state_args + 1 : end); else; aprimeFnParamNames = {}; end
@@ -100,8 +94,10 @@ for j = N_j:-1:1
         d2_gridvals = CreateGridvals(n_d2, vfoptions.d2_grid, 1);
         if Dims.exp_flag == 3 || Dims.exp_flag == 4
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e));
-        elseif Dims.exp_flag == 2 || Dims.exp_flag == 5
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, Dims.n_bothz, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz));
+        elseif Dims.exp_flag == 2
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, z_gridvals_J(:,:,j));
+        elseif Dims.exp_flag == 5
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_semiz, get_grid_slice(vfoptions.semiz_gridvals_J, 'all', j, has_semiz));
         elseif Dims.exp_flag == 6
             u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, u_gridvals);
@@ -135,7 +131,11 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            if has_e
+                EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            else
+                EVpre = V_next;
+            end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -235,7 +235,11 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            if has_e
+                EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            else
+                EVpre = V_next;
+            end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -336,7 +340,11 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            if has_e
+                EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            else
+                EVpre = V_next;
+            end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -440,7 +448,11 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            if has_e
+                EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            else
+                EVpre = V_next;
+            end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -540,7 +552,11 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            if has_e
+                EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            else
+                EVpre = V_next;
+            end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -644,7 +660,11 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            if has_e
+                EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+            else
+                EVpre = V_next;
+            end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
