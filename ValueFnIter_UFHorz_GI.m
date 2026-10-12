@@ -1,27 +1,21 @@
 function [V, Policy] = ValueFnIter_UFHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-% 1. Route based on the number of endogenous states
 if isscalar(n_a)
     [VKron, PolicyKron] = ValueFnIter_UFHorz_GI1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 elseif length(n_a) >= 2
     [VKron, PolicyKron] = ValueFnIter_UFHorz_GI2A_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 end
 
-% 2. Extract dimensions
 N_d = max(prod(n_d), 1);
 l_d = length(n_d); if N_d == 1 && (isempty(n_d) || n_d(1) == 0); l_d = 0; end
 
-s2 = size(PolicyKron, 2);
-s3 = size(PolicyKron, 3);
-s4 = size(PolicyKron, 4);
-s5 = size(PolicyKron, 5);
+s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3); s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
 
-% 3. Decode 1-row linear index into [l_d] choice rows, then append GI rows
-n_rows = l_d + 3;
+l_a_choice = length(n_a);
+n_rows = l_d + l_a_choice + 2; % [d's, a's, L2off, flag]
 Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
 
 d_idx = PolicyKron(1,:,:,:,:);
-
 if l_d == 1
     Policy(1,:,:,:,:) = d_idx;
 elseif l_d > 1
@@ -32,12 +26,23 @@ elseif l_d > 1
     end
 end
 
-% 4. Append the remaining continuous GI rows.
-% NO SHRINK WRAPPING for GI!
-Policy(l_d+1,:,:,:,:) = PolicyKron(2,:,:,:,:); % midpt
-Policy(l_d+2,:,:,:,:) = PolicyKron(3,:,:,:,:); % L2off
-Policy(l_d+3,:,:,:,:) = PolicyKron(4,:,:,:,:); % flag
+a_idx = PolicyKron(2,:,:,:,:);
+a_cum = 1;
+for i = 1:l_a_choice
+    Policy(l_d+i,:,:,:,:) = rem(ceil(a_idx / a_cum) - 1, n_a(i)) + 1;
+    a_cum = a_cum * n_a(i);
+end
 
+n2short = vfoptions.ngridinterp;
+L2off = PolicyKron(3,:,:,:,:);
+flag  = PolicyKron(4,:,:,:,:);
+
+adjust = (L2off < 1 + n2short + 1);
+Policy(l_d+1,:,:,:,:) = Policy(l_d+1,:,:,:,:) - adjust;
+L2off = L2off - (n2short + 1) .* (~adjust);
+
+Policy(n_rows-1,:,:,:,:) = L2off;
+Policy(n_rows,:,:,:,:) = flag;
 V = VKron;
 
 
