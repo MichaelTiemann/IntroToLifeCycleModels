@@ -78,8 +78,9 @@ end
     function [V_j, Pol_j] = solve_period_full(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
         has_cont = ~isempty(V_next);
-        if has_cont; df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+        if has_cont
+            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
+            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -107,8 +108,9 @@ end
     function [V_j, Pol_j] = solve_period_loop_e(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
         has_cont = ~isempty(V_next);
-        if has_cont; df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+        if has_cont
+            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
+            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -137,8 +139,9 @@ end
     function [V_j, Pol_j] = solve_period_loop_bothz(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
         has_cont = ~isempty(V_next);
-        if has_cont; df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+        if has_cont
+            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
+            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -165,8 +168,9 @@ end
     function [V_j, Pol_j] = solve_period_loop_z_parallel_semiz(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
         has_cont = ~isempty(V_next);
-        if has_cont; df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+        if has_cont
+            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
+            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -195,8 +199,9 @@ end
     function [V_j, Pol_j] = solve_period_loop_bothz_e(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
         has_cont = ~isempty(V_next);
-        if has_cont; df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+        if has_cont
+            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
+            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -225,8 +230,9 @@ end
     function [V_j, Pol_j] = solve_period_loop_z_parallel_semiz_e(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
         has_cont = ~isempty(V_next);
-        if has_cont; df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3);
+        if has_cont
+            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
+            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');

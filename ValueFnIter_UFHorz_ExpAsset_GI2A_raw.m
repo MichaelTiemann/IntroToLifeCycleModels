@@ -127,7 +127,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if N_e_raw; EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3); else; EVpre = V_next; end
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
@@ -229,7 +229,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if N_e_raw; EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3); else; EVpre = V_next; end
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
@@ -336,7 +336,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if N_e_raw; EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3); else; EVpre = V_next; end
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
@@ -446,7 +446,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if N_e_raw; EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3); else; EVpre = V_next; end
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
@@ -551,7 +551,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if N_e_raw; EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3); else; EVpre = V_next; end
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
@@ -662,7 +662,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if N_e_raw; EVpre = sum(V_next .* Probs.pi_e_J(1, 1, :, j+1), 3); else; EVpre = V_next; end
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
