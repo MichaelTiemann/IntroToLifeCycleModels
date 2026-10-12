@@ -771,19 +771,37 @@ end
     end
 
     function EV_interp = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1, n_a2, N_d2, N_bothz, vfoptions, Dims)
+        % 1. Expectation over z' (e' is already handled in the main loop via Probs.pi_e_J)
+        EVinf = (EVpre_flat == -Inf);
+        EV_val = EVpre_flat;
+        EV_val(EVinf) = -1e250;
+        EV_expected = EV_val * pi_bz';
+        EV_expected((EVinf * pi_bz') > 0) = -Inf;
+
+        % 2. Interpolate over a2prime based on the expected values
         if Dims.exp_flag == 6
-            N_u = prod(vfoptions.n_u); EV_interp_next = zeros(N_d2 * prod(n_a1) * prod(n_a2), N_bothz, 'gpuArray');
+            N_u = prod(vfoptions.n_u);
+            EV_interp_next = zeros(N_d2 * prod(n_a1) * prod(n_a2), N_bothz, 'gpuArray');
             for u_c = 1:N_u
-                EV_interp_u = InterpolateExpAssetEV(EVpre_flat, n_a2, N_d2, n_a1, n_a2, N_bothz, ExpAsset_J.a2primeIndex(:,:,u_c), ExpAsset_J.a2primeProbs(:,:,u_c));
+                a2p_idx = ExpAsset_J.a2primeIndex(:,:,u_c);
+                a2p_prb = ExpAsset_J.a2primeProbs(:,:,u_c);
+                if size(a2p_idx, 3) < N_bothz
+                    a2p_idx = repmat(a2p_idx, [1, 1, N_bothz]);
+                    a2p_prb = repmat(a2p_prb, [1, 1, N_bothz]);
+                end
+                EV_interp_u = InterpolateExpAssetEV(EV_expected, n_a2, N_d2, n_a1, n_a2, N_bothz, a2p_idx, a2p_prb);
                 EV_interp_next = EV_interp_next + vfoptions.pi_u(u_c) * reshape(EV_interp_u, [N_d2 * prod(n_a1) * prod(n_a2), N_bothz]);
             end
+            EV_interp = reshape(EV_interp_next, [N_d2, prod(n_a1), prod(n_a2), N_bothz, 1]);
         else
             num_z_interp = N_bothz * N_e_interp;
-            EVpre_rep = repmat(EVpre_flat, [1, N_e_interp]);
+            EV_expected_rep = repmat(EV_expected, [1, N_e_interp]);
 
             a2p_idx = ExpAsset_J.a2primeIndex;
             a2p_prb = ExpAsset_J.a2primeProbs;
-            if size(a2p_idx, 3) < num_z_interp && size(a2p_idx, 3) > 1
+
+            % Safely replicate a2p_idx if it does not cover all z/e states
+            if size(a2p_idx, 3) < num_z_interp
                 a2p_idx = repmat(a2p_idx, [1, 1, num_z_interp / size(a2p_idx, 3)]);
                 a2p_prb = repmat(a2p_prb, [1, 1, num_z_interp / size(a2p_prb, 3)]);
             end
@@ -791,22 +809,10 @@ end
             a2p_idx_flat = reshape(a2p_idx, [N_d2, prod(n_a2), num_z_interp]);
             a2p_prb_flat = reshape(a2p_prb, [N_d2, prod(n_a2), num_z_interp]);
 
-            EV_interp_next = InterpolateExpAssetEV(EVpre_rep, n_a2, N_d2, n_a1, n_a2, num_z_interp, a2p_idx_flat, a2p_prb_flat);
+            EV_interp_next = InterpolateExpAssetEV(EV_expected_rep, n_a2, N_d2, n_a1, n_a2, num_z_interp, a2p_idx_flat, a2p_prb_flat);
+
+            EV_interp = reshape(EV_interp_next, [N_d2, prod(n_a1), prod(n_a2), N_bothz, N_e_interp]);
         end
-
-        EV_interp_next = reshape(EV_interp_next, [N_d2 * prod(n_a1) * prod(n_a2), N_bothz, N_e_interp]);
-        EV_expected = zeros(size(EV_interp_next), 'like', EV_interp_next);
-
-        for e_c = 1:N_e_interp
-            EVinf = (EV_interp_next(:,:,e_c) == -Inf);
-            EV_val = EV_interp_next(:,:,e_c);
-            EV_val(EVinf) = -1e250;
-            EV_exp = EV_val * pi_bz';
-            EV_exp(EVinf * (pi_bz' > 0) > 0) = -Inf;
-            EV_expected(:,:,e_c) = EV_exp;
-        end
-
-        EV_interp = reshape(EV_expected, [N_d2, prod(n_a1), prod(n_a2), N_bothz, N_e_interp]);
     end
 
 
