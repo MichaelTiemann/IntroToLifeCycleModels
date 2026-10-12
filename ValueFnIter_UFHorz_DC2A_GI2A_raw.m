@@ -157,7 +157,7 @@ end
 
                 if has_cont
                     EV_idx = a1p_idx + N_a1 * a2p_off_L2 + N_a1 * N_a2 * bz_off_L2 + N_a1 * N_a2 * N_bothz * e_off_L2;
-                    RHS_L2_DC = RM_L2_DC + reshape(EV_expected_reshaped(EV_idx), size(a1p_idx));
+                    RHS_L2_DC = RM_L2_DC + EV_expected_reshaped(EV_idx);
                 else
                     RHS_L2_DC = RM_L2_DC;
                 end
@@ -300,7 +300,7 @@ end
 
                     if has_cont
                         EV_idx = a1p_idx + N_a1 * a2p_off_L2 + N_a1 * N_a2 * bz_off_L2;
-                        RHS_L2_DC = RM_L2_DC + reshape(EV_safe_e(EV_idx), size(a1p_idx));
+                        RHS_L2_DC = RM_L2_DC + EV_safe_e(EV_idx);
                     else
                         RHS_L2_DC = RM_L2_DC;
                     end
@@ -448,7 +448,7 @@ end
 
                     if has_cont
                         EV_idx = a1p_idx + N_a1 * a2p_off_L2 + N_a1 * N_a2 * sb_off_L2 + N_a1 * N_a2 * N_semiz * e_off_L2;
-                        RHS_L2_DC = RM_L2_DC + reshape(EV_safe_z(EV_idx), size(a1p_idx));
+                        RHS_L2_DC = RM_L2_DC + EV_safe_z(EV_idx);
                     else
                         RHS_L2_DC = RM_L2_DC;
                     end
@@ -590,7 +590,7 @@ end
 
                     if has_cont
                         EV_idx = a1p_idx + N_a1 * a2p_off_L2;
-                        RHS_L2_DC = RM_L2_DC + reshape(EV_safe_z(EV_idx), size(a1p_idx));
+                        RHS_L2_DC = RM_L2_DC + EV_safe_z(EV_idx);
                     else
                         RHS_L2_DC = RM_L2_DC;
                     end
@@ -734,7 +734,7 @@ end
 
                         if has_cont
                             EV_idx = a1p_idx + N_a1 * a2p_off_L2 + N_a1 * N_a2 * (sb - 1);
-                            RHS_L2_DC = RM_L2_DC + reshape(EV_safe_z(EV_idx), size(a1p_idx));
+                            RHS_L2_DC = RM_L2_DC + EV_safe_z(EV_idx);
                         else
                             RHS_L2_DC = RM_L2_DC;
                         end
@@ -877,7 +877,7 @@ end
 
                         if has_cont
                             EV_idx = a1p_idx + N_a1 * a2p_off_L2;
-                            RHS_L2_DC = RM_L2_DC + reshape(EV_safe_z(EV_idx), size(a1p_idx));
+                            RHS_L2_DC = RM_L2_DC + EV_safe_z(EV_idx);
                         else
                             RHS_L2_DC = RM_L2_DC;
                         end

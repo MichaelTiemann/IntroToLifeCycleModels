@@ -187,7 +187,7 @@ end
 
                 if has_cont
                     EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*n_a1_c*a2p_off_L2 + N_d2*n_a1_c*n_a2_c*exp_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*bz_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*N_bothz*e_off_L2;
-                    RHS_L2 = RM_L2 + df * reshape(EV_flat(EV_idx), size(a1p_idx));
+                    RHS_L2 = RM_L2 + df * EV_flat(EV_idx);
                 else
                     RHS_L2 = RM_L2;
                 end
@@ -286,7 +286,7 @@ end
 
                     if has_cont
                         EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*n_a1_c*a2p_off_L2 + N_d2*n_a1_c*n_a2_c*exp_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*bz_off_L2;
-                        RHS_L2 = RM_L2 + df * reshape(EV_flat_e(EV_idx), size(a1p_idx));
+                        RHS_L2 = RM_L2 + df * EV_flat_e(EV_idx);
                     else
                         RHS_L2 = RM_L2;
                     end
@@ -387,7 +387,7 @@ end
 
                     if has_cont
                         EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*n_a1_c*a2p_off_L2 + N_d2*n_a1_c*n_a2_c*exp_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*sb_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*N_semiz*e_off_L2;
-                        RHS_L2 = RM_L2 + df * reshape(EV_flat_z(EV_idx), size(a1p_idx));
+                        RHS_L2 = RM_L2 + df * EV_flat_z(EV_idx);
                     else
                         RHS_L2 = RM_L2;
                     end
@@ -485,7 +485,7 @@ end
 
                     if has_cont
                         EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*n_a1_c*a2p_off_L2 + N_d2*n_a1_c*n_a2_c*exp_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*e_off_L2;
-                        RHS_L2 = RM_L2 + df * reshape(EV_flat_bz(EV_idx), size(a1p_idx));
+                        RHS_L2 = RM_L2 + df * EV_flat_bz(EV_idx);
                     else
                         RHS_L2 = RM_L2;
                     end
@@ -588,7 +588,7 @@ end
 
                         if has_cont
                             EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*n_a1_c*a2p_off_L2 + N_d2*n_a1_c*n_a2_c*exp_off_L2 + N_d2*n_a1_c*n_a2_c*N_exp*sb_off_L2;
-                            RHS_L2 = RM_L2 + df * reshape(EV_flat_ze(EV_idx), size(a1p_idx));
+                            RHS_L2 = RM_L2 + df * EV_flat_ze(EV_idx);
                         else
                             RHS_L2 = RM_L2;
                         end
@@ -689,7 +689,7 @@ end
 
                         if has_cont
                             EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*n_a1_c*a2p_off_L2 + N_d2*n_a1_c*n_a2_c*exp_off_L2;
-                            RHS_L2 = RM_L2 + df * reshape(EV_flat_bze(EV_idx), size(a1p_idx));
+                            RHS_L2 = RM_L2 + df * EV_flat_bze(EV_idx);
                         else
                             RHS_L2 = RM_L2;
                         end

@@ -5,7 +5,6 @@ function [V, Policy] = ValueFnIter_UFHorz_DC1_raw(n_d, n_a, n_z, N_j, d_gridvals
 
 N_a = Dims.N_a; N_bothz = Dims.N_bothz; N_e = Dims.N_e;
 N_z = Dims.N_z; N_semiz = Dims.N_semiz;
-
 N_semiz_raw = Dims.N_semiz_raw > 0;
 N_e_raw     = Dims.N_e_raw > 0;
 N_z_raw     = Dims.special_n_z(1) > 0;
@@ -68,7 +67,7 @@ for j = N_j:-1:1
 end
 
 % =====================================================================
-% SPECIALIZED SOLVE FUNCTIONS (Vectorised over N_d_inner and level1n)
+% SPECIALIZED SOLVE FUNCTIONS
 % =====================================================================
     function [V_j, Pol_j] = solve_period_full(j, V_next)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
@@ -101,15 +100,17 @@ end
 
             if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-            [~, maxindex1] = max(RHS_L1, [], 2);
-            [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_bothz, N_e]), [], 1);
-            V_fordouter(level1ii,:,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_bothz, N_e]);
-            Policy_fordouter(level1ii,:,:,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_bothz, N_e]);
+            RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_bothz, N_e]);
+            [v_tmp, maxindex1] = max(RHS_L1_flat, [], 1);
 
-            min_a1prime = min(maxindex1, [], 1);
-            max_a1prime = max(maxindex1, [], 1);
-            diff_a1p = max(0, max_a1prime(1, 2:end, :, :) - min_a1prime(1, 1:end-1, :, :));
-            maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
+            a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
+            a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a) + 1;
+
+            V_fordouter(level1ii,:,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_bothz, N_e]);
+            Policy_fordouter(level1ii,:,:,d_outer_c) = reshape(maxindex1, [vfoptions.level1n, N_bothz, N_e]);
+
+            diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, :) - a1p_idx_L1(1, 1:end-1, :, :));
+            maxgap_vec = gather(squeeze(max(max(max(diff_a1p, [], 4), [], 3), [], 1)));
             if isempty(maxgap_vec); maxgap_vec = 0; end
 
             for ii = 1:(vfoptions.level1n-1)
@@ -118,7 +119,7 @@ end
                 if L == 0; continue; end
 
                 mg = max(min(maxgap_vec(ii), N_a - 1), 0);
-                loweredge = reshape(min(min_a1prime(1, ii, :, :), N_a - mg), [1, 1, 1, N_bothz, N_e]);
+                loweredge = reshape(min(a1p_idx_L1(1, ii, :, :), N_a - mg), [1, 1, 1, N_bothz, N_e]);
                 a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1]);
                 a1p_idx = loweredge + a1p_offsets;
                 a1p_grid_safe = reshape(a_gridvals(a1p_idx), size(a1p_idx));
@@ -184,15 +185,17 @@ end
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                [~, maxindex1] = max(RHS_L1, [], 2);
-                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_bothz, 1]), [], 1);
-                V_fordouter(level1ii,:,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_bothz, 1]);
-                Policy_fordouter(level1ii,:,e_c,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_bothz, 1]);
+                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_bothz, 1]);
+                [v_tmp, maxindex1] = max(RHS_L1_flat, [], 1);
 
-                min_a1prime = min(maxindex1, [], 1);
-                max_a1prime = max(maxindex1, [], 1);
-                diff_a1p = max(0, max_a1prime(1, 2:end, :, 1) - min_a1prime(1, 1:end-1, :, 1));
-                maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
+                a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
+                a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a) + 1;
+
+                V_fordouter(level1ii,:,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_bothz, 1]);
+                Policy_fordouter(level1ii,:,e_c,d_outer_c) = reshape(maxindex1, [vfoptions.level1n, N_bothz, 1]);
+
+                diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, 1) - a1p_idx_L1(1, 1:end-1, :, 1));
+                maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 3), [], 1)));
                 if isempty(maxgap_vec); maxgap_vec = 0; end
 
                 for ii = 1:(vfoptions.level1n-1)
@@ -201,7 +204,7 @@ end
                     if L == 0; continue; end
 
                     mg = max(min(maxgap_vec(ii), N_a - 1), 0);
-                    loweredge = reshape(min(min_a1prime(1, ii, :, 1), N_a - mg), [1, 1, 1, N_bothz, 1]);
+                    loweredge = reshape(min(a1p_idx_L1(1, ii, :, 1), N_a - mg), [1, 1, 1, N_bothz, 1]);
                     a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1]);
                     a1p_idx = loweredge + a1p_offsets;
                     a1p_grid_safe = reshape(a_gridvals(a1p_idx), size(a1p_idx));
@@ -269,15 +272,17 @@ end
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                [~, maxindex1] = max(RHS_L1, [], 2);
-                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, 1, N_e]), [], 1);
-                V_fordouter(level1ii,z_c,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, 1, N_e]);
-                Policy_fordouter(level1ii,z_c,:,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, 1, N_e]);
+                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, 1, N_e]);
+                [v_tmp, maxindex1] = max(RHS_L1_flat, [], 1);
 
-                min_a1prime = min(maxindex1, [], 1);
-                max_a1prime = max(maxindex1, [], 1);
-                diff_a1p = max(0, max_a1prime(1, 2:end, 1, :) - min_a1prime(1, 1:end-1, 1, :));
-                maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
+                a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
+                a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a) + 1;
+
+                V_fordouter(level1ii,z_c,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, 1, N_e]);
+                Policy_fordouter(level1ii,z_c,:,d_outer_c) = reshape(maxindex1, [vfoptions.level1n, 1, N_e]);
+
+                diff_a1p = max(0, a1p_idx_L1(1, 2:end, 1, :) - a1p_idx_L1(1, 1:end-1, 1, :));
+                maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 1)));
                 if isempty(maxgap_vec); maxgap_vec = 0; end
 
                 for ii = 1:(vfoptions.level1n-1)
@@ -286,7 +291,7 @@ end
                     if L == 0; continue; end
 
                     mg = max(min(maxgap_vec(ii), N_a - 1), 0);
-                    loweredge = reshape(min(min_a1prime(1, ii, 1, :), N_a - mg), [1, 1, 1, 1, N_e]);
+                    loweredge = reshape(min(a1p_idx_L1(1, ii, 1, :), N_a - mg), [1, 1, 1, 1, N_e]);
                     a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1]);
                     a1p_idx = loweredge + a1p_offsets;
                     a1p_grid_safe = reshape(a_gridvals(a1p_idx), size(a1p_idx));
@@ -356,15 +361,17 @@ end
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                [~, maxindex1] = max(RHS_L1, [], 2);
-                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_semiz, N_e]), [], 1);
-                V_fordouter(level1ii,sb,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_semiz, N_e]);
-                Policy_fordouter(level1ii,sb,:,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_semiz, N_e]);
+                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_semiz, N_e]);
+                [v_tmp, maxindex1] = max(RHS_L1_flat, [], 1);
 
-                min_a1prime = min(maxindex1, [], 1);
-                max_a1prime = max(maxindex1, [], 1);
-                diff_a1p = max(0, max_a1prime(1, 2:end, :, :) - min_a1prime(1, 1:end-1, :, :));
-                maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
+                a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
+                a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a) + 1;
+
+                V_fordouter(level1ii,sb,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_semiz, N_e]);
+                Policy_fordouter(level1ii,sb,:,d_outer_c) = reshape(maxindex1, [vfoptions.level1n, N_semiz, N_e]);
+
+                diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, :) - a1p_idx_L1(1, 1:end-1, :, :));
+                maxgap_vec = gather(squeeze(max(max(max(diff_a1p, [], 4), [], 3), [], 1)));
                 if isempty(maxgap_vec); maxgap_vec = 0; end
 
                 for ii = 1:(vfoptions.level1n-1)
@@ -373,7 +380,7 @@ end
                     if L == 0; continue; end
 
                     mg = max(min(maxgap_vec(ii), N_a - 1), 0);
-                    loweredge = reshape(min(min_a1prime(1, ii, :, :), N_a - mg), [1, 1, 1, N_semiz, N_e]);
+                    loweredge = reshape(min(a1p_idx_L1(1, ii, :, :), N_a - mg), [1, 1, 1, N_semiz, N_e]);
                     a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1]);
                     a1p_idx = loweredge + a1p_offsets;
                     a1p_grid_safe = reshape(a_gridvals(a1p_idx), size(a1p_idx));
@@ -442,15 +449,17 @@ end
 
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                    [~, maxindex1] = max(RHS_L1, [], 2);
-                    [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, 1, 1]), [], 1);
-                    V_fordouter(level1ii,z_c,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, 1, 1]);
-                    Policy_fordouter(level1ii,z_c,e_c,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, 1, 1]);
+                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, 1, 1]);
+                    [v_tmp, maxindex1] = max(RHS_L1_flat, [], 1);
 
-                    min_a1prime = min(maxindex1, [], 1);
-                    max_a1prime = max(maxindex1, [], 1);
-                    diff_a1p = max(0, max_a1prime(1, 2:end, 1, 1) - min_a1prime(1, 1:end-1, 1, 1));
-                    maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
+                    a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
+                    a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a) + 1;
+
+                    V_fordouter(level1ii,z_c,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, 1, 1]);
+                    Policy_fordouter(level1ii,z_c,e_c,d_outer_c) = reshape(maxindex1, [vfoptions.level1n, 1, 1]);
+
+                    diff_a1p = max(0, a1p_idx_L1(1, 2:end, 1, 1) - a1p_idx_L1(1, 1:end-1, 1, 1));
+                    maxgap_vec = gather(squeeze(max(diff_a1p, [], 2)));
                     if isempty(maxgap_vec); maxgap_vec = 0; end
 
                     for ii = 1:(vfoptions.level1n-1)
@@ -459,7 +468,7 @@ end
                         if L == 0; continue; end
 
                         mg = max(min(maxgap_vec(ii), N_a - 1), 0);
-                        loweredge = reshape(min(min_a1prime(1, ii, 1, 1), N_a - mg), [1, 1, 1, 1, 1]);
+                        loweredge = reshape(min(a1p_idx_L1(1, ii, 1, 1), N_a - mg), [1, 1, 1, 1, 1]);
                         a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1]);
                         a1p_idx = loweredge + a1p_offsets;
                         a1p_grid_safe = reshape(a_gridvals(a1p_idx), size(a1p_idx));
@@ -532,14 +541,16 @@ end
 
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                    [~, maxindex1] = max(RHS_L1, [], 2);
-                    [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_semiz, 1]), [], 1);
-                    V_fordouter(level1ii,sb,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_semiz, 1]);
-                    Policy_fordouter(level1ii,sb,e_c,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_semiz, 1]);
+                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a, vfoptions.level1n, N_semiz, 1]);
+                    [v_tmp, maxindex1] = max(RHS_L1_flat, [], 1);
 
-                    min_a1prime = min(maxindex1, [], 1);
-                    max_a1prime = max(maxindex1, [], 1);
-                    diff_a1p = max(0, max_a1prime(1, 2:end, :, 1) - min_a1prime(1, 1:end-1, :, 1));
+                    a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
+                    a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a) + 1;
+
+                    V_fordouter(level1ii,sb,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_semiz, 1]);
+                    Policy_fordouter(level1ii,sb,e_c,d_outer_c) = reshape(maxindex1, [vfoptions.level1n, N_semiz, 1]);
+
+                    diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, 1) - a1p_idx_L1(1, 1:end-1, :, 1));
                     maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
                     if isempty(maxgap_vec); maxgap_vec = 0; end
 
@@ -549,7 +560,7 @@ end
                         if L == 0; continue; end
 
                         mg = max(min(maxgap_vec(ii), N_a - 1), 0);
-                        loweredge = reshape(min(min_a1prime(1, ii, :, 1), N_a - mg), [1, 1, 1, N_semiz, 1]);
+                        loweredge = reshape(min(a1p_idx_L1(1, ii, :, 1), N_a - mg), [1, 1, 1, N_semiz, 1]);
                         a1p_offsets = reshape(a1p_offsets_base(1:mg+1), [1, mg+1, 1, 1, 1]);
                         a1p_idx = loweredge + a1p_offsets;
                         a1p_grid_safe = reshape(a_gridvals(a1p_idx), size(a1p_idx));
