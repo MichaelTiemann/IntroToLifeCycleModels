@@ -1,83 +1,58 @@
-function Fmatrix = CreateReturnFnMatrix_UDisc(ReturnFn, n_d, n_a, n_z, n_e, d_gridvals, a_grid, z_gridvals, e_gridvals, ReturnFnParamsVec, Refine)
-% If no d variable, just input n_d=0 and d_gridvals=[]
-if nargin < 11
-    Refine = 0;
+function Fmatrix = CreateReturnFnMatrix_UDisc(ReturnFn, n_d, n_a, n_bothz, n_e, d_gridvals, a_grid, bothz_grid, e_grid, ReturnFnParamsVec, Refine)
+if nargin < 11; Refine = 0; end
+ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
+GridParamsCell = {};
+
+l_a = length(n_a);
+N_a = max(prod(n_a), 1);
+N_d = size(d_gridvals, 1);
+N_bothz = size(bothz_grid, 1); if N_bothz == 0; N_bothz = 1; end
+N_e = size(e_grid, 1); if N_e == 0; N_e = 1; end
+
+% Dim 1: Decisions
+if sum(n_d) > 0
+    for i = 1:size(d_gridvals, 2); GridParamsCell{end+1} = d_gridvals(:, i); end
 end
 
-ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
-
-N_d_raw = prod(n_d);
-N_d = max(N_d_raw, 1);
-N_a = prod(n_a);
-N_z_raw = prod(n_z);
-N_e_raw = prod(n_e);
-
-l_d = length(n_d);
-if N_d_raw == 0; l_d = 0; end
-l_a = length(n_a);
-l_z = length(n_z);
-if N_z_raw == 0; l_z = 0; end
-l_e = length(n_e);
-if N_e_raw == 0; l_e = 0; end
-
-% Collect 'a' and 'a_prime' values dynamically
-a_prime_vals = cell(1, l_a);
-a_vals = cell(1, l_a);
+% Dim 2 to (1+l_a): Future Endogenous States (a')
 a_cum = 0;
 for i = 1:l_a
     n_ai = n_a(i);
     idx_range = (a_cum + 1):(a_cum + n_ai);
-    a_prime_vals{i} = shiftdim(a_grid(idx_range), -i);
-    a_vals{i} = shiftdim(a_grid(idx_range), -(l_a + i));
+    GridParamsCell{end+1} = shiftdim(a_grid(idx_range), -i);
     a_cum = a_cum + n_ai;
 end
 
-% Collect 'd' values dynamically
-d_vals = cell(1, l_d);
-for i = 1:l_d
-    if l_d == 1; v = d_gridvals; else; v = d_gridvals(:, i); end
-    d_vals{i} = v;
+% Dim (2+l_a) to (1+2*l_a): Current Endogenous States (a)
+a_cum = 0;
+for i = 1:l_a
+    n_ai = n_a(i);
+    idx_range = (a_cum + 1):(a_cum + n_ai);
+    GridParamsCell{end+1} = shiftdim(a_grid(idx_range), -(l_a + i));
+    a_cum = a_cum + n_ai;
 end
 
-% Collect 'z' values dynamically
-if l_z == 0
-    z_vals = {};
-else
-    z_vals = cell(1, l_z);
-    z_shift_base = 2 * l_a;
-    for i = 1:l_z
-        z_vals{i} = shiftdim(z_gridvals(:, i), -(1 + z_shift_base));
-    end
+% Dim (2+2*l_a): Markov Shocks (bothz)
+if sum(n_bothz) > 0
+    if ~isempty(bothz_grid); bothz_grid = bothz_grid(:, n_bothz > 0); end
+    for i = 1:size(bothz_grid, 2); GridParamsCell{end+1} = shiftdim(bothz_grid(:, i), -(2*l_a + 1)); end
 end
 
-% Collect 'e' values dynamically
-if l_e == 0
-    e_vals = {};
-else
-    e_vals = cell(1, l_e);
-    e_shift_base = 2 * l_a + 1; % z combined grid takes 1 dimension
-    for i = 1:l_e
-        e_vals{i} = shiftdim(e_gridvals(:, i), -(1 + e_shift_base));
-    end
+% Dim (3+2*l_a): IID Shocks (e)
+if sum(n_e) > 0
+    for i = 1:size(e_grid, 2); GridParamsCell{end+1} = shiftdim(e_grid(:, i), -(2*l_a + 2)); end
 end
 
-N_z = max(N_z_raw, 1);
-N_e = max(N_e_raw, 1);
+Fmatrix = arrayfun(ReturnFn, GridParamsCell{:}, ReturnFnParamsCell{:});
 
-% Combine all inputs into a single argument cell array for arrayfun
-all_inputs = [d_vals, a_prime_vals, a_vals, z_vals, e_vals, ReturnFnParamsCell'];
-
-% Evaluate function using arrayfun
-Fmatrix = arrayfun(ReturnFn, all_inputs{:});
-
-% Reshape output matrix
-if l_d == 0
-    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_z, N_e]);
+% Reshape output array
+if sum(n_d) == 0
+    Fmatrix = reshape(Fmatrix, [N_a, N_a, N_bothz, N_e]);
 else
     if Refine == 1
-        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_z, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d, N_a, N_a, N_bothz, N_e]);
     else
-        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_z, N_e]);
+        Fmatrix = reshape(Fmatrix, [N_d * N_a, N_a, N_bothz, N_e]);
     end
 end
 
