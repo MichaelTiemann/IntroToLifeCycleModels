@@ -11,6 +11,7 @@ has_d2 = Dims.has_d2; has_d1 = Dims.has_d1;
 N_z_raw = Dims.special_n_z(1) > 0;
 N_semiz_raw = Dims.N_semiz_raw > 0;
 N_e_raw = Dims.N_e_raw > 0;
+has_bothz = N_semiz_raw || N_z_raw;
 
 % --- 2. Determine Iteration Strategy ---
 if vfoptions.lowmemory == 0
@@ -80,7 +81,7 @@ end
         has_cont = ~isempty(V_next);
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EV = V_next; end
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -89,11 +90,11 @@ end
         for d2_c = 1:N_d2
             d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
             if has_cont
-                if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
+                if has_bothz; if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
                 EV_d2 = compute_expected_value(EV, pi_bz, N_a, N_bothz);
             end
 
-            RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+            RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw), ReturnFnParamsVec, 0);
             RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, N_e]);
 
             if has_cont; RHS = RM + df * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]); else; RHS = RM; end
@@ -119,11 +120,11 @@ end
         for d2_c = 1:N_d2
             d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
             if has_cont
-                if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
+                if has_bothz; if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
                 EV_d2 = compute_expected_value(EV, pi_bz, N_a, N_bothz);
             end
             for e_c = 1:N_e
-                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, N_e_raw), ReturnFnParamsVec, 0);
                 RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, 1]);
 
                 if has_cont; RHS = RM + df * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]); else; RHS = RM; end
@@ -141,7 +142,7 @@ end
         has_cont = ~isempty(V_next);
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EV = V_next; end
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -149,10 +150,10 @@ end
 
         for d2_c = 1:N_d2
             d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
-            if has_cont; if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; end
+            if has_cont; if has_bothz; if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end; end
             for z_c = 1:N_bothz
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a); end
-                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw), ReturnFnParamsVec, 0);
                 RM = reshape(RM, [N_d1, N_a, N_a, 1, N_e]);
 
                 if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, 1, 1]); else; RHS = RM; end
@@ -170,7 +171,7 @@ end
         has_cont = ~isempty(V_next);
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EV = V_next; end
         end
 
         V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
@@ -183,7 +184,7 @@ end
                 sb = (z_c-1)*N_semiz + (1:N_semiz);
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(sb,:)', N_a); end
 
-                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec, 0);
+                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw), ReturnFnParamsVec, 0);
                 RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, N_e]);
 
                 if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]); else; RHS = RM; end
@@ -209,11 +210,11 @@ end
 
         for d2_c = 1:N_d2
             d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
-            if has_cont; if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; end
+            if has_cont; if has_bothz; if N_semiz_raw; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end; end
             for z_c = 1:N_bothz
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a); end
                 for e_c = 1:N_e
-                    RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                    RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, N_e_raw), ReturnFnParamsVec, 0);
                     RM = reshape(RM, [N_d1, N_a, N_a, 1, 1]);
 
                     if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, 1, 1]); else; RHS = RM; end
@@ -245,7 +246,7 @@ end
                 sb = (z_c-1)*N_semiz + (1:N_semiz);
                 if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(sb,:)', N_a); end
                 for e_c = 1:N_e
-                    RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec, 0);
+                    RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, N_e_raw), ReturnFnParamsVec, 0);
                     RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, 1]);
 
                     if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]); else; RHS = RM; end
@@ -299,5 +300,16 @@ end
         EV_out = sum(EV_val, 2);
     end
 
+    function val = get_grid_slice(grid, idx, j, has_flag)
+        if has_flag
+            if ischar(idx)
+                val = grid(:,:,j);
+            else
+                val = grid(idx,:,j);
+            end
+        else
+            val = [];
+        end
+    end
 
 end
