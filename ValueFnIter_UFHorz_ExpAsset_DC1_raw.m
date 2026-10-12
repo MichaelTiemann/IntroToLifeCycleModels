@@ -94,14 +94,14 @@ for j = N_j:-1:1
         d2_gridvals = CreateGridvals(n_d2, vfoptions.d2_grid, 1);
 
         if Dims.exp_flag == 3 || Dims.exp_flag == 4
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, Grids.e_gridvals_J(:,:,j));
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, Grids.e_gridvals_J(:,:,j));
         elseif Dims.exp_flag == 2 || Dims.exp_flag == 5
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, Dims.n_bothz, Grids.bothz_gridvals_J(:,:,j));
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, Dims.n_bothz, Grids.bothz_gridvals_J(:,:,j));
         elseif Dims.exp_flag == 6
             u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, u_gridvals);
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, u_gridvals);
         else
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2);
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2);
         end
         ExpAsset_J.a2primeIndex = a2primeIndex;
         ExpAsset_J.a2primeProbs = a2primeProbs;
