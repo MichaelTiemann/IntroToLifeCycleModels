@@ -39,7 +39,7 @@ s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3);
 s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
 
 l_a_choice = length(n_a) - 1;
-n_rows = l_d + l_a_choice + 2; % [d's, a's, L2off, flag]
+n_rows = l_d + l_a_choice + 1; % [d's, a's, flag]
 Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
 
 d_idx = PolicyKron(1,:,:,:,:);
@@ -62,8 +62,9 @@ end
 
 n2short = vfoptions.ngridinterp;
 L2off = PolicyKron(3,:,:,:,:);
-Policy(l_d + l_a_choice + 1,:,:,:,:) = (L2off - 1) / (n2short + 1);
-Policy(l_d + l_a_choice + 2,:,:,:,:) = PolicyKron(4,:,:,:,:);
+Policy(l_d + 1,:,:,:,:) = Policy(l_d + 1,:,:,:,:) + (L2off - (n2short + 2)) / (n2short + 1);
+Policy(l_d + l_a_choice + 1,:,:,:,:) = PolicyKron(4,:,:,:,:);
+
 V = VKron;
 
 

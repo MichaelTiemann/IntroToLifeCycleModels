@@ -15,7 +15,7 @@ s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3);
 s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
 
 l_a_choice = length(n_a) - 1;
-n_rows = l_d + l_a_choice + 2; % [d's, a's, L2off, flag]
+n_rows = l_d + l_a_choice + 1; % [d's, a's, flag]
 Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
 
 d_idx = PolicyKron(1,:,:,:,:);
@@ -29,17 +29,26 @@ elseif l_d > 1
     end
 end
 
-a_idx = PolicyKron(2,:,:,:,:);
-a_cum = 1;
-for i = 1:l_a_choice
-    Policy(l_d+i,:,:,:,:) = rem(ceil(a_idx / a_cum) - 1, n_a(i)) + 1;
-    a_cum = a_cum * n_a(i);
+n2short = vfoptions.ngridinterp;
+
+if length(n_a) == 2
+    % PolicyKron is [d_idx; a1fine_idx; flag_val]
+    a1fine_idx = PolicyKron(2,:,:,:,:);
+    Policy(l_d + 1,:,:,:,:) = (a1fine_idx - 1) / (n2short + 1) + 1;
+    Policy(l_d + 2,:,:,:,:) = PolicyKron(3,:,:,:,:);
+else
+    % PolicyKron is [d_idx; joint_midpt; L2off; flag_val]
+    a_idx = PolicyKron(2,:,:,:,:);
+    a_cum = 1;
+    for i = 1:l_a_choice
+        Policy(l_d+i,:,:,:,:) = rem(ceil(a_idx / a_cum) - 1, n_a(i)) + 1;
+        a_cum = a_cum * n_a(i);
+    end
+    L2off = PolicyKron(3,:,:,:,:);
+    Policy(l_d + 1,:,:,:,:) = Policy(l_d + 1,:,:,:,:) + (L2off - (n2short + 2)) / (n2short + 1);
+    Policy(l_d + l_a_choice + 1,:,:,:,:) = PolicyKron(4,:,:,:,:);
 end
 
-n2short = vfoptions.ngridinterp;
-L2off = PolicyKron(3,:,:,:,:);
-Policy(l_d + l_a_choice + 1,:,:,:,:) = (L2off - 1) / (n2short + 1);
-Policy(l_d + l_a_choice + 2,:,:,:,:) = PolicyKron(4,:,:,:,:);
 V = VKron;
 
 
