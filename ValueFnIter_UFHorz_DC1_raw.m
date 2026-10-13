@@ -93,7 +93,7 @@ end
                 DiscountedEV_L1 = reshape(EV_expected, [1, N_a, 1, N_bothz, 1]);
             end
 
-            RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+            RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
             RM_L1 = reshape(RM_L1, [N_d_inner, N_a, Dims.level1n, N_bothz, N_e]);
 
             if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
@@ -123,7 +123,7 @@ end
                 a1p_idx = le_flat + a1p_offsets;
                 a1p_grid_safe = reshape(a_gridvals(a1p_idx), [1, mg+1, L, N_bothz, N_e]);
 
-                RM_L2 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, N_bothz, N_e]);
 
                 if has_cont
@@ -177,7 +177,7 @@ end
             for e_c = 1:N_e
                 e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
 
-                RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+                RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
                 RM_L1 = reshape(RM_L1, [N_d_inner, N_a, Dims.level1n, N_bothz, 1]);
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
@@ -207,7 +207,7 @@ end
                     a1p_idx = le_flat + a1p_offsets;
                     a1p_grid_safe = reshape(a_gridvals(a1p_idx), [1, mg+1, L, N_bothz, 1]);
 
-                    RM_L2 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, N_bothz, 1]);
 
                     if has_cont
@@ -263,7 +263,7 @@ end
                     DiscountedEV_L1 = reshape(EV_expected, [1, N_a, 1, 1, 1]);
                 end
 
-                RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+                RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
                 RM_L1 = reshape(RM_L1, [N_d_inner, N_a, Dims.level1n, 1, N_e]);
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
@@ -293,7 +293,7 @@ end
                     a1p_idx = le_flat + a1p_offsets;
                     a1p_grid_safe = reshape(a_gridvals(a1p_idx), [1, mg+1, L, 1, N_e]);
 
-                    RM_L2 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, 1, N_e]);
 
                     if has_cont
@@ -352,7 +352,7 @@ end
                     DiscountedEV_L1 = reshape(EV_expected, [1, N_a, 1, N_semiz, 1]);
                 end
 
-                RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+                RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
                 RM_L1 = reshape(RM_L1, [N_d_inner, N_a, Dims.level1n, N_semiz, N_e]);
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
@@ -382,7 +382,7 @@ end
                     a1p_idx = le_flat + a1p_offsets;
                     a1p_grid_safe = reshape(a_gridvals(a1p_idx), [1, mg+1, L, N_semiz, N_e]);
 
-                    RM_L2 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, N_semiz, N_e]);
 
                     if has_cont
@@ -443,7 +443,7 @@ end
                 for e_c = 1:N_e
                     e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
 
-                    RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+                    RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_L1 = reshape(RM_L1, [N_d_inner, N_a, Dims.level1n, N_semiz, 1]);
 
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
@@ -473,7 +473,7 @@ end
                         a1p_idx = le_flat + a1p_offsets;
                         a1p_grid_safe = reshape(a_gridvals(a1p_idx), [1, mg+1, L, N_semiz, 1]);
 
-                        RM_L2 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                        RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                         RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, N_semiz, 1]);
 
                         if has_cont
@@ -531,7 +531,7 @@ end
                 for e_c = 1:N_e
                     e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
 
-                    RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+                    RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_L1 = reshape(RM_L1, [N_d_inner, N_a, Dims.level1n, 1, 1]);
 
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
@@ -561,7 +561,7 @@ end
                         a1p_idx = le_flat + a1p_offsets;
                         a1p_grid_safe = reshape(a_gridvals(a1p_idx), [1, mg+1, L, 1, 1]);
 
-                        RM_L2 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                        RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                         RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, 1, 1]);
 
                         if has_cont
@@ -607,13 +607,13 @@ end
 
     function [V_out, Pol_out] = extract_pol(V_douter, P_douter, N_a, N_bothz, N_e, N_d_inner, N_d_outer)
         if N_d_outer > 1
-            [V_out, maxidx] = max(V_douter, [], 5);
+            [V_out, maxidx] = max(V_douter, [], 4);
             lin_idx = (1:(N_a*N_bothz*N_e))' + (N_a*N_bothz*N_e)*(maxidx(:) - 1);
             P_douter_flat = reshape(P_douter, [N_a*N_bothz*N_e*N_d_outer, 1]);
             raw_pol = P_douter_flat(lin_idx);
 
             d_inner_idx = rem(raw_pol - 1, N_d_inner) + 1;
-            a1p_idx = ceil(raw_pol / (N_d_inner * N_d_outer));
+            a1p_idx = ceil(raw_pol / N_d_inner);
             d_outer_idx = maxidx(:);
             linear_combined = d_inner_idx + N_d_inner * (d_outer_idx - 1) + (N_d_inner * N_d_outer) * (a1p_idx - 1);
             Pol_out = reshape(linear_combined, [1, N_a, N_bothz, N_e]);
