@@ -3,6 +3,7 @@ function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC1_raw(n_d, n_a, n_z, N_j, d
 % --- 1. Universal Setup ---
 [Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
 
+N_a1 = Dims.N_a1; N_a2 = Dims.N_a2; N_a = Dims.N_a;
 N_bothz = Dims.N_bothz; N_e = Dims.N_e;
 N_z = Dims.N_z; N_semiz = Dims.N_semiz;
 
@@ -11,11 +12,12 @@ has_e     = Dims.N_e_raw > 0;
 has_z     = Dims.special_n_z(1) > 0;
 has_bothz = has_semiz || has_z;
 
+n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e;
+n_semiz = Dims.n_semiz;
 n_d1 = Dims.n_d1; n_d2 = Dims.n_d2;
 N_d1 = Dims.N_d1; N_d2 = Dims.N_d2;
 N_d_inner = Dims.N_d_inner; N_d_outer = Dims.N_d_outer;
 
-N_a1 = n_a(1); N_a2 = max(prod(n_a(2:end)), 1); N_a = N_a1 * N_a2;
 a1_gridvals = gpuArray(a_grid(1:N_a1));
 a2_gridvals = gpuArray(a_grid(N_a1+1:end));
 
@@ -74,6 +76,7 @@ Policy = zeros(1, N_a1, N_a2, N_bothz, N_e, N_j, 'gpuArray');
 
 a1p_offsets_base = gpuArray(0:N_a1);
 
+d2_off_L1 = gpuArray(repelem((1:N_d2)', N_d1));
 d2_off_L2 = reshape(gpuArray(repelem(0:N_d2-1, N_d1)), [N_d_inner, 1, 1, 1, 1, 1]);
 a2_off_L2 = reshape(gpuArray(0:N_a2-1), [1, 1, 1, N_a2, 1, 1]);
 bz_off_L2 = reshape(gpuArray(0:N_bothz-1), [1, 1, 1, 1, N_bothz, 1]);
@@ -153,7 +156,7 @@ end
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
 
             if isempty(RM_cache{1, 1, d_outer_c})
-                RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                 RM_cache{1, 1, d_outer_c} = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, N_bothz, N_e]);
             end
             RM_L1 = RM_cache{1, 1, d_outer_c};
@@ -161,8 +164,7 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 EV_coarse = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
-                DiscountedEV_L1_full = df * reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
-                DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, level1ii, 1, :, :, :), [N_d_inner, 1, level1n, N_a2, N_bothz, N_e_interp]);
+                DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
                 RHS_L1 = RM_L1 + DiscountedEV_L1;
                 EV_coarse_flat = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_bothz * N_e_interp, 1]);
             else
@@ -197,7 +199,7 @@ end
                 a1p_idx = le_flat + a1p_offsets;
                 a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
 
-                RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, N_bothz, N_e]);
 
                 if has_cont
@@ -249,21 +251,22 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 EV_coarse = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
-                DiscountedEV_L1_full = df * reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
-                EV_coarse_flat = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_bothz * N_e_interp, 1]);
+                EV_coarse = reshape(EV_coarse, [N_d2, N_a1, 1, N_a2, N_bothz, N_e_interp]);
+                DiscountedEV_L1_full = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
+                EV_coarse_flat_e = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_bothz * N_e_interp, 1]);
             end
 
             for e_c = 1:N_e
                 if isempty(RM_cache{1, e_c, d_outer_c})
                     e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
-                    RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                    RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_cache{1, e_c, d_outer_c} = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, N_bothz, 1]);
                 end
                 RM_L1 = RM_cache{1, e_c, d_outer_c};
 
                 if has_cont
                     e_idx = min(e_c, N_e_interp);
-                    DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, level1ii, 1, :, :, e_idx), [N_d_inner, 1, level1n, N_a2, N_bothz, 1]);
+                    DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, :, 1, :, :, e_idx), [N_d_inner, N_a1, 1, N_a2, N_bothz, 1]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
@@ -297,12 +300,12 @@ end
                     a1p_idx = le_flat + a1p_offsets;
                     a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
 
-                    RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, N_bothz, 1]);
 
                     if has_cont
-                        EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*bz_off_L2 + N_d2*N_a1*N_a2*N_bothz*(e_idx - 1);
-                        RHS_L2_DC = RM_L2_DC + df * reshape(EV_coarse_flat(EV_idx), size(a1p_idx));
+                        EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*bz_off_L2;
+                        RHS_L2_DC = RM_L2_DC + df * reshape(EV_coarse_flat_e(EV_idx), size(a1p_idx));
                     else
                         RHS_L2_DC = RM_L2_DC;
                     end
@@ -350,22 +353,23 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 EV_coarse = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
-                DiscountedEV_L1_full = df * reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, N_semiz, N_z, N_e_interp]);
-                EV_coarse_flat_z = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_semiz * N_z * N_e_interp, 1]);
+                EV_coarse = reshape(EV_coarse, [N_d2, N_a1, 1, N_a2, N_semiz, N_z, N_e_interp]);
+                DiscountedEV_L1_full = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_semiz, N_z, N_e_interp]);
             end
 
             for z_c = 1:N_z
                 sb = (z_c-1)*N_semiz + (1:N_semiz);
                 if isempty(RM_cache{z_c, 1, d_outer_c})
                     bz_val = get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz);
-                    RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                    RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_cache{z_c, 1, d_outer_c} = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, N_semiz, N_e]);
                 end
                 RM_L1 = RM_cache{z_c, 1, d_outer_c};
 
                 if has_cont
-                    DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, level1ii, 1, :, :, z_c, :), [N_d_inner, 1, level1n, N_a2, N_semiz, N_e_interp]);
+                    DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, :, 1, :, :, z_c, :), [N_d_inner, N_a1, 1, N_a2, N_semiz, N_e_interp]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
+                    EV_coarse_flat_z = reshape(EV_coarse(:,:,:,:,:,z_c,:), [N_d2 * N_a1 * N_a2 * N_semiz * N_e_interp, 1]);
                 else
                     RHS_L1 = RM_L1;
                 end
@@ -398,11 +402,11 @@ end
                     a1p_idx = le_flat + a1p_offsets;
                     a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
 
-                    RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, N_semiz, N_e]);
 
                     if has_cont
-                        EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*sb_off_L2 + N_d2*N_a1*N_a2*N_semiz*(z_c - 1) + N_d2*N_a1*N_a2*N_bothz*e_off_L2;
+                        EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*sb_off_L2 + N_d2*N_a1*N_a2*N_semiz*e_off_L2;
                         RHS_L2_DC = RM_L2_DC + df * reshape(EV_coarse_flat_z(EV_idx), size(a1p_idx));
                     else
                         RHS_L2_DC = RM_L2_DC;
@@ -451,21 +455,22 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 EV_coarse = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
-                DiscountedEV_L1_full = df * reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
-                EV_coarse_flat_bz = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_bothz * N_e_interp, 1]);
+                EV_coarse = reshape(EV_coarse, [N_d2, N_a1, 1, N_a2, N_bothz, N_e_interp]);
+                DiscountedEV_L1_full = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
             end
 
             for z_c = 1:N_bothz
                 if isempty(RM_cache{z_c, 1, d_outer_c})
                     bz_val = get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz);
-                    RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                    RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_cache{z_c, 1, d_outer_c} = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, 1, N_e]);
                 end
                 RM_L1 = RM_cache{z_c, 1, d_outer_c};
 
                 if has_cont
-                    DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, level1ii, 1, :, z_c, :), [N_d_inner, 1, level1n, N_a2, 1, N_e_interp]);
+                    DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, :, 1, :, z_c, :), [N_d_inner, N_a1, 1, N_a2, 1, N_e_interp]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
+                    EV_coarse_flat_bz = reshape(EV_coarse(:,:,:,:,z_c,:), [N_d2 * N_a1 * N_a2 * N_e_interp, 1]);
                 else
                     RHS_L1 = RM_L1;
                 end
@@ -498,11 +503,11 @@ end
                     a1p_idx = le_flat + a1p_offsets;
                     a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
 
-                    RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, 1, N_e]);
 
                     if has_cont
-                        EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*(z_c - 1) + N_d2*N_a1*N_a2*N_bothz*e_off_L2;
+                        EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*e_off_L2;
                         RHS_L2_DC = RM_L2_DC + df * reshape(EV_coarse_flat_bz(EV_idx), size(a1p_idx));
                     else
                         RHS_L2_DC = RM_L2_DC;
@@ -549,8 +554,8 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 EV_coarse = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
-                DiscountedEV_L1_full = df * reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, N_semiz, N_z, N_e_interp]);
-                EV_coarse_flat_ze = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_semiz * N_z * N_e_interp, 1]);
+                EV_coarse = reshape(EV_coarse, [N_d2, N_a1, 1, N_a2, N_semiz, N_z, N_e_interp]);
+                DiscountedEV_L1_full = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_semiz, N_z, N_e_interp]);
             end
 
             for z_c = 1:N_z
@@ -560,15 +565,16 @@ end
                     if isempty(RM_cache{z_c, e_c, d_outer_c})
                         bz_val = get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz);
                         e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
-                        RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                        RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                         RM_cache{z_c, e_c, d_outer_c} = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, N_semiz, 1]);
                     end
                     RM_L1 = RM_cache{z_c, e_c, d_outer_c};
 
                     if has_cont
                         e_idx = min(e_c, N_e_interp);
-                        DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, level1ii, 1, :, :, z_c, e_idx), [N_d_inner, 1, level1n, N_a2, N_semiz, 1]);
+                        DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, :, 1, :, :, z_c, e_idx), [N_d_inner, N_a1, 1, N_a2, N_semiz, 1]);
                         RHS_L1 = RM_L1 + DiscountedEV_L1;
+                        EV_coarse_flat_ze = reshape(EV_coarse(:,:,:,:,:,z_c,e_idx), [N_d2 * N_a1 * N_a2 * N_semiz, 1]);
                     else
                         RHS_L1 = RM_L1;
                     end
@@ -601,11 +607,11 @@ end
                         a1p_idx = le_flat + a1p_offsets;
                         a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
 
-                        RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                        RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                         RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, N_semiz, 1]);
 
                         if has_cont
-                            EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*sb_off_L2 + N_d2*N_a1*N_a2*N_semiz*(z_c - 1) + N_d2*N_a1*N_a2*N_bothz*(e_idx - 1);
+                            EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*sb_off_L2;
                             RHS_L2_DC = RM_L2_DC + df * reshape(EV_coarse_flat_ze(EV_idx), size(a1p_idx));
                         else
                             RHS_L2_DC = RM_L2_DC;
@@ -653,8 +659,8 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 EV_coarse = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
-                DiscountedEV_L1_full = df * reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
-                EV_coarse_flat_ze = reshape(EV_coarse, [N_d2 * N_a1 * N_a2 * N_bothz * N_e_interp, 1]);
+                EV_coarse = reshape(EV_coarse, [N_d2, N_a1, 1, N_a2, N_bothz, N_e_interp]);
+                DiscountedEV_L1_full = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
             end
 
             for z_c = 1:N_bothz
@@ -662,15 +668,16 @@ end
                     if isempty(RM_cache{z_c, e_c, d_outer_c})
                         bz_val = get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz);
                         e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
-                        RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                        RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                         RM_cache{z_c, e_c, d_outer_c} = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, 1, 1]);
                     end
                     RM_L1 = RM_cache{z_c, e_c, d_outer_c};
 
                     if has_cont
                         e_idx = min(e_c, N_e_interp);
-                        DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, level1ii, 1, :, z_c, e_idx), [N_d_inner, 1, level1n, N_a2, 1, 1]);
+                        DiscountedEV_L1 = reshape(DiscountedEV_L1_full(:, :, 1, :, z_c, e_idx), [N_d_inner, N_a1, 1, N_a2, 1, 1]);
                         RHS_L1 = RM_L1 + DiscountedEV_L1;
+                        EV_coarse_flat_ze = reshape(EV_coarse(:,:,:,:,z_c,e_idx), [N_d2 * N_a1 * N_a2, 1]);
                     else
                         RHS_L1 = RM_L1;
                     end
@@ -688,7 +695,7 @@ end
                     P_fordouter(level1ii, :, z_c, e_c, d_outer_c) = reshape(linear_p, [level1n, N_a2, 1, 1]);
 
                     diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, 1, 1) - a1p_idx_L1(1, 1:end-1, :, 1, 1));
-                    maxgap_vec = gather(reshape(max(diff_a1p, [], 3), [level1n - 1, 1]));
+                    maxgap_vec = gather(reshape(max(diff_a1p, [], [1, 3, 4]), [level1n - 1, 1]));
                     if isempty(maxgap_vec); maxgap_vec = 0; end
 
                     for ii = 1:(level1n-1)
@@ -703,11 +710,11 @@ end
                         a1p_idx = le_flat + a1p_offsets;
                         a1p_grid_safe = reshape(a1_gridvals(a1p_idx), size(a1p_idx));
 
-                        RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                        RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                         RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, 1, 1]);
 
                         if has_cont
-                            EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2 + N_d2*N_a1*N_a2*(z_c - 1) + N_d2*N_a1*N_a2*N_bothz*(e_idx - 1);
+                            EV_idx = (d2_off_L2 + 1) + N_d2*(a1p_idx - 1) + N_d2*N_a1*a2_off_L2;
                             RHS_L2_DC = RM_L2_DC + df * reshape(EV_coarse_flat_ze(EV_idx), size(a1p_idx));
                         else
                             RHS_L2_DC = RM_L2_DC;
@@ -804,11 +811,6 @@ end
         end
 
         EV_coarse = permute(EV_coarse, [1, 2, 3, 4]); % [N_d2, N_a1, N_a2, num_z]
-        if N_d1 > 1
-            EV_coarse = repmat(EV_coarse, [1, 1, 1, 1, N_d1]);
-            EV_coarse = permute(EV_coarse, [5, 1, 2, 3, 4]); % [N_d1, N_d2, N_a1, N_a2, num_z]
-        end
-        EV_coarse = reshape(EV_coarse, [N_d_inner, N_a1, 1, N_a2, num_z_interp]);
     end
 
     function EV_out = compute_expected_value(EV, pi_bothz, N_a, N_bothz)
