@@ -46,8 +46,16 @@ end
 vfoptions_inner = vfoptions;
 vfoptions_inner.outputkron = 1;
 
-if isfield(vfoptions, 'divideandconquer') && vfoptions.divideandconquer == 1
-    [V, PolicyKron] = ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+if vfoptions.divideandconquer == 1
+    if vfoptions.gridinterplayer == 1
+        [V, PolicyKron] = ValueFnIter_UFHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+    else
+        [V, PolicyKron] = ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+    end
+elseif vfoptions.gridinterplayer == 1
+    % Grid-interpolation does not return Kronecker format
+    [V, Policy] = ValueFnIter_UFHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+    return
 else
     [V, PolicyKron] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
 end
