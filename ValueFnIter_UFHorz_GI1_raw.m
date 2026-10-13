@@ -120,7 +120,7 @@ end
 
             a1p_grid_safe = reshape(aprime_grid(aprimeindexes), size(aprimeindexes));
 
-            RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+            RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
             RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_bothz, N_e]);
 
             if has_continuation
@@ -195,7 +195,7 @@ end
 
                 a1p_grid_safe = reshape(aprime_grid(aprimeindexes), size(aprimeindexes));
 
-                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_bothz, 1]);
 
                 if has_continuation
@@ -261,7 +261,7 @@ end
 
                 if has_continuation
                     EV_d2z = compute_expected_value_cond(EV, pi_bz(semizblock,:)', N_a);
-                    EVinterp_z = interp1(a_gridvals, EV_d2z, aprime_grid);
+                    EVinterp = interp1(a_gridvals, EV_d2z, aprime_grid);
                 end
 
                 RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
@@ -275,12 +275,12 @@ end
 
                 a1p_grid_safe = reshape(aprime_grid(aprimeindexes), size(aprimeindexes));
 
-                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_semiz, N_e]);
 
                 if has_continuation
                     aprimez = aprimeindexes + n2aprime * semizBind;
-                    entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp_z(aprimez(:)), [N_d1*n2long, N_a, N_semiz, N_e]);
+                    entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp(aprimez(:)), [N_d1*n2long, N_a, N_semiz, N_e]);
                 else
                     entireRHS_L2 = RM_L2;
                 end
@@ -328,11 +328,11 @@ end
 
         e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e);
 
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
+        for d_outer_c = 1:N_d2
+            d_val = get_d_slice(Grids.d12_gridvals, d_outer_c, has_d2, has_d1);
 
             if has_cont
-                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
+                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
             end
 
             for z_c = 1:N_bothz
@@ -340,7 +340,7 @@ end
 
                 if has_cont
                     EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a);
-                    EVinterp_z = interp1(a_gridvals, EV_d2z, aprime_grid);
+                    EVinterp = interp1(a_gridvals, EV_d2z, aprime_grid);
                 end
 
                 RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
@@ -354,11 +354,11 @@ end
 
                 a1p_grid_safe = reshape(aprime_grid(aprimeindexes), size(aprimeindexes));
 
-                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, 1, N_e]);
 
                 if has_cont
-                    entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp_z(aprimeindexes(:)), [N_d1*n2long, N_a, 1, N_e]);
+                    entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp(aprimeindexes(:)), [N_d1*n2long, N_a, 1, N_e]);
                 else
                     entireRHS_L2 = RM_L2;
                 end
@@ -370,15 +370,15 @@ end
                 d1_ind = rem(maxindexL2-1, N_d1) + 1;
                 L2offset = ceil(maxindexL2 / N_d1);
 
-                linidx_lower = d1_ind + N_d1*n2long*aind + N_d1*n2long*N_a*eind;
-                linidx_upper = d1_ind + N_d1*(n2long-1) + N_d1*n2long*aind + N_d1*n2long*N_a*eind;
+                linidx_lower = d1_ind + N_d1*n2long*aind;
+                linidx_upper = d1_ind + N_d1*(n2long-1) + N_d1*n2long*aind;
                 isInfLower = (RM_L2(linidx_lower) == -Inf);
                 isInfUpper = (RM_L2(linidx_upper) == -Inf);
                 inLowerStrict = (L2offset >= 2) & (L2offset <= n2short+1);
                 inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
 
                 flag_ford2_jj(:,z_c,:,d2_c) = shiftdim(2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper), 1);
-                allind = d1_ind + N_d1*aind + N_d1*N_a*eind;
+                allind = d1_ind + N_d1*aind;
                 midpt_ford2_jj(:,z_c,:,d2_c) = shiftdim(midpoint(allind), 1);
             end
         end
@@ -404,11 +404,14 @@ end
         midpt_ford2_jj = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
         flag_ford2_jj = 2 * ones(N_a, N_bothz, N_e, N_d2, 'gpuArray');
 
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
+        e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e);
+        sb_off_L2 = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, N_semiz, 1]);
+
+        for d_outer_c = 1:N_d2
+            d_val = get_d_slice(Grids.d12_gridvals, d_outer_c, has_d2, has_d1);
 
             if has_cont
-                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
+                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
             end
 
             for z_c = 1:N_z
@@ -417,7 +420,8 @@ end
 
                 if has_cont
                     EV_d2z = compute_expected_value_cond(EV, pi_bz(semizblock,:)', N_a);
-                    EVinterp_z = interp1(a_gridvals, EV_d2z, aprime_grid);
+                    EV_expected_reshaped = reshape(EV_d2z, [N_a, N_semiz]);
+                    EVinterp = interp1(a_gridvals, EV_d2z, aprime_grid);
                 end
 
                 for e_c = 1:N_e
@@ -434,12 +438,12 @@ end
 
                     a1p_grid_safe = reshape(aprime_grid(aprimeindexes), size(aprimeindexes));
 
-                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, N_semiz, 1]);
 
                     if has_cont
                         aprimez = aprimeindexes + n2aprime * semizBind;
-                        entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp_z(aprimez(:)), [N_d1*n2long, N_a, N_semiz, 1]);
+                        entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp(aprimez(:)), [N_d1*n2long, N_a, N_semiz, 1]);
                     else
                         entireRHS_L2 = RM_L2;
                     end
@@ -486,11 +490,11 @@ end
         midpt_ford2_jj = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
         flag_ford2_jj = 2 * ones(N_a, N_bothz, N_e, N_d2, 'gpuArray');
 
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2, has_d1);
+        for d_outer_c = 1:N_d2
+            d_val = get_d_slice(Grids.d12_gridvals, d_outer_c, has_d2, has_d1);
 
             if has_cont
-                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
+                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
             end
 
             for z_c = 1:N_bothz
@@ -498,7 +502,7 @@ end
 
                 if has_cont
                     EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a);
-                    EVinterp_z = interp1(a_gridvals, EV_d2z, aprime_grid);
+                    DiscountedEV_L1 = reshape(EV_d2z, [1, N_a, 1, 1, 1]);
                 end
 
                 for e_c = 1:N_e
@@ -507,7 +511,7 @@ end
                     RM_L1 = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_L1 = reshape(RM_L1, [N_d1, N_a, N_a, 1, 1]);
 
-                    if has_cont; entireRHS_L1 = RM_L1 + DiscountFactorParamsVec * shiftdim(EV_d2z, -1); else; entireRHS_L1 = RM_L1; end
+                    if has_cont; entireRHS_L1 = RM_L1 + DiscountedEV_L1; else; entireRHS_L1 = RM_L1; end
 
                     [~, maxindex1] = max(entireRHS_L1, [], 2);
                     midpoint = max(min(maxindex1, N_a-1), 2);
@@ -515,11 +519,11 @@ end
 
                     a1p_grid_safe = reshape(aprime_grid(aprimeindexes), size(aprimeindexes));
 
-                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                    RM_L2 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2 = reshape(RM_L2, [N_d1 * n2long, N_a, 1, 1]);
 
                     if has_cont
-                        entireRHS_L2 = RM_L2 + DiscountFactorParamsVec * reshape(EVinterp_z(aprimeindexes(:)), [N_d1*n2long, N_a, 1, 1]);
+                        entireRHS_L2 = RM_L2 + DiscountedEV_L1;
                     else
                         entireRHS_L2 = RM_L2;
                     end
@@ -576,7 +580,7 @@ end
         Pol4 = zeros(4, size(maxidx, 1), size(maxidx, 2), size(maxidx, 3), 'gpuArray');
         Pol4(1,:,:,:) = shiftdim(rem(maxidx(:,:,:,1) - 1, N_d1) + 1, -1); % d
         Pol4(2,:,:,:) = shiftdim(midpoint(:,:,:,1), -1);                  % midpoint
-        Pol4(3,:,:,:) = shiftdim(ceil(maxidx(:,:,:,1) / N_d1), -1);       % L2off
+        Pol4(3,:,:,:) = shiftdim(ceil(maxidx(:,:,:,1) / N_d1), -1);       % aprimeL2ind
         Pol4(4,:,:,:) = shiftdim(flag(:,:,:,1), -1);                      % flag
     end
 
@@ -591,7 +595,7 @@ end
 
         Pol4(1,:,:,:) = d_idx;
         Pol4(2,:,:,:) = reshape(midpoint_ford2(lin_idx), [1, N_a, N_bothz, N_e]); % midpoint
-        Pol4(3,:,:,:) = ceil(maxidx / N_d1);       % L2off
+        Pol4(3,:,:,:) = ceil(maxidx / N_d1);       % aprimeL2ind
         Pol4(4,:,:,:) = reshape(flag_ford2(lin_idx), [1, N_a, N_bothz, N_e]);     % flag
     end
 
