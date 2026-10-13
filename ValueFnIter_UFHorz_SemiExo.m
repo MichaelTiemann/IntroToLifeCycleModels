@@ -33,13 +33,15 @@ if sum(n_d1) > 0
 
     d1_rep = repmat(d1_clean, [1, 1, N_d2]); % [N_d1, l_d1, N_d2]
 
-    d2_reshaped = reshape(d2_clean, [1, l_d2, N_d2]);
+    % CRITICAL: Use permute to safely rotate rows to the 3rd dimension without scrambling variables
+    d2_reshaped = permute(d2_clean, [3, 2, 1]); % [1, l_d2, N_d2]
     d2_rep = repmat(d2_reshaped, [N_d1, 1, 1]); % [N_d1, l_d2, N_d2]
 
     d_gridvals = cat(2, d1_rep, d2_rep); % [N_d1, l_d1 + l_d2, N_d2]
 else
     d2_clean = reshape(d2_gridvals, [N_d2, l_d2]);
-    d_gridvals = reshape(d2_clean, [1, l_d2, N_d2]);
+    % CRITICAL: Use permute to safely rotate rows to the 3rd dimension without scrambling variables
+    d_gridvals = permute(d2_clean, [3, 2, 1]); % [1, l_d2, N_d2]
 end
 
 % 3. Pass to the universal raw engine
