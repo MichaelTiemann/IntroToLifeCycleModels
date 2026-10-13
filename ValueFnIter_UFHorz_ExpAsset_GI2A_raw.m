@@ -136,7 +136,7 @@ for j = N_j:-1:1
 end
 
 % =====================================================================
-% SPECIALIZED SOLVE FUNCTIONS (Vectorised over N_d_inner and n_a2_c)
+% SPECIALIZED SOLVE FUNCTIONS
 % =====================================================================
     function [V_j, Pol_j] = solve_period_full(j, V_next, ExpAsset_J)
         ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
@@ -173,8 +173,7 @@ end
 
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
-                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col);
-                EV_fine_flat = reshape(EV_fine, [N_d2 * N_a1fine * n_a2_c * N_exp * N_bothz * N_e_interp, 1]);
+                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
                 DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :), [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, N_bothz, N_e_interp]);
                 RHS_L1 = RM_L1 + DiscountedEV_L1;
             else
@@ -195,7 +194,7 @@ end
                 bz_off_L2 = reshape(gpuArray(0:N_bothz-1), [1, 1, 1, 1, 1, 1, N_bothz, 1]);
                 e_off_L2  = reshape(gpuArray(0:N_e_interp-1), [1, 1, 1, 1, 1, 1, 1, N_e_interp]);
                 EV_idx = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2p_off_L2 + N_d2*N_a1fine*n_a2_c*exp_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*bz_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*N_bothz*e_off_L2;
-                RHS_L2 = RM_L2 + df * EV_fine_flat(EV_idx);
+                RHS_L2 = RM_L2 + df * EV_fine(EV_idx);
             else
                 RHS_L2 = RM_L2;
             end
@@ -216,14 +215,14 @@ end
             S6 = S5 * N_exp;
             S7 = S6 * N_bothz;
 
-            a1_off  = reshape(gpuArray(0:n_a1_c-1),    [1, n_a1_c, 1, 1, 1, 1]);
-            a2_off  = reshape(gpuArray(0:n_a2_c-1),    [1, 1, n_a2_c, 1, 1, 1]);
-            exp_off = reshape(gpuArray(0:N_exp-1),     [1, 1, 1, N_exp, 1, 1]);
-            bz_off  = reshape(gpuArray(0:N_bothz-1),   [1, 1, 1, 1, N_bothz, 1]);
-            e_off   = reshape(gpuArray(0:N_e-1),       [1, 1, 1, 1, 1, N_e]);
+            a1_off_safe = reshape(gpuArray(0:n_a1_c-1),   [1, n_a1_c, 1, 1, 1, 1]);
+            a2_off_safe = reshape(gpuArray(0:n_a2_c-1),   [1, 1, n_a2_c, 1, 1, 1]);
+            exp_off_safe= reshape(gpuArray(0:N_exp-1),    [1, 1, 1, N_exp, 1, 1]);
+            bz_off_safe = reshape(gpuArray(0:N_bothz-1),  [1, 1, 1, 1, N_bothz, 1]);
+            e_off_safe  = reshape(gpuArray(0:N_e-1),      [1, 1, 1, 1, 1, N_e]);
 
-            linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*bz_off + S7*e_off;
-            linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*bz_off + S7*e_off;
+            linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*bz_off_safe + S7*e_off_safe;
+            linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*bz_off_safe + S7*e_off_safe;
 
             isInfLower = (RM_L2(linidx_lower) == -Inf);
             isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -239,8 +238,8 @@ end
             S_mid6 = S_mid5 * N_exp;
             S_mid7 = S_mid6 * N_bothz;
 
-            midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off + S_mid4*a2_off + S_mid5*exp_off + S_mid6*bz_off + S_mid7*e_off;
-            chosen_midpt = reshape(midpoint(midpt_idx), [1, n_a1_c, n_a2_c, N_exp, N_bothz, N_e]);
+            midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off_safe + S_mid4*a2_off_safe + S_mid5*exp_off_safe + S_mid6*bz_off_safe + S_mid7*e_off_safe;
+            chosen_midpt = reshape(midpoint(midpt_idx), [N_a1_c, n_a2_c, N_exp, N_bothz, N_e]);
 
             joint_a_idx = chosen_midpt + n_a1_c * (a2p_idx_chosen - 1);
             d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
@@ -282,13 +281,12 @@ end
 
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
-                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col);
+                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
             end
 
             for e_c = 1:N_e
-                e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
-
                 if isempty(RM_cache{1, e_c, d_outer_c})
+                    e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
                     RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC2A(ReturnFn, n_d, n_a1_c, n_a2_c, n_exp, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_c_gridvals, a2_c_gridvals, a1_c_gridvals, a2_c_gridvals, exp_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_cache{1, e_c, d_outer_c} = reshape(RM_L1, [N_d_inner, n_a1_c, n_a2_c, n_a1_c, n_a2_c, N_exp, N_bothz, 1]);
                 end
@@ -296,13 +294,14 @@ end
 
                 if has_cont
                     e_idx = min(e_c, N_e_interp);
-                    EV_fine_flat_e = reshape(EV_fine(:,:,:,:,:,e_idx), [N_d2 * N_a1fine * n_a2_c * N_exp * N_bothz, 1]);
+                    EV_fine_e = EV_fine(:,:,:,:,:,e_idx);
                     DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, e_idx), [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, N_bothz, 1]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
                 end
 
+                % Phase 1: Maximize STRICTLY over a1prime (dimension 2)
                 [~, maxindex1] = max(RHS_L1, [], 2);
                 midpoint = max(min(maxindex1, n_a1_c-1), 2);
 
@@ -315,7 +314,7 @@ end
                 if has_cont
                     bz_off_L2 = reshape(gpuArray(0:N_bothz-1), [1, 1, 1, 1, 1, 1, N_bothz, 1]);
                     EV_idx = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2p_off_L2 + N_d2*N_a1fine*n_a2_c*exp_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*bz_off_L2;
-                    RHS_L2 = RM_L2 + df * EV_fine_flat_e(EV_idx);
+                    RHS_L2 = RM_L2 + df * EV_fine_e(EV_idx);
                 else
                     RHS_L2 = RM_L2;
                 end
@@ -335,13 +334,13 @@ end
                 S5 = S4 * n_a2_c;
                 S6 = S5 * N_exp;
 
-                a1_off  = reshape(gpuArray(0:n_a1_c-1),    [1, n_a1_c, 1, 1, 1]);
-                a2_off  = reshape(gpuArray(0:n_a2_c-1),    [1, 1, n_a2_c, 1, 1]);
-                exp_off = reshape(gpuArray(0:N_exp-1),     [1, 1, 1, N_exp, 1]);
-                bz_off  = reshape(gpuArray(0:N_bothz-1),   [1, 1, 1, 1, N_bothz]);
+                a1_off_safe  = reshape(gpuArray(0:n_a1_c-1),    [1, n_a1_c, 1, 1, 1]);
+                a2_off_safe  = reshape(gpuArray(0:n_a2_c-1),    [1, 1, n_a2_c, 1, 1]);
+                exp_off_safe = reshape(gpuArray(0:N_exp-1),     [1, 1, 1, N_exp, 1]);
+                bz_off_safe  = reshape(gpuArray(0:N_bothz-1),   [1, 1, 1, 1, N_bothz]);
 
-                linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*bz_off;
-                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*bz_off;
+                linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*bz_off_safe;
+                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*bz_off_safe;
 
                 isInfLower = (RM_L2(linidx_lower) == -Inf);
                 isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -356,8 +355,8 @@ end
                 S_mid5 = S_mid4 * n_a2_c;
                 S_mid6 = S_mid5 * N_exp;
 
-                midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off + S_mid4*a2_off + S_mid5*exp_off + S_mid6*bz_off;
-                chosen_midpt = reshape(midpoint(midpt_idx), [1, n_a1_c, n_a2_c, N_exp, N_bothz, 1]);
+                midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off_safe + S_mid4*a2_off_safe + S_mid5*exp_off_safe + S_mid6*bz_off_safe;
+                chosen_midpt = reshape(midpoint(midpt_idx), [N_a1_c, n_a2_c, N_exp, N_bothz, 1]);
 
                 joint_a_idx = chosen_midpt + n_a1_c * (a2p_idx_chosen - 1);
                 d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
@@ -393,36 +392,36 @@ end
         P3_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
         P4_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
 
-        e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e);
+        e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw);
 
         for d_outer_c = 1:N_d_outer
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
 
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
-                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col);
+                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
                 EV_coarse = reshape(EV_coarse, [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, N_semiz, N_z, N_e_interp]);
                 EV_fine   = reshape(EV_fine,   [N_d2, N_a1fine, n_a2_c, N_exp, N_semiz, N_z, N_e_interp]);
             end
 
             for z_c = 1:N_z
                 sb = (z_c-1)*N_semiz + (1:N_semiz);
-                bz_val = get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz);
-
                 if isempty(RM_cache{z_c, 1, d_outer_c})
+                    bz_val = get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz);
                     RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC2A(ReturnFn, n_d, n_a1_c, n_a2_c, n_exp, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_c_gridvals, a2_c_gridvals, a1_c_gridvals, a2_c_gridvals, exp_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_cache{z_c, 1, d_outer_c} = reshape(RM_L1, [N_d_inner, n_a1_c, n_a2_c, n_a1_c, n_a2_c, N_exp, N_semiz, N_e]);
                 end
                 RM_L1 = RM_cache{z_c, 1, d_outer_c};
 
                 if has_cont
-                    EV_fine_flat_z = reshape(EV_fine(:,:,:,:,:,z_c,:), [N_d2 * N_a1fine * n_a2_c * N_exp * N_semiz * N_e_interp, 1]);
+                    EV_fine_z = EV_fine(:,:,:,:,:,z_c,:);
                     DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :, :, z_c, :), [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, N_semiz, N_e_interp]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
                 end
 
+                % Phase 1: Maximize STRICTLY over a1prime (dimension 2)
                 [~, maxindex1] = max(RHS_L1, [], 2);
                 midpoint = max(min(maxindex1, n_a1_c-1), 2);
 
@@ -436,7 +435,7 @@ end
                     sb_off_L2 = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, 1, 1, 1, N_semiz, 1]);
                     e_off_L2  = reshape(gpuArray(0:N_e_interp-1), [1, 1, 1, 1, 1, 1, 1, N_e_interp]);
                     EV_idx = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2p_off_L2 + N_d2*N_a1fine*n_a2_c*exp_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*sb_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*N_semiz*e_off_L2;
-                    RHS_L2 = RM_L2 + df * EV_fine_flat_z(EV_idx);
+                    RHS_L2 = RM_L2 + df * EV_fine_z(EV_idx);
                 else
                     RHS_L2 = RM_L2;
                 end
@@ -457,14 +456,14 @@ end
                 S6 = S5 * N_exp;
                 S7 = S6 * N_semiz;
 
-                a1_off  = reshape(gpuArray(0:n_a1_c-1),    [1, n_a1_c, 1, 1, 1, 1]);
-                a2_off  = reshape(gpuArray(0:n_a2_c-1),    [1, 1, n_a2_c, 1, 1, 1]);
-                exp_off = reshape(gpuArray(0:N_exp-1),     [1, 1, 1, N_exp, 1, 1]);
-                sb_off  = reshape(gpuArray(0:N_semiz-1),   [1, 1, 1, 1, N_semiz, 1]);
-                e_off   = reshape(gpuArray(0:N_e-1),       [1, 1, 1, 1, 1, N_e]);
+                a1_off_safe  = reshape(gpuArray(0:n_a1_c-1),  [1, n_a1_c, 1, 1, 1, 1]);
+                a2_off_safe  = reshape(gpuArray(0:n_a2_c-1),  [1, 1, n_a2_c, 1, 1, 1]);
+                exp_off_safe = reshape(gpuArray(0:N_exp-1),   [1, 1, 1, N_exp, 1, 1]);
+                sb_off_safe  = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, 1, N_semiz, 1]);
+                e_off_safe   = reshape(gpuArray(0:N_e-1),     [1, 1, 1, 1, 1, N_e]);
 
-                linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*sb_off + S7*e_off;
-                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*sb_off + S7*e_off;
+                linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*sb_off_safe + S7*e_off_safe;
+                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*sb_off_safe + S7*e_off_safe;
 
                 isInfLower = (RM_L2(linidx_lower) == -Inf);
                 isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -480,17 +479,17 @@ end
                 S_mid6 = S_mid5 * N_exp;
                 S_mid7 = S_mid6 * N_semiz;
 
-                midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off + S_mid4*a2_off + S_mid5*exp_off + S_mid6*sb_off + S_mid7*e_off;
-                chosen_midpt = reshape(midpoint(midpt_idx), [1, n_a1_c, n_a2_c, N_exp, N_semiz, N_e]);
+                midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off_safe + S_mid4*a2_off_safe + S_mid5*exp_off_safe + S_mid6*sb_off_safe + S_mid7*e_off_safe;
+                chosen_midpt = reshape(midpoint(midpt_idx), [N_a1_c, n_a2_c, N_exp, N_semiz, N_e]);
 
                 joint_a_idx = chosen_midpt + n_a1_c * (a2p_idx_chosen - 1);
                 d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
-                V_fordouter(:, sb, :, d_outer_c) = reshape(v_tmp, [N_a, N_semiz, N_e]);
-                P1_fordouter(:, sb, :, d_outer_c) = reshape(d_idx_val, [N_a, N_semiz, N_e]);
-                P2_fordouter(:, sb, :, d_outer_c) = reshape(joint_a_idx, [N_a, N_semiz, N_e]);
-                P3_fordouter(:, sb, :, d_outer_c) = reshape(L2offset, [N_a, N_semiz, N_e]);
-                P4_fordouter(:, sb, :, d_outer_c) = reshape(flag_val, [N_a, N_semiz, N_e]);
+                V_fordouter(:,:,sb,:,d_outer_c) = reshape(v_tmp, [N_a, N_semiz, N_e]);
+                P1_fordouter(:,:,sb,:,d_outer_c) = reshape(d_idx_val, [N_a, N_semiz, N_e]);
+                P2_fordouter(:,:,sb,:,d_outer_c) = reshape(joint_a_idx, [N_a, N_semiz, N_e]);
+                P3_fordouter(:,:,sb,:,d_outer_c) = reshape(L2offset, [N_a, N_semiz, N_e]);
+                P4_fordouter(:,:,sb,:,d_outer_c) = reshape(flag_val, [N_a, N_semiz, N_e]);
             end
         end
         [V_j, Pol_j] = extract_pol(V_fordouter, P1_fordouter, P2_fordouter, P3_fordouter, P4_fordouter, N_a, N_bothz, N_e, N_d_outer);
@@ -503,7 +502,7 @@ end
             last_ReturnFnParamsVec = ReturnFnParamsVec;
         end
         has_cont = ~isempty(V_next);
-        N_e_interp = N_e; if Dims.exp_flag ~= 3 && Dims.exp_flag ~= 4; N_e_interp = 1; end
+        if Dims.exp_flag == 3 || Dims.exp_flag == 4; N_e_interp = N_e; else; N_e_interp = 1; end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
@@ -511,39 +510,39 @@ end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
-        V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P1_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P2_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P3_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P4_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
+        V_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P1_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P2_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P3_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P4_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
 
-        e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e);
+        e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw);
 
         for d_outer_c = 1:N_d_outer
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
 
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
-                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col);
+                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
             end
 
             for z_c = 1:N_bothz
-                bz_val = get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz);
-
                 if isempty(RM_cache{z_c, 1, d_outer_c})
+                    bz_val = get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz);
                     RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC2A(ReturnFn, n_d, n_a1_c, n_a2_c, n_exp, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_c_gridvals, a2_c_gridvals, a1_c_gridvals, a2_c_gridvals, exp_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                     RM_cache{z_c, 1, d_outer_c} = reshape(RM_L1, [N_d_inner, n_a1_c, n_a2_c, n_a1_c, n_a2_c, N_exp, 1, N_e]);
                 end
                 RM_L1 = RM_cache{z_c, 1, d_outer_c};
 
                 if has_cont
-                    EV_fine_flat_z = reshape(EV_fine(:,:,:,:,z_c,:), [N_d2 * N_a1fine * n_a2_c * N_exp * N_e_interp, 1]);
+                    EV_fine_z = EV_fine(:,:,:,:,z_c,:);
                     DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, z_c, :), [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, 1, N_e_interp]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
                 end
 
+                % Maximize strictly over a1prime (Dimension 2)
                 [~, maxindex1] = max(RHS_L1, [], 2);
                 midpoint = max(min(maxindex1, n_a1_c-1), 2);
 
@@ -556,7 +555,7 @@ end
                 if has_cont
                     e_off_L2  = reshape(gpuArray(0:N_e_interp-1), [1, 1, 1, 1, 1, 1, 1, N_e_interp]);
                     EV_idx = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2p_off_L2 + N_d2*N_a1fine*n_a2_c*exp_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*e_off_L2;
-                    RHS_L2 = RM_L2 + df * EV_fine_flat_z(EV_idx);
+                    RHS_L2 = RM_L2 + df * EV_fine_z(EV_idx);
                 else
                     RHS_L2 = RM_L2;
                 end
@@ -576,13 +575,13 @@ end
                 S5 = S4 * n_a2_c;
                 S6 = S5 * N_exp;
 
-                a1_off  = reshape(gpuArray(0:n_a1_c-1),    [1, n_a1_c, 1, 1, 1]);
-                a2_off  = reshape(gpuArray(0:n_a2_c-1),    [1, 1, n_a2_c, 1, 1]);
-                exp_off = reshape(gpuArray(0:N_exp-1),     [1, 1, 1, N_exp, 1]);
-                e_off   = reshape(gpuArray(0:N_e-1),       [1, 1, 1, 1, N_e]);
+                a1_off_safe  = reshape(gpuArray(0:n_a1_c-1),  [1, n_a1_c, 1, 1, 1]);
+                a2_off_safe  = reshape(gpuArray(0:n_a2_c-1),  [1, 1, n_a2_c, 1, 1]);
+                exp_off_safe = reshape(gpuArray(0:N_exp-1),   [1, 1, 1, N_exp, 1]);
+                e_off_safe   = reshape(gpuArray(0:N_e-1),     [1, 1, 1, 1, N_e]);
 
-                linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*e_off;
-                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*e_off;
+                linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*e_off_safe;
+                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*e_off_safe;
 
                 isInfLower = (RM_L2(linidx_lower) == -Inf);
                 isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -597,17 +596,17 @@ end
                 S_mid5 = S_mid4 * n_a2_c;
                 S_mid6 = S_mid5 * N_exp;
 
-                midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off + S_mid4*a2_off + S_mid5*exp_off + S_mid6*e_off;
-                chosen_midpt = reshape(midpoint(midpt_idx), [1, n_a1_c, n_a2_c, N_exp, 1, N_e]);
+                midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off_safe + S_mid4*a2_off_safe + S_mid5*exp_off_safe + S_mid6*e_off_safe;
+                chosen_midpt = reshape(midpoint(midpt_idx), [N_a1_c, n_a2_c, N_exp, 1, N_e]);
 
                 joint_a_idx = chosen_midpt + n_a1_c * (a2p_idx_chosen - 1);
                 d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
-                V_fordouter(:, z_c, :, d_outer_c) = reshape(v_tmp, [N_a, 1, N_e]);
-                P1_fordouter(:, z_c, :, d_outer_c) = reshape(d_idx_val, [N_a, 1, N_e]);
-                P2_fordouter(:, z_c, :, d_outer_c) = reshape(joint_a_idx, [N_a, 1, N_e]);
-                P3_fordouter(:, z_c, :, d_outer_c) = reshape(L2offset, [N_a, 1, N_e]);
-                P4_fordouter(:, z_c, :, d_outer_c) = reshape(flag_val, [N_a, 1, N_e]);
+                V_fordouter(:,:,z_c,:,d_outer_c) = reshape(v_tmp, [N_a, 1, N_e]);
+                P1_fordouter(:,:,z_c,:,d_outer_c) = reshape(d_idx_val, [N_a, 1, N_e]);
+                P2_fordouter(:,:,z_c,:,d_outer_c) = reshape(joint_a_idx, [N_a, 1, N_e]);
+                P3_fordouter(:,:,z_c,:,d_outer_c) = reshape(L2offset, [N_a, 1, N_e]);
+                P4_fordouter(:,:,z_c,:,d_outer_c) = reshape(flag_val, [N_a, 1, N_e]);
             end
         end
         [V_j, Pol_j] = extract_pol(V_fordouter, P1_fordouter, P2_fordouter, P3_fordouter, P4_fordouter, N_a, N_bothz, N_e, N_d_outer);
@@ -620,7 +619,7 @@ end
             last_ReturnFnParamsVec = ReturnFnParamsVec;
         end
         has_cont = ~isempty(V_next);
-        N_e_interp = N_e; if Dims.exp_flag ~= 3 && Dims.exp_flag ~= 4; N_e_interp = 1; end
+        if Dims.exp_flag == 3 || Dims.exp_flag == 4; N_e_interp = N_e; else; N_e_interp = 1; end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
@@ -628,18 +627,18 @@ end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
-        V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P1_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P2_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P3_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P4_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
+        V_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P1_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P2_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P3_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P4_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
 
         for d_outer_c = 1:N_d_outer
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
 
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
-                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col);
+                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
                 EV_coarse = reshape(EV_coarse, [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, N_semiz, N_z, N_e_interp]);
                 EV_fine   = reshape(EV_fine,   [N_d2, N_a1fine, n_a2_c, N_exp, N_semiz, N_z, N_e_interp]);
             end
@@ -649,9 +648,8 @@ end
                 bz_val = get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz);
 
                 for e_c = 1:N_e
-                    e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
-
                     if isempty(RM_cache{z_c, e_c, d_outer_c})
+                        e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
                         RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC2A(ReturnFn, n_d, n_a1_c, n_a2_c, n_exp, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_c_gridvals, a2_c_gridvals, a1_c_gridvals, a2_c_gridvals, exp_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                         RM_cache{z_c, e_c, d_outer_c} = reshape(RM_L1, [N_d_inner, n_a1_c, n_a2_c, n_a1_c, n_a2_c, N_exp, N_semiz, 1]);
                     end
@@ -659,13 +657,14 @@ end
 
                     if has_cont
                         e_idx = min(e_c, N_e_interp);
-                        EV_fine_flat_ze = reshape(EV_fine(:,:,:,:,:,z_c,e_idx), [N_d2 * N_a1fine * n_a2_c * N_exp * N_semiz, 1]);
+                        EV_fine_ze = EV_fine(:,:,:,:,:,z_c,e_idx);
                         DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, :, :, z_c, e_idx), [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, N_semiz, 1]);
                         RHS_L1 = RM_L1 + DiscountedEV_L1;
                     else
                         RHS_L1 = RM_L1;
                     end
 
+                    % Maximize strictly over a1prime (Dimension 2)
                     [~, maxindex1] = max(RHS_L1, [], 2);
                     midpoint = max(min(maxindex1, n_a1_c-1), 2);
 
@@ -678,7 +677,7 @@ end
                     if has_cont
                         sb_off_L2 = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, 1, 1, 1, N_semiz, 1]);
                         EV_idx = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2p_off_L2 + N_d2*N_a1fine*n_a2_c*exp_off_L2 + N_d2*N_a1fine*n_a2_c*N_exp*sb_off_L2;
-                        RHS_L2 = RM_L2 + df * EV_fine_flat_ze(EV_idx);
+                        RHS_L2 = RM_L2 + df * EV_fine_ze(EV_idx);
                     else
                         RHS_L2 = RM_L2;
                     end
@@ -698,13 +697,13 @@ end
                     S5 = S4 * n_a2_c;
                     S6 = S5 * N_exp;
 
-                    a1_off  = reshape(gpuArray(0:n_a1_c-1), [1, n_a1_c, 1, 1, 1]);
-                    a2_off  = reshape(gpuArray(0:n_a2_c-1), [1, 1, n_a2_c, 1, 1]);
-                    exp_off = reshape(gpuArray(0:N_exp-1),  [1, 1, 1, N_exp, 1]);
-                    sb_off  = reshape(gpuArray(0:N_semiz-1),[1, 1, 1, 1, N_semiz]);
+                    a1_off_safe  = reshape(gpuArray(0:n_a1_c-1),  [1, n_a1_c, 1, 1, 1]);
+                    a2_off_safe  = reshape(gpuArray(0:n_a2_c-1),  [1, 1, n_a2_c, 1, 1]);
+                    exp_off_safe = reshape(gpuArray(0:N_exp-1),   [1, 1, 1, N_exp, 1]);
+                    sb_off_safe  = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, 1, N_semiz]);
 
-                    linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*sb_off;
-                    linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off + S6*sb_off;
+                    linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*sb_off_safe;
+                    linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe + S6*sb_off_safe;
 
                     isInfLower = (RM_L2(linidx_lower) == -Inf);
                     isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -719,17 +718,17 @@ end
                     S_mid5 = S_mid4 * n_a2_c;
                     S_mid6 = S_mid5 * N_exp;
 
-                    midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off + S_mid4*a2_off + S_mid5*exp_off + S_mid6*sb_off;
-                    chosen_midpt = reshape(midpoint(midpt_idx), [1, n_a1_c, n_a2_c, N_exp, N_semiz, 1]);
+                    midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off_safe + S_mid4*a2_off_safe + S_mid5*exp_off_safe + S_mid6*sb_off_safe;
+                    chosen_midpt = reshape(midpoint(midpt_idx), [N_a1_c, n_a2_c, N_exp, N_semiz, 1]);
 
                     joint_a_idx = chosen_midpt + n_a1_c * (a2p_idx_chosen - 1);
                     d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
-                    V_fordouter(:, sb, e_c, d_outer_c) = reshape(v_tmp, [N_a, N_semiz, 1]);
-                    P1_fordouter(:, sb, e_c, d_outer_c) = reshape(d_idx_val, [N_a, N_semiz, 1]);
-                    P2_fordouter(:, sb, e_c, d_outer_c) = reshape(joint_a_idx, [N_a, N_semiz, 1]);
-                    P3_fordouter(:, sb, e_c, d_outer_c) = reshape(L2offset, [N_a, N_semiz, 1]);
-                    P4_fordouter(:, sb, e_c, d_outer_c) = reshape(flag_val, [N_a, N_semiz, 1]);
+                    V_fordouter(:,:,sb,e_c,d_outer_c) = reshape(v_tmp, [N_a, N_semiz, 1]);
+                    P1_fordouter(:,:,sb,e_c,d_outer_c) = reshape(d_idx_val, [N_a, N_semiz, 1]);
+                    P2_fordouter(:,:,sb,e_c,d_outer_c) = reshape(joint_a_idx, [N_a, N_semiz, 1]);
+                    P3_fordouter(:,:,sb,e_c,d_outer_c) = reshape(L2offset, [N_a, N_semiz, 1]);
+                    P4_fordouter(:,:,sb,e_c,d_outer_c) = reshape(flag_val, [N_a, N_semiz, 1]);
                 end
             end
         end
@@ -743,7 +742,7 @@ end
             last_ReturnFnParamsVec = ReturnFnParamsVec;
         end
         has_cont = ~isempty(V_next);
-        N_e_interp = N_e; if Dims.exp_flag ~= 3 && Dims.exp_flag ~= 4; N_e_interp = 1; end
+        if Dims.exp_flag == 3 || Dims.exp_flag == 4; N_e_interp = N_e; else; N_e_interp = 1; end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
@@ -751,27 +750,26 @@ end
             EVpre_flat = reshape(EVpre, [n_a1_c * n_a2_c * N_exp, N_bothz]);
         end
 
-        V_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P1_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P2_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P3_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
-        P4_fordouter = zeros(N_a, N_bothz, N_e, N_d_outer, 'gpuArray');
+        V_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P1_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P2_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P3_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
+        P4_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
 
         for d_outer_c = 1:N_d_outer
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
 
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
-                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col);
+                [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
             end
 
             for z_c = 1:N_bothz
                 bz_val = get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz);
 
                 for e_c = 1:N_e
-                    e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
-
                     if isempty(RM_cache{z_c, e_c, d_outer_c})
+                        e_val = get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e);
                         RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc_DC2A(ReturnFn, n_d, n_a1_c, n_a2_c, n_exp, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_c_gridvals, a2_c_gridvals, a1_c_gridvals, a2_c_gridvals, exp_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                         RM_cache{z_c, e_c, d_outer_c} = reshape(RM_L1, [N_d_inner, n_a1_c, n_a2_c, n_a1_c, n_a2_c, N_exp, 1, 1]);
                     end
@@ -779,13 +777,14 @@ end
 
                     if has_cont
                         e_idx = min(e_c, N_e_interp);
-                        EV_fine_flat_ze = reshape(EV_fine(:,:,:,:,z_c,e_idx), [N_d2 * N_a1fine * n_a2_c * N_exp, 1]);
+                        EV_fine_ze = EV_fine(:,:,:,:,z_c,e_idx);
                         DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, z_c, e_idx), [N_d_inner, n_a1_c, n_a2_c, 1, 1, N_exp, 1, 1]);
                         RHS_L1 = RM_L1 + DiscountedEV_L1;
                     else
                         RHS_L1 = RM_L1;
                     end
 
+                    % Maximize strictly over a1prime (Dimension 2)
                     [~, maxindex1] = max(RHS_L1, [], 2);
                     midpoint = max(min(maxindex1, n_a1_c-1), 2);
 
@@ -797,7 +796,7 @@ end
 
                     if has_cont
                         EV_idx = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2p_off_L2 + N_d2*N_a1fine*n_a2_c*exp_off_L2;
-                        RHS_L2 = RM_L2 + df * EV_fine_flat_ze(EV_idx);
+                        RHS_L2 = RM_L2 + df * EV_fine_ze(EV_idx);
                     else
                         RHS_L2 = RM_L2;
                     end
@@ -816,12 +815,12 @@ end
                     S4 = S3 * n_a1_c;
                     S5 = S4 * n_a2_c;
 
-                    a1_off  = reshape(gpuArray(0:n_a1_c-1), [1, n_a1_c, 1, 1]);
-                    a2_off  = reshape(gpuArray(0:n_a2_c-1), [1, 1, n_a2_c, 1]);
-                    exp_off = reshape(gpuArray(0:N_exp-1),  [1, 1, 1, N_exp]);
+                    a1_off_safe  = reshape(gpuArray(0:n_a1_c-1),  [1, n_a1_c, 1, 1]);
+                    a2_off_safe  = reshape(gpuArray(0:n_a2_c-1),  [1, 1, n_a2_c, 1]);
+                    exp_off_safe = reshape(gpuArray(0:N_exp-1),   [1, 1, 1, N_exp]);
 
-                    linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off;
-                    linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*exp_off;
+                    linidx_lower = d_ind + S1*(1 - 1)      + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe;
+                    linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off_safe + S4*a2_off_safe + S5*exp_off_safe;
 
                     isInfLower = (RM_L2(linidx_lower) == -Inf);
                     isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -835,17 +834,17 @@ end
                     S_mid4 = S_mid3 * n_a1_c;
                     S_mid5 = S_mid4 * n_a2_c;
 
-                    midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off + S_mid4*a2_off + S_mid5*exp_off;
-                    chosen_midpt = reshape(midpoint(midpt_idx), [1, n_a1_c, n_a2_c, N_exp, 1, 1]);
+                    midpt_idx = d_ind + S_mid1*(1 - 1) + S_mid2*(a2p_idx_chosen - 1) + S_mid3*a1_off_safe + S_mid4*a2_off_safe + S_mid5*exp_off_safe;
+                    chosen_midpt = reshape(midpoint(midpt_idx), [N_a1_c, n_a2_c, N_exp, 1, 1]);
 
                     joint_a_idx = chosen_midpt + n_a1_c * (a2p_idx_chosen - 1);
                     d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
-                    V_fordouter(:, z_c, e_c, d_outer_c) = reshape(v_tmp, [N_a, 1, 1]);
-                    P1_fordouter(:, z_c, e_c, d_outer_c) = reshape(d_idx_val, [N_a, 1, 1]);
-                    P2_fordouter(:, z_c, e_c, d_outer_c) = reshape(joint_a_idx, [N_a, 1, 1]);
-                    P3_fordouter(:, z_c, e_c, d_outer_c) = reshape(L2offset, [N_a, 1, 1]);
-                    P4_fordouter(:, z_c, e_c, d_outer_c) = reshape(flag_val, [N_a, 1, 1]);
+                    V_fordouter(:,:,:,e_c,d_outer_c) = reshape(v_tmp, [N_a, 1, 1]);
+                    P1_fordouter(:,:,:,e_c,d_outer_c) = reshape(d_idx_val, [N_a, 1, 1]);
+                    P2_fordouter(:,:,:,e_c,d_outer_c) = reshape(joint_a_idx, [N_a, 1, 1]);
+                    P3_fordouter(:,:,:,e_c,d_outer_c) = reshape(L2offset, [N_a, 1, 1]);
+                    P4_fordouter(:,:,:,e_c,d_outer_c) = reshape(flag_val, [N_a, 1, 1]);
                 end
             end
         end
@@ -886,30 +885,99 @@ end
         end
     end
 
-    function [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J, n_a1_c, n_a2_c, n_exp, N_d2, N_bothz, vfoptions, Dims, a1_c_gridvals, a1prime_grid_col)
+    function [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J)
         EVinf = (EVpre_flat == -Inf);
         EV_val = EVpre_flat;
         EV_val(EVinf) = -1e250;
         EV_expected = EV_val * pi_bz';
         EV_expected((EVinf * pi_bz') > 0) = -Inf;
 
-        % ExpAsset shape logic
-        EV_reshaped = reshape(EV_expected, [1, n_a1_c, n_a2_c, N_exp, N_bothz, N_e_interp]);
+        a2p_idx_base = ExpAsset_J.a2primeIndex;
+        a2p_weight_base = ExpAsset_J.a2primeProbs;
 
-        a2p = ExpAsset_J.a2primeIndex;
-        a2p_probs = ExpAsset_J.a2primeProbs;
-        N_prob = size(a2p, 2);
-
-        EV_coarse = zeros(N_d2, n_a1_c, n_a2_c, N_exp, N_bothz, N_e_interp, 'gpuArray');
-        for u_idx = 1:N_prob
-            a2p_u = a2p(:, u_idx, :, :); % [d2, 1, bz, e]
-            EV_coarse = EV_coarse + a2p_probs(u_idx) .* EV_reshaped(1, :, :, a2p_u, :, :);
+        N_u_shocks = 1;
+        if Dims.exp_flag == 6
+            N_u_shocks = size(a2p_idx_base, 1);
         end
 
-        % Standard models expect V(a1', a2', a_exp', z'). Interpolate over a1' grid.
+        % Pre-broadcast grids for linear indexing into EV_expected
+        EV_expected_reshape = reshape(EV_expected, [n_a1_c, n_a2_c, N_exp, N_semiz, N_z, N_e_interp]);
+
+        a1_off = reshape(gpuArray(1:n_a1_c), [1, n_a1_c, 1, 1, 1, 1, 1]);
+        a2_off = reshape(gpuArray(0:n_a2_c-1), [1, 1, n_a2_c, 1, 1, 1, 1]);
+        sb_off = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, 1, N_semiz, 1, 1]);
+        z_off  = reshape(gpuArray(0:N_z-1), [1, 1, 1, 1, 1, N_z, 1]);
+        e_off  = reshape(gpuArray(0:N_e_interp-1), [1, 1, 1, 1, 1, 1, N_e_interp]);
+
+        EV_coarse = zeros(N_d2, n_a1_c, n_a2_c, N_exp, N_semiz, N_z, N_e_interp, 'gpuArray');
+        for u_c = 1:N_u_shocks
+            if Dims.exp_flag == 2
+                a2p_lo = reshape(a2p_idx_base, [N_d2, 1, 1, N_exp, 1, N_z, 1]);
+                a2p_lo_weight = reshape(a2p_weight_base, [N_d2, 1, 1, N_exp, 1, N_z, 1]);
+                u_prob = 1;
+            elseif Dims.exp_flag == 3
+                a2p_lo = reshape(a2p_idx_base, [N_d2, 1, 1, N_exp, 1, 1, N_e_interp]);
+                a2p_lo_weight = reshape(a2p_weight_base, [N_d2, 1, 1, N_exp, 1, 1, N_e_interp]);
+                u_prob = 1;
+            elseif Dims.exp_flag == 4
+                a2p_lo = reshape(a2p_idx_base, [N_d2, 1, 1, N_exp, 1, N_z, N_e_interp]);
+                a2p_lo_weight = reshape(a2p_weight_base, [N_d2, 1, 1, N_exp, 1, N_z, N_e_interp]);
+                u_prob = 1;
+            elseif Dims.exp_flag == 5
+                a2p_lo = reshape(a2p_idx_base, [N_d2, 1, 1, N_exp, N_semiz, 1, 1]);
+                a2p_lo_weight = reshape(a2p_weight_base, [N_d2, 1, 1, N_exp, N_semiz, 1, 1]);
+                u_prob = 1;
+            elseif Dims.exp_flag == 6
+                a2p_lo = reshape(a2p_idx_base(u_c, :, :), [N_d2, 1, 1, N_exp, 1, 1, 1]);
+                a2p_lo_weight = reshape(a2p_weight_base(u_c, :, :), [N_d2, 1, 1, N_exp, 1, 1, 1]);
+                u_prob = vfoptions.pi_u(u_c);
+            else
+                a2p_lo = reshape(a2p_idx_base, [N_d2, 1, 1, N_exp, 1, 1, 1]);
+                a2p_lo_weight = reshape(a2p_weight_base, [N_d2, 1, 1, N_exp, 1, 1, 1]);
+                u_prob = 1;
+            end
+
+            % Vlower (a2p_lo)
+            lin_idx_lo = a1_off ...
+                + n_a1_c * a2_off ...
+                + n_a1_c * n_a2_c * (a2p_lo - 1) ...
+                + n_a1_c * n_a2_c * N_exp * sb_off ...
+                + n_a1_c * n_a2_c * N_exp * N_semiz * z_off ...
+                + n_a1_c * n_a2_c * N_exp * N_semiz * N_z * e_off;
+
+            % Vupper (a2p_lo + 1)
+            lin_idx_hi = a1_off ...
+                + n_a1_c * a2_off ...
+                + n_a1_c * n_a2_c * (a2p_lo) ...
+                + n_a1_c * n_a2_c * N_exp * sb_off ...
+                + n_a1_c * n_a2_c * N_exp * N_semiz * z_off ...
+                + n_a1_c * n_a2_c * N_exp * N_semiz * N_z * e_off;
+
+            V_lo = EV_expected_reshape(lin_idx_lo);
+            V_hi = EV_expected_reshape(lin_idx_hi);
+
+            % If lower and upper bound are identical, we bypass interpolation
+            % weights to avoid generating 0 * -Inf = NaN inside state constraints.
+            skipinterp = (V_lo == V_hi);
+
+            % Explicitly expand scalar/singleton dimensions so logical indexing succeeds
+            a2p_lo_weight_full = a2p_lo_weight + zeros(size(V_lo), 'like', V_lo);
+            a2p_lo_weight_full(skipinterp) = 0;
+
+            EV_interp_a2 = a2p_lo_weight_full .* V_lo + (1 - a2p_lo_weight_full) .* V_hi;
+            EV_interp_a2(a2p_lo_weight_full == 0) = V_hi(a2p_lo_weight_full == 0);
+            EV_interp_a2(a2p_lo_weight_full == 1) = V_lo(a2p_lo_weight_full == 1);
+
+            EV_coarse = EV_coarse + u_prob .* EV_interp_a2;
+        end
+
+        % Reshape back to combined bothz
+        EV_coarse = reshape(EV_coarse, [N_d2, n_a1_c, n_a2_c, N_exp, N_bothz, N_e_interp]);
+
+        % Standard models expect V(a1', a2', z'). Interpolate over a1' grid.
         EV_perm = permute(EV_coarse, [2, 1, 3, 4, 5, 6]); % [n_a1_c, N_d2, n_a2_c, N_exp, N_bothz, N_e_interp]
         EV_interp_next = interp1(a1_c_gridvals, EV_perm, a1prime_grid_col);
-        EV_fine = permute(EV_interp_next, [2, 1, 3, 4, 5, 6]); % [N_d2, n_a1fine, n_a2_c, N_exp, N_bothz, N_e_interp]
+        EV_fine = permute(EV_interp_next, [2, 1, 3, 4, 5, 6]); % [N_d2, N_a1fine, n_a2_c, N_exp, N_bothz, N_e_interp]
     end
 
 
