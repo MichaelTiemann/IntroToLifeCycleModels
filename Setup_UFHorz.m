@@ -63,18 +63,28 @@ else
     Dims.N_d3 = 1;
 end
 
-Dims.N_d_inner = Dims.N_d1 * Dims.N_d2;
-Dims.N_d_outer = Dims.N_d3;
+if Dims.exp_flag > 0
+    Dims.N_d_inner = Dims.N_d1 * Dims.N_d2;
+    Dims.N_d_outer = Dims.N_d3;
+else
+    Dims.N_d_inner = Dims.N_d1;
+    Dims.N_d_outer = Dims.N_d2;
+end
 
 Dims.has_d1 = prod(Dims.n_d1) > 0;
 Dims.has_d2 = prod(Dims.n_d2) > 0;
 
 % Fallbacks for CreateReturnFnMatrix inputs
-Dims.special_n_d = n_d; if isempty(Dims.special_n_d); Dims.special_n_d = 0; end
-Dims.special_n_z = n_z; if isempty(Dims.special_n_z); Dims.special_n_z = 0; end
-Dims.special_n_semiz = Dims.n_semiz; if isempty(Dims.special_n_semiz); Dims.special_n_semiz = 0; end
-Dims.special_n_e = Dims.n_e; if isempty(Dims.special_n_e); Dims.special_n_e = 0; end
-Dims.special_n_bothz = Dims.n_bothz; if isempty(Dims.special_n_bothz); Dims.special_n_bothz = 0; end
+Dims.special_n_d = n_d;
+if isempty(Dims.special_n_d); Dims.special_n_d = 0; end
+Dims.special_n_z = n_z;
+if isempty(Dims.special_n_z); Dims.special_n_z = 0; end
+Dims.special_n_semiz = Dims.n_semiz;
+if isempty(Dims.special_n_semiz); Dims.special_n_semiz = 0; end
+Dims.special_n_e = Dims.n_e;
+if isempty(Dims.special_n_e); Dims.special_n_e = 0; end
+Dims.special_n_bothz = Dims.n_bothz;
+if isempty(Dims.special_n_bothz); Dims.special_n_bothz = 0; end
 
 % --- 6. Grid and Prob Assignments ---
 Grids.d12_gridvals = d_gridvals;
@@ -101,11 +111,11 @@ else
     Probs.pi_semiz_J = [];
 end
 
-% --- 7. Divide and Conquer Support ---
+% --- 7. Divide and Conquer ---
 if isfield(vfoptions, 'level1n')
-    Dims.level1n = vfoptions.level1n(1); % Safely extract scalar for first dimension
+    Dims.level1n = vfoptions.level1n(1);
 else
-    Dims.level1n = max(floor(sqrt(Dims.n_a1(1))), 1);
+    Dims.level1n = 1;
 end
 
 

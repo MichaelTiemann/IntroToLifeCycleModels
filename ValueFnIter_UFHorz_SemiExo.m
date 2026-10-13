@@ -33,34 +33,52 @@ if sum(n_d1) > 0
 
     d1_rep = repmat(d1_clean, [1, 1, N_d2]); % [N_d1, l_d1, N_d2]
 
-    % CRITICAL: Use permute to safely rotate rows to the 3rd dimension without scrambling variables
     d2_reshaped = permute(d2_clean, [3, 2, 1]); % [1, l_d2, N_d2]
     d2_rep = repmat(d2_reshaped, [N_d1, 1, 1]); % [N_d1, l_d2, N_d2]
 
     d_gridvals = cat(2, d1_rep, d2_rep); % [N_d1, l_d1 + l_d2, N_d2]
 else
     d2_clean = reshape(d2_gridvals, [N_d2, l_d2]);
-    % CRITICAL: Use permute to safely rotate rows to the 3rd dimension without scrambling variables
     d_gridvals = permute(d2_clean, [3, 2, 1]); % [1, l_d2, N_d2]
 end
 
 % 3. Pass to the universal raw engine
-[V, PolicyKron] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+vfoptions_inner = vfoptions;
+vfoptions_inner.outputkron = 1;
+
+if isfield(vfoptions, 'divideandconquer') && vfoptions.divideandconquer == 1
+    [V, PolicyKron] = ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+else
+    [V, PolicyKron] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+end
 
 % 4. UnKron the Policy
 n_actions = [n_d, n_a];
 l_actions = length(n_actions);
 
-s2 = size(PolicyKron, 2);
-s3 = size(PolicyKron, 3);
-s4 = size(PolicyKron, 4);
-s5 = size(PolicyKron, 5);
+sz_Kron = size(PolicyKron);
+if length(sz_Kron) < 2; sz_Kron = [sz_Kron, 1]; end
+sz_Pol = sz_Kron;
+sz_Pol(1) = l_actions;
 
-Policy = zeros(l_actions, s2, s3, s4, s5, 'gpuArray');
+Policy = zeros(sz_Pol, 'gpuArray');
 
 cum_dims = 1;
 for i = 1:l_actions
-    Policy(i, :, :, :, :) = rem(ceil(PolicyKron / cum_dims) - 1, n_actions(i)) + 1;
+    slice = rem(ceil(PolicyKron / cum_dims) - 1, n_actions(i)) + 1;
+
+    if length(sz_Pol) == 6
+        Policy(i, :, :, :, :, :) = slice;
+    elseif length(sz_Pol) == 5
+        Policy(i, :, :, :, :) = slice;
+    elseif length(sz_Pol) == 7
+        Policy(i, :, :, :, :, :, :) = slice;
+    elseif length(sz_Pol) == 4
+        Policy(i, :, :, :) = slice;
+    else
+        error('Unexpected dimensions in PolicyKron');
+    end
+
     cum_dims = cum_dims * n_actions(i);
 end
 
