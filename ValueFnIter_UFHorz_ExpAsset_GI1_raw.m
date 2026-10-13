@@ -177,6 +177,8 @@ end
             if has_cont
                 if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end
                 [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J);
+
+                % RESTORED: Dim 2 is a1_prime!
                 DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :), [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
                 RHS_L1 = RM_L1 + DiscountedEV_L1;
             else
@@ -291,13 +293,14 @@ end
                 if has_cont
                     e_idx = min(e_c, N_e_interp);
                     EV_fine_e = EV_fine(:,:,:,:,e_idx);
+
+                    % RESTORED: Dim 2 is a1_prime!
                     DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, e_idx), [N_d_inner, N_a1, 1, N_a2, N_bothz, 1]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
                 end
 
-                % Maximize strictly over a1prime (Dimension 2)
                 [~, maxindex1] = max(RHS_L1, [], 2);
                 midpoint = max(min(maxindex1, N_a1-1), 2);
 
@@ -383,7 +386,6 @@ end
         P4_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
 
         e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e);
-
         a2_off_L2 = reshape(gpuArray(0:N_a2-1), [1, 1, 1, N_a2, 1, 1]);
         sb_off_L2 = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, 1, N_semiz, 1]);
         e_off_L2  = reshape(gpuArray(0:N_e_interp-1), [1, 1, 1, 1, 1, N_e_interp]);
@@ -409,13 +411,14 @@ end
 
                 if has_cont
                     EV_fine_z = reshape(EV_fine(:,:,:,:,z_c,:), [N_d2, N_a1fine, N_a2, N_semiz, N_e_interp]);
+
+                    % RESTORED: Dim 2 is a1_prime!
                     DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, :, z_c, :), [N_d_inner, N_a1, 1, N_a2, N_semiz, N_e_interp]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
                 end
 
-                % Phase 1: Maximize STRICTLY over a1prime (dimension 2)
                 [~, maxindex1] = max(RHS_L1, [], 2);
                 midpoint = max(min(maxindex1, N_a1-1), 2);
 
@@ -502,7 +505,6 @@ end
         P4_fordouter = zeros(N_a1, N_a2, N_bothz, N_e, N_d_outer, 'gpuArray');
 
         e_val = get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e);
-
         a2_off_L2 = reshape(gpuArray(0:N_a2-1), [1, 1, 1, N_a2, 1, 1]);
         e_off_L2  = reshape(gpuArray(0:N_e_interp-1), [1, 1, 1, 1, 1, N_e_interp]);
 
@@ -524,13 +526,14 @@ end
 
                 if has_cont
                     EV_fine_z = reshape(EV_fine(:,:,:,z_c,:), [N_d2, N_a1fine, N_a2, 1, N_e_interp]);
+
+                    % RESTORED: Dim 2 is a1_prime!
                     DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, z_c, :), [N_d_inner, N_a1, 1, N_a2, 1, N_e_interp]);
                     RHS_L1 = RM_L1 + DiscountedEV_L1;
                 else
                     RHS_L1 = RM_L1;
                 end
 
-                % Maximize strictly over a1prime (Dimension 2)
                 [~, maxindex1] = max(RHS_L1, [], 2);
                 midpoint = max(min(maxindex1, N_a1-1), 2);
 
@@ -641,13 +644,14 @@ end
                     if has_cont
                         e_idx = min(e_c, N_e_interp);
                         EV_fine_ze = reshape(EV_fine(:,:,:,:,z_c,e_idx), [N_d2, N_a1fine, N_a2, N_semiz, 1]);
+
+                        % RESTORED: Dim 2 is a1_prime!
                         DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, :, z_c, e_idx), [N_d_inner, N_a1, 1, N_a2, N_semiz, 1]);
                         RHS_L1 = RM_L1 + DiscountedEV_L1;
                     else
                         RHS_L1 = RM_L1;
                     end
 
-                    % Maximize strictly over a1prime (Dimension 2)
                     [~, maxindex1] = max(RHS_L1, [], 2);
                     midpoint = max(min(maxindex1, N_a1-1), 2);
 
@@ -753,13 +757,14 @@ end
                     if has_cont
                         e_idx = min(e_c, N_e_interp);
                         EV_fine_ze = reshape(EV_fine(:,:,:,z_c,e_idx), [N_d2, N_a1fine, N_a2, 1, 1]);
+
+                        % RESTORED: Dim 2 is a1_prime!
                         DiscountedEV_L1 = df * reshape(EV_coarse(d2_off_L1, :, :, z_c, e_idx), [N_d_inner, N_a1, 1, N_a2, 1, 1]);
                         RHS_L1 = RM_L1 + DiscountedEV_L1;
                     else
                         RHS_L1 = RM_L1;
                     end
 
-                    % Maximize strictly over a1prime (Dimension 2)
                     [~, maxindex1] = max(RHS_L1, [], 2);
                     midpoint = max(min(maxindex1, N_a1-1), 2);
 
@@ -855,7 +860,7 @@ end
     end
 
     function [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J)
-        % EVpre_flat has shape [N_a, N_bothz] (columns are z_prime)
+        % EVpre_flat has shape [N_a1*N_a2, N_bothz]
         a2p_idx_base = ExpAsset_J.a2primeIndex;
         a2p_weight_base = ExpAsset_J.a2primeProbs;
 
@@ -864,7 +869,10 @@ end
             N_u_shocks = size(a2p_idx_base, 1);
         end
 
-        EV_coarse = zeros(N_d2, N_a1, N_a2, N_bothz, N_e_interp, 'gpuArray');
+        EV_interp_all = zeros(N_d2, N_a1, N_a2, N_bothz, 'gpuArray');
+
+        % EXACT LEGACY BEHAVIOR: Lookup V_next assuming z_prime = z_cur!
+        z_offset = N_a1*N_a2 * shiftdim(gpuArray(0:N_bothz-1), -1);
 
         for u_c = 1:N_u_shocks
             if Dims.exp_flag == 6
@@ -877,41 +885,46 @@ end
                 u_prob = 1;
             end
 
-            % Enforce strict Legacy [d2, a2] dimension order
+            % Enforce strict Legacy [d2, a2] dimension order to prevent 5/21 collisions
             if length(n_a2) == 1
                 if size(a2p_idx, 1) == N_a2 && size(a2p_idx, 2) == N_d2 && N_a2 ~= N_d2
                     a2p_idx = permute(a2p_idx, [2, 1, 3, 4, 5, 6]);
                     a2p_prb = permute(a2p_prb, [2, 1, 3, 4, 5, 6]);
                 end
+                N_d_exp = size(a2p_idx, 1);
+                N_a2_exp = size(a2p_idx, 2);
+                N_z_exp = max(size(a2p_idx, 3), 1);
             else
                 if size(a2p_idx, 2) == N_a2 && size(a2p_idx, 3) == N_d2 && N_a2 ~= N_d2
                     a2p_idx = permute(a2p_idx, [1, 3, 2, 4, 5, 6]);
                     a2p_prb = permute(a2p_prb, [1, 3, 2, 4, 5, 6]);
                 end
-            end
-
-            if ndims(a2p_idx) >= 3 || size(a2p_idx, 3) > 1
-                N_z_exp = size(a2p_idx, 3);
-            else
-                N_z_exp = 1;
+                N_d_exp = size(a2p_idx, 2);
+                N_a2_exp = size(a2p_idx, 3);
+                N_z_exp = max(size(a2p_idx, 4), 1);
             end
 
             if length(n_a2) == 1
-                if N_z_exp > 1
-                    aprimeIndex = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2, N_z_exp) + N_a1*repmat(a2p_idx-1, N_a1, 1, 1);
-                    aprimeplus1Index = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2, N_z_exp) + N_a1*repmat(a2p_idx, N_a1, 1, 1);
-                    aprimeProbs = repmat(a2p_prb, N_a1, 1, 1);
-                else
-                    aprimeIndex = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2) + N_a1*repmat(a2p_idx-1, N_a1, 1);
-                    aprimeplus1Index = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2) + N_a1*repmat(a2p_idx, N_a1, 1);
-                    aprimeProbs = repmat(a2p_prb, N_a1, 1);
+                if N_z_exp > 1 && N_z_exp ~= N_bothz
+                    a2p_idx = reshape(repmat(reshape(a2p_idx, [N_d_exp, N_a2_exp, 1, N_z_exp]), 1, 1, N_semiz, 1), [N_d_exp, N_a2_exp, N_bothz]);
+                    a2p_prb = reshape(repmat(reshape(a2p_prb, [N_d_exp, N_a2_exp, 1, N_z_exp]), 1, 1, N_semiz, 1), [N_d_exp, N_a2_exp, N_bothz]);
+                    N_z_exp = N_bothz;
                 end
 
-                % Pull all z_prime columns from EVpre_flat natively
-                Vlower = reshape(EVpre_flat(aprimeIndex(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
-                Vupper = reshape(EVpre_flat(aprimeplus1Index(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
+                if N_z_exp > 1
+                    aprimeIndex = repelem(gpuArray(1:1:N_a1)', N_d_exp, N_a2_exp, N_z_exp) + N_a1*repmat(a2p_idx-1, N_a1, 1, 1);
+                    aprimeplus1Index = repelem(gpuArray(1:1:N_a1)', N_d_exp, N_a2_exp, N_z_exp) + N_a1*repmat(a2p_idx, N_a1, 1, 1);
+                else
+                    aprimeIndex = repelem(gpuArray(1:1:N_a1)', N_d_exp, N_a2_exp) + N_a1*repmat(a2p_idx-1, N_a1, 1);
+                    aprimeplus1Index = repelem(gpuArray(1:1:N_a1)', N_d_exp, N_a2_exp) + N_a1*repmat(a2p_idx, N_a1, 1);
+                end
 
-                prob_exp = repmat(aprimeProbs, 1, 1, 1, N_bothz);
+                aprimeProbs = repmat(a2p_prb, N_a1, 1, N_bothz / size(a2p_prb, 3));
+
+                Vlower = reshape(EVpre_flat(aprimeIndex + z_offset), [N_d_exp*N_a1, N_a2_exp, N_bothz]);
+                Vupper = reshape(EVpre_flat(aprimeplus1Index + z_offset), [N_d_exp*N_a1, N_a2_exp, N_bothz]);
+
+                prob_exp = repmat(aprimeProbs, 1, 1, N_bothz / size(aprimeProbs, 3));
                 skipinterp = (Vlower == Vupper);
                 prob_exp(skipinterp) = 0;
 
@@ -928,33 +941,32 @@ end
                 prob_1  = shiftdim(a2p_prb(1,:,:,:), 1);
                 prob_2  = shiftdim(a2p_prb(2,:,:,:), 1);
 
+                if N_z_exp > 1 && N_z_exp ~= N_bothz
+                    loIdx_1 = reshape(repmat(reshape(loIdx_1, [N_d_exp, N_a2_exp, 1, N_z_exp]), 1, 1, N_semiz, 1), [N_d_exp, N_a2_exp, N_bothz]);
+                    loIdx_2 = reshape(repmat(reshape(loIdx_2, [N_d_exp, N_a2_exp, 1, N_z_exp]), 1, 1, N_semiz, 1), [N_d_exp, N_a2_exp, N_bothz]);
+                    prob_1  = reshape(repmat(reshape(prob_1, [N_d_exp, N_a2_exp, 1, N_z_exp]), 1, 1, N_semiz, 1), [N_d_exp, N_a2_exp, N_bothz]);
+                    prob_2  = reshape(repmat(reshape(prob_2, [N_d_exp, N_a2_exp, 1, N_z_exp]), 1, 1, N_semiz, 1), [N_d_exp, N_a2_exp, N_bothz]);
+                    N_z_exp = N_bothz;
+                end
+
                 if N_z_exp > 1
-                    a1prime_offsets = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2, N_z_exp);
-                    aprime_ll = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*(loIdx_2-1) - 1, N_a1, 1, 1);
-                    aprime_hl = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*(loIdx_2-1) - 1, N_a1, 1, 1);
-                    aprime_lh = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
-                    aprime_hh = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
-                    prob_1_exp = repmat(prob_1, N_a1, 1, 1, N_bothz);
-                    prob_2_exp = repmat(prob_2, N_a1, 1, 1, N_bothz);
+                    a1prime_offsets = repelem(gpuArray(1:1:N_a1)', N_d_exp, N_a2_exp, N_z_exp);
                 else
-                    a1prime_offsets = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2);
-                    aprime_ll = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*(loIdx_2-1) - 1, N_a1, 1);
-                    aprime_hl = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*(loIdx_2-1) - 1, N_a1, 1);
-                    aprime_lh = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1);
-                    aprime_hh = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1);
-                    prob_1_exp = repmat(prob_1, N_a1, 1, N_bothz);
-                    prob_2_exp = repmat(prob_2, N_a1, 1, N_bothz);
+                    a1prime_offsets = repelem(gpuArray(1:1:N_a1)', N_d_exp, N_a2_exp);
                 end
 
-                V_ll = reshape(EVpre_flat(aprime_ll(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
-                V_hl = reshape(EVpre_flat(aprime_hl(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
-                V_lh = reshape(EVpre_flat(aprime_lh(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
-                V_hh = reshape(EVpre_flat(aprime_hh(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
+                aprime_ll = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*(loIdx_2-1) - 1, N_a1, 1, 1);
+                aprime_hl = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*(loIdx_2-1) - 1, N_a1, 1, 1);
+                aprime_lh = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
+                aprime_hh = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
 
-                if N_z_exp == 1
-                    prob_1_exp = reshape(prob_1_exp, [N_d2*N_a1, N_a2, 1, N_bothz]);
-                    prob_2_exp = reshape(prob_2_exp, [N_d2*N_a1, N_a2, 1, N_bothz]);
-                end
+                V_ll = reshape(EVpre_flat(aprime_ll + z_offset), [N_d_exp*N_a1, N_a2_exp, N_bothz]);
+                V_hl = reshape(EVpre_flat(aprime_hl + z_offset), [N_d_exp*N_a1, N_a2_exp, N_bothz]);
+                V_lh = reshape(EVpre_flat(aprime_lh + z_offset), [N_d_exp*N_a1, N_a2_exp, N_bothz]);
+                V_hh = reshape(EVpre_flat(aprime_hh + z_offset), [N_d_exp*N_a1, N_a2_exp, N_bothz]);
+
+                prob_1_exp = repmat(prob_1, N_a1, 1, N_bothz / size(prob_1, 3));
+                prob_2_exp = repmat(prob_2, N_a1, 1, N_bothz / size(prob_2, 3));
 
                 p1_loy = prob_1_exp;
                 p1_loy(V_ll == V_hl) = 0;
@@ -975,16 +987,41 @@ end
                 EV_u = c_loy + c_hiy;
             end
 
-            % EV_u is [..., N_z_exp (z_cur), N_bothz (z_prime)]
-            % pi_bz is [z_cur, z_prime]. Reshape cleanly aligns dimensions 3 and 4.
-            EV_weighted = EV_u .* reshape(pi_bz, [1, 1, N_bothz, N_bothz]);
-            EV_weighted(isnan(EV_weighted)) = 0;
-
-            % Sum across z_prime mathematically integrates the probabilities perfectly
-            EV_expected = sum(EV_weighted, 4);
-
-            EV_coarse = EV_coarse + u_prob .* reshape(EV_expected, [N_d2, N_a1, N_a2, N_bothz, 1]);
+            EV_interp_all = EV_interp_all + u_prob .* reshape(EV_u, [N_d_exp, N_a1, N_a2_exp, N_bothz]);
         end
+
+        % Normalize dimensions to wrapper expectations if parsed differently
+        if N_d_exp ~= N_d2 || N_a2_exp ~= N_a2
+            EV_tmp = zeros(N_d2, N_a1, N_a2, N_bothz, 'gpuArray');
+            d_lim = min(N_d2, N_d_exp);
+            a_lim = min(N_a2, N_a2_exp);
+            EV_tmp(1:d_lim, :, 1:a_lim, :) = EV_interp_all(1:d_lim, :, 1:a_lim, :);
+            if N_d_exp == 1 && N_d2 > 1
+                EV_tmp = repmat(EV_interp_all, N_d2, 1, 1, 1);
+            end
+            if N_a2_exp == 1 && N_a2 > 1
+                EV_tmp = repmat(EV_tmp, 1, 1, N_a2, 1);
+            end
+            EV_interp_all = EV_tmp;
+        end
+
+        % IMPORTANT GOTCHA: INTERPOLATION AND EXPECTATION DO NOT COMMUTE!
+        % In Legacy ExpAsset, the `skipinterp` mask overrides interpolation for exact nodes (Vlower == Vupper).
+        % This is a highly non-linear operation. If we compute the expected value BEFORE interpolation,
+        % the mask fails to isolate flat plateaus, injecting 1e-15 rounding errors that trick the optimizer.
+        % Therefore, we MUST interpolate all values first across z_cur, and then safely matrix-multiply by pi_bz'.
+
+        EV_matrix = reshape(EV_interp_all, [N_d2*N_a1*N_a2, N_bothz]);
+
+        % Clear -Inf to prevent -Inf * 0 = NaN poisoning during dot product
+        EVinf = (EV_matrix == -Inf);
+        EV_matrix(EVinf) = -1e250;
+
+        % Standard mathematical expectation natively evaluates sum(EV .* pi_z)
+        EV_expected_matrix = EV_matrix * pi_bz';
+        EV_expected_matrix((EVinf * pi_bz') > 0) = -Inf;
+
+        EV_coarse = reshape(EV_expected_matrix, [N_d2, N_a1, N_a2, N_bothz, 1]);
 
         if N_e_interp > 1
             EV_coarse = repmat(EV_coarse, 1, 1, 1, 1, N_e_interp);
