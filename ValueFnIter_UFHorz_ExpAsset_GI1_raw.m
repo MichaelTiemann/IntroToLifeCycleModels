@@ -855,7 +855,7 @@ end
     end
 
     function [EV_coarse, EV_fine] = precalc_ev(EVpre_flat, pi_bz, N_e_interp, ExpAsset_J)
-        % EVpre_flat has shape [N_a, N_bothz]
+        % EVpre_flat has shape [N_a, N_bothz] (columns are z_prime)
         a2p_idx_base = ExpAsset_J.a2primeIndex;
         a2p_weight_base = ExpAsset_J.a2primeProbs;
 
@@ -865,9 +865,6 @@ end
         end
 
         EV_coarse = zeros(N_d2, N_a1, N_a2, N_bothz, N_e_interp, 'gpuArray');
-
-        % THE LEGACY BUG: z_offset locks the lookup to z_prime = z_cur!
-        z_offset = N_a1*N_a2 * shiftdim(0:N_bothz-1, -1);
 
         for u_c = 1:N_u_shocks
             if Dims.exp_flag == 6
@@ -880,52 +877,84 @@ end
                 u_prob = 1;
             end
 
+            % Enforce strict Legacy [d2, a2] dimension order
             if length(n_a2) == 1
-                % 1D ExpAsset: repelem natively outputs [N_d2*N_a1, N_a2]
-                aprimeIndex = repelem(gpuArray(1:1:N_a1)',N_d2,N_a2) + N_a1*repmat(a2p_idx-1, N_a1, 1);
-                aprimeplus1Index = repelem(gpuArray(1:1:N_a1)',N_d2,N_a2) + N_a1*repmat(a2p_idx, N_a1, 1);
+                if size(a2p_idx, 1) == N_a2 && size(a2p_idx, 2) == N_d2 && N_a2 ~= N_d2
+                    a2p_idx = permute(a2p_idx, [2, 1, 3, 4, 5, 6]);
+                    a2p_prb = permute(a2p_prb, [2, 1, 3, 4, 5, 6]);
+                end
+            else
+                if size(a2p_idx, 2) == N_a2 && size(a2p_idx, 3) == N_d2 && N_a2 ~= N_d2
+                    a2p_idx = permute(a2p_idx, [1, 3, 2, 4, 5, 6]);
+                    a2p_prb = permute(a2p_prb, [1, 3, 2, 4, 5, 6]);
+                end
+            end
 
-                aprimeProbs = repmat(a2p_prb, N_a1, 1);
-                if size(aprimeProbs, 3) == 1 && N_bothz > 1
-                    aprimeProbs = repmat(aprimeProbs, 1, 1, N_bothz);
+            if ndims(a2p_idx) >= 3 || size(a2p_idx, 3) > 1
+                N_z_exp = size(a2p_idx, 3);
+            else
+                N_z_exp = 1;
+            end
+
+            if length(n_a2) == 1
+                if N_z_exp > 1
+                    aprimeIndex = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2, N_z_exp) + N_a1*repmat(a2p_idx-1, N_a1, 1, 1);
+                    aprimeplus1Index = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2, N_z_exp) + N_a1*repmat(a2p_idx, N_a1, 1, 1);
+                    aprimeProbs = repmat(a2p_prb, N_a1, 1, 1);
+                else
+                    aprimeIndex = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2) + N_a1*repmat(a2p_idx-1, N_a1, 1);
+                    aprimeplus1Index = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2) + N_a1*repmat(a2p_idx, N_a1, 1);
+                    aprimeProbs = repmat(a2p_prb, N_a1, 1);
                 end
 
-                % Extract assuming z_prime = z_cur
-                Vlower = reshape(EVpre_flat(aprimeIndex + z_offset), [N_d2*N_a1, N_a2, N_bothz]);
-                Vupper = reshape(EVpre_flat(aprimeplus1Index + z_offset), [N_d2*N_a1, N_a2, N_bothz]);
+                % Pull all z_prime columns from EVpre_flat natively
+                Vlower = reshape(EVpre_flat(aprimeIndex(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
+                Vupper = reshape(EVpre_flat(aprimeplus1Index(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
 
+                prob_exp = repmat(aprimeProbs, 1, 1, 1, N_bothz);
                 skipinterp = (Vlower == Vupper);
-                aprimeProbs(skipinterp) = 0;
+                prob_exp(skipinterp) = 0;
 
-                EV_u = aprimeProbs.*Vlower + (1-aprimeProbs).*Vupper;
-                EV_u(aprimeProbs==0) = Vupper(aprimeProbs==0);
-                EV_u(aprimeProbs==1) = Vlower(aprimeProbs==1);
+                c_lo = prob_exp .* Vlower;       c_lo(isnan(c_lo)) = 0;
+                c_hi = (1 - prob_exp) .* Vupper; c_hi(isnan(c_hi)) = 0;
+
+                EV_u = c_lo + c_hi;
+                EV_u(prob_exp == 0) = Vupper(prob_exp == 0);
+                EV_u(prob_exp == 1) = Vlower(prob_exp == 1);
             else
-                % 2D ExpAsset
                 n_a2_1 = n_a2(1);
                 loIdx_1 = shiftdim(a2p_idx(1,:,:,:), 1);
                 loIdx_2 = shiftdim(a2p_idx(2,:,:,:), 1);
                 prob_1  = shiftdim(a2p_prb(1,:,:,:), 1);
                 prob_2  = shiftdim(a2p_prb(2,:,:,:), 1);
 
-                prob_1_exp = repmat(prob_1, N_a1, 1);
-                prob_2_exp = repmat(prob_2, N_a1, 1);
-                if size(prob_1_exp, 3) == 1 && N_bothz > 1
-                    prob_1_exp = repmat(prob_1_exp, 1, 1, N_bothz);
-                    prob_2_exp = repmat(prob_2_exp, 1, 1, N_bothz);
+                if N_z_exp > 1
+                    a1prime_offsets = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2, N_z_exp);
+                    aprime_ll = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*(loIdx_2-1) - 1, N_a1, 1, 1);
+                    aprime_hl = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*(loIdx_2-1) - 1, N_a1, 1, 1);
+                    aprime_lh = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
+                    aprime_hh = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
+                    prob_1_exp = repmat(prob_1, N_a1, 1, 1, N_bothz);
+                    prob_2_exp = repmat(prob_2, N_a1, 1, 1, N_bothz);
+                else
+                    a1prime_offsets = repelem(gpuArray(1:1:N_a1)', N_d2, N_a2);
+                    aprime_ll = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*(loIdx_2-1) - 1, N_a1, 1);
+                    aprime_hl = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*(loIdx_2-1) - 1, N_a1, 1);
+                    aprime_lh = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1);
+                    aprime_hh = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1);
+                    prob_1_exp = repmat(prob_1, N_a1, 1, N_bothz);
+                    prob_2_exp = repmat(prob_2, N_a1, 1, N_bothz);
                 end
 
-                a1prime_offsets = repelem(gpuArray(1:1:N_a1)',N_d2,N_a2);
-                aprime_ll = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*(loIdx_2-1) - 1, N_a1, 1);
-                aprime_hl = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*(loIdx_2-1) - 1, N_a1, 1);
-                aprime_lh = a1prime_offsets + N_a1*repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1);
-                aprime_hh = a1prime_offsets + N_a1*repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1);
+                V_ll = reshape(EVpre_flat(aprime_ll(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
+                V_hl = reshape(EVpre_flat(aprime_hl(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
+                V_lh = reshape(EVpre_flat(aprime_lh(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
+                V_hh = reshape(EVpre_flat(aprime_hh(:), :), [N_d2*N_a1, N_a2, N_z_exp, N_bothz]);
 
-                % Extract assuming z_prime = z_cur
-                V_ll = reshape(EVpre_flat(aprime_ll + z_offset), [N_d2*N_a1, N_a2, N_bothz]);
-                V_hl = reshape(EVpre_flat(aprime_hl + z_offset), [N_d2*N_a1, N_a2, N_bothz]);
-                V_lh = reshape(EVpre_flat(aprime_lh + z_offset), [N_d2*N_a1, N_a2, N_bothz]);
-                V_hh = reshape(EVpre_flat(aprime_hh + z_offset), [N_d2*N_a1, N_a2, N_bothz]);
+                if N_z_exp == 1
+                    prob_1_exp = reshape(prob_1_exp, [N_d2*N_a1, N_a2, 1, N_bothz]);
+                    prob_2_exp = reshape(prob_2_exp, [N_d2*N_a1, N_a2, 1, N_bothz]);
+                end
 
                 p1_loy = prob_1_exp;
                 p1_loy(V_ll == V_hl) = 0;
@@ -946,27 +975,24 @@ end
                 EV_u = c_loy + c_hiy;
             end
 
-            % LEGACY MANGLE: EV_u is [..., N_bothz]. We multiply by pi_bz'[cite: 1].
-            % pi_bz' is [z_prime, z_cur]. shiftdim makes it [1, 1, z_prime, z_cur].
-            % MATLAB matches EV_u's 3rd dimension (z_cur) with pi_bz' 3rd dimension (z_prime).
-            EV_u = EV_u .* shiftdim(pi_bz', -2);
-            EV_u(isnan(EV_u)) = 0;
+            % EV_u is [..., N_z_exp (z_cur), N_bothz (z_prime)]
+            % pi_bz is [z_cur, z_prime]. Reshape cleanly aligns dimensions 3 and 4.
+            EV_weighted = EV_u .* reshape(pi_bz, [1, 1, N_bothz, N_bothz]);
+            EV_weighted(isnan(EV_weighted)) = 0;
 
-            % Legacy sums over dimension 3 (which it incorrectly thinks is z_prime)
-            if ndims(EV_u) >= 3
-                EV_u = sum(EV_u, 3);
-            end
+            % Sum across z_prime mathematically integrates the probabilities perfectly
+            EV_expected = sum(EV_weighted, 4);
 
-            EV_coarse = EV_coarse + u_prob .* reshape(EV_u, [N_d2, N_a1, N_a2, N_bothz, 1]);
+            EV_coarse = EV_coarse + u_prob .* reshape(EV_expected, [N_d2, N_a1, N_a2, N_bothz, 1]);
         end
 
         if N_e_interp > 1
             EV_coarse = repmat(EV_coarse, 1, 1, 1, 1, N_e_interp);
         end
 
-        EV_perm = permute(EV_coarse, [2, 1, 3, 4, 5]); % [N_a1, N_d2, N_a2, N_bothz, N_e_interp]
+        EV_perm = permute(EV_coarse, [2, 1, 3, 4, 5]);
         EV_interp_next = interp1(a1_gridvals, EV_perm, a1prime_grid_col);
-        EV_fine = permute(EV_interp_next, [2, 1, 3, 4, 5]); % [N_d2, N_a1fine, N_a2, N_bothz, N_e_interp]
+        EV_fine = permute(EV_interp_next, [2, 1, 3, 4, 5]);
     end
 
 
