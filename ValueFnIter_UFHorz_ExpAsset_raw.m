@@ -16,6 +16,7 @@ n_d1 = vfoptions.n_d1;
 n_d2 = vfoptions.n_d2;
 N_d1 = max(prod(n_d1), 1);
 N_d2 = max(prod(n_d2), 1);
+has_bothz   = N_semiz_raw || N_z_raw;
 
 if isfield(vfoptions, 'n_d3') && prod(vfoptions.n_d3) > 0
     n_d3 = vfoptions.n_d3;
@@ -102,9 +103,9 @@ for j = N_j:-1:1
         d2_gridvals = CreateGridvals(n_d2, vfoptions.d2_grid, 1);
 
         if Dims.exp_flag == 3 || Dims.exp_flag == 4
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, Grids.e_gridvals_J(:,:,j));
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw));
         elseif Dims.exp_flag == 2 || Dims.exp_flag == 5
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, Dims.n_bothz, Grids.bothz_gridvals_J(:,:,j));
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, Dims.n_bothz, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz));
         elseif Dims.exp_flag == 6
             u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, u_gridvals);
@@ -143,7 +144,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); % Size: [N_a, N_bothz]
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end % Size: [N_a, N_bothz]
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -162,7 +163,7 @@ end
                 DiscountedEV = df * reshape(EV_interp, [1, N_d2*N_a1, 1, N_a2, N_bothz, N_e_interp]);
             end
 
-            RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
+            RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw), ReturnFnParamsVec);
             RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, N_bothz, N_e]);
 
             if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -186,7 +187,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -210,7 +211,7 @@ end
                     DiscountedEV = df * reshape(EV_interp(:,:,e_idx), [1, N_d2*N_a1, 1, N_a2, N_bothz, 1]);
                 end
 
-                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(:,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec);
+                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, N_e_raw), ReturnFnParamsVec);
                 RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, N_bothz, 1]);
 
                 if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -235,7 +236,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -260,7 +261,7 @@ end
                     DiscountedEV = df * reshape(EV_interp(:,:,z_c,:), [1, N_d2*N_a1, 1, N_a2, N_semiz, N_e_interp]);
                 end
 
-                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
+                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw), ReturnFnParamsVec);
                 RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, N_semiz, N_e]);
 
                 if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -285,7 +286,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -308,7 +309,7 @@ end
                     DiscountedEV = df * reshape(EV_interp(:,z_c,:), [1, N_d2*N_a1, 1, N_a2, 1, N_e_interp]);
                 end
 
-                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(:,:,j), ReturnFnParamsVec);
+                RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, N_e_raw), ReturnFnParamsVec);
                 RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, 1, N_e]);
 
                 if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -333,7 +334,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -360,7 +361,7 @@ end
                         DiscountedEV = df * reshape(EV_interp(:,:,z_c,e_idx), [1, N_d2*N_a1, 1, N_a2, N_semiz, 1]);
                     end
 
-                    RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(sb,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec);
+                    RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, N_e_raw), ReturnFnParamsVec);
                     RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, N_semiz, 1]);
 
                     if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -386,7 +387,7 @@ end
 
         if has_cont
             df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            if N_e_raw; EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EVpre = V_next; end
             EVpre_flat = reshape(EVpre, [N_a1 * N_a2, N_bothz]);
         end
 
@@ -411,7 +412,7 @@ end
                         DiscountedEV = df * reshape(EV_interp(:,z_c,e_idx), [1, N_d2*N_a1, 1, N_a2, 1, 1]);
                     end
 
-                    RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, Grids.bothz_gridvals_J(z_c,:,j), Grids.e_gridvals_J(e_c,:,j), ReturnFnParamsVec);
+                    RM = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals, a2_gridvals, get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, N_e_raw), ReturnFnParamsVec);
                     RM = reshape(RM, [N_d1, N_d2*N_a1, N_a1, N_a2, 1, 1]);
 
                     if has_cont; RHS = RM + DiscountedEV; else; RHS = RM; end
@@ -428,6 +429,18 @@ end
 % =====================================================================
 % SUB-HELPERS
 % =====================================================================
+    function val = get_grid_slice(grid, idx, j, has_flag)
+        if has_flag
+            if ischar(idx)
+                val = grid(:,:,j);
+            else
+                val = grid(idx,:,j);
+            end
+        else
+            val = [];
+        end
+    end
+
     function [V_out, Pol_out] = extract_pol(V_douter, Pol_douter)
         [V_out, maxindex_douter] = max(V_douter, [], 4);
         linear_douter = reshape(maxindex_douter, [N_a * N_bothz * N_e, 1]);
