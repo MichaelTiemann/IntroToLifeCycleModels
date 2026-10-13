@@ -104,7 +104,7 @@ end
         a1_off = reshape(gpuArray(0:N_a1-1), [1, N_a1, 1, 1, 1]);
         a2_off = reshape(gpuArray(0:N_a2-1), [1, 1, N_a2, 1, 1]);
         bz_off = reshape(gpuArray(0:N_bothz-1), [1, 1, 1, N_bothz, 1]);
-        e_off  = reshape(gpuArray(0:N_e-1),     [1, 1, 1, 1, N_e]);
+        e_off = reshape(gpuArray(0:N_e-1), [1, 1, 1, 1, N_e]);
 
         for d_outer_c = 1:N_d_outer
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
@@ -120,16 +120,12 @@ end
 
             if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-            RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, N_a1, N_a2, N_bothz, N_e]);
-            [~, maxindex1] = max(RHS_L1_flat, [], 1);
+            % Phase 1: Maximize STRICTLY over a1prime (dimension 2)
+            [~, maxindex1] = max(RHS_L1, [], 2);
 
-            a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
-            a1prime_idx = rem(a1p_a2p_ind - 1, N_a1) + 1;
-
-            midpoint = max(min(a1prime_idx, N_a1-1), 2);
-            midpoint_shifted = shiftdim(midpoint, -2);
-            a1primeindexes = (midpoint_shifted + (midpoint_shifted-1)*n2short) + n2_offsets;
-            a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [1, n2long, 1, N_a1, N_a2, N_bothz, N_e]);
+            midpoint = max(min(maxindex1, N_a1-1), 2);
+            a1primeindexes = (midpoint + (midpoint-1)*n2short) + n2_offsets;
+            a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a2, N_a1, N_a2, N_bothz, N_e]);
 
             RM_L2 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a2_gridvals, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2, 0);
             RM_L2 = reshape(RM_L2, [N_d_inner, n2long, N_a2, N_a1, N_a2, N_bothz, N_e]);
@@ -165,7 +161,15 @@ end
             inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
             flag_val = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
-            chosen_midpt = reshape(midpoint, size(a2p_idx_chosen));
+            S_mid1 = N_d_inner;
+            S_mid2 = S_mid1 * N_a2;
+            S_mid3 = S_mid2 * N_a1;
+            S_mid4 = S_mid3 * N_a2;
+            S_mid5 = S_mid4 * N_bothz;
+
+            midpt_idx = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*a1_off + S_mid3*a2_off + S_mid4*bz_off + S_mid5*e_off;
+            chosen_midpt = reshape(midpoint(midpt_idx), size(a2p_idx_chosen));
+
             joint_a_idx = chosen_midpt + N_a1 * (a2p_idx_chosen - 1);
             d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
@@ -219,16 +223,11 @@ end
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, N_a1, N_a2, N_bothz, 1]);
-                [~, maxindex1] = max(RHS_L1_flat, [], 1);
+                [~, maxindex1] = max(RHS_L1, [], 2);
 
-                a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
-                a1prime_idx = rem(a1p_a2p_ind - 1, N_a1) + 1;
-
-                midpoint = max(min(a1prime_idx, N_a1-1), 2);
-                midpoint_shifted = shiftdim(midpoint, -2);
-                a1primeindexes = (midpoint_shifted + (midpoint_shifted-1)*n2short) + n2_offsets;
-                a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [1, n2long, 1, N_a1, N_a2, N_bothz, 1]);
+                midpoint = max(min(maxindex1, N_a1-1), 2);
+                a1primeindexes = (midpoint + (midpoint-1)*n2short) + n2_offsets;
+                a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a2, N_a1, N_a2, N_bothz, 1]);
 
                 RM_L2 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a2_gridvals, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2, 0);
                 RM_L2 = reshape(RM_L2, [N_d_inner, n2long, N_a2, N_a1, N_a2, N_bothz, 1]);
@@ -263,7 +262,14 @@ end
                 inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
                 flag_val = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
-                chosen_midpt = reshape(midpoint, size(a2p_idx_chosen));
+                S_mid1 = N_d_inner;
+                S_mid2 = S_mid1 * N_a2;
+                S_mid3 = S_mid2 * N_a1;
+                S_mid4 = S_mid3 * N_a2;
+
+                midpt_idx = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*a1_off + S_mid3*a2_off + S_mid4*bz_off;
+                chosen_midpt = reshape(midpoint(midpt_idx), size(a2p_idx_chosen));
+
                 joint_a_idx = chosen_midpt + N_a1 * (a2p_idx_chosen - 1);
                 d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
@@ -300,7 +306,7 @@ end
         a1_off = reshape(gpuArray(0:N_a1-1), [1, N_a1, 1, 1, 1]);
         a2_off = reshape(gpuArray(0:N_a2-1), [1, 1, N_a2, 1, 1]);
         sb_off = reshape(gpuArray(0:N_semiz-1), [1, 1, 1, N_semiz, 1]);
-        e_off  = reshape(gpuArray(0:N_e-1),     [1, 1, 1, 1, N_e]);
+        e_off  = reshape(gpuArray(0:N_e-1), [1, 1, 1, 1, N_e]);
 
         for d_outer_c = 1:N_d_outer
             if N_d_outer > 1; d_val = reshape(Grids.d12_gridvals(:, d_outer_c, :), [N_d_inner, size(Grids.d12_gridvals, 3)]); else; d_val = Grids.d12_gridvals; end
@@ -324,16 +330,11 @@ end
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, N_a1, N_a2, N_semiz, N_e]);
-                [~, maxindex1] = max(RHS_L1_flat, [], 1);
+                [~, maxindex1] = max(RHS_L1, [], 2);
 
-                a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
-                a1prime_idx = rem(a1p_a2p_ind - 1, N_a1) + 1;
-
-                midpoint = max(min(a1prime_idx, N_a1-1), 2);
-                midpoint_shifted = shiftdim(midpoint, -2);
-                a1primeindexes = (midpoint_shifted + (midpoint_shifted-1)*n2short) + n2_offsets;
-                a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [1, n2long, 1, N_a1, N_a2, N_semiz, N_e]);
+                midpoint = max(min(maxindex1, N_a1-1), 2);
+                a1primeindexes = (midpoint + (midpoint-1)*n2short) + n2_offsets;
+                a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a2, N_a1, N_a2, N_semiz, N_e]);
 
                 RM_L2 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a2_gridvals, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2, 0);
                 RM_L2 = reshape(RM_L2, [N_d_inner, n2long, N_a2, N_a1, N_a2, N_semiz, N_e]);
@@ -369,7 +370,15 @@ end
                 inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
                 flag_val = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
-                chosen_midpt = reshape(midpoint, size(a2p_idx_chosen));
+                S_mid1 = N_d_inner;
+                S_mid2 = S_mid1 * N_a2;
+                S_mid3 = S_mid2 * N_a1;
+                S_mid4 = S_mid3 * N_a2;
+                S_mid5 = S_mid4 * N_semiz;
+
+                midpt_idx = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*a1_off + S_mid3*a2_off + S_mid4*sb_off + S_mid5*e_off;
+                chosen_midpt = reshape(midpoint(midpt_idx), size(a2p_idx_chosen));
+
                 joint_a_idx = chosen_midpt + N_a1 * (a2p_idx_chosen - 1);
                 d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
@@ -427,16 +436,11 @@ end
 
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, N_a1, N_a2, 1, N_e]);
-                [~, maxindex1] = max(RHS_L1_flat, [], 1);
+                [~, maxindex1] = max(RHS_L1, [], 2);
 
-                a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
-                a1prime_idx = rem(a1p_a2p_ind - 1, N_a1) + 1;
-
-                midpoint = max(min(a1prime_idx, N_a1-1), 2);
-                midpoint_shifted = shiftdim(midpoint, -2);
-                a1primeindexes = (midpoint_shifted + (midpoint_shifted-1)*n2short) + n2_offsets;
-                a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [1, n2long, 1, N_a1, N_a2, 1, N_e]);
+                midpoint = max(min(maxindex1, N_a1-1), 2);
+                a1primeindexes = (midpoint + (midpoint-1)*n2short) + n2_offsets;
+                a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a2, N_a1, N_a2, 1, N_e]);
 
                 RM_L2 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a2_gridvals, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2, 0);
                 RM_L2 = reshape(RM_L2, [N_d_inner, n2long, N_a2, N_a1, N_a2, 1, N_e]);
@@ -461,10 +465,9 @@ end
                 S3 = S2 * N_a2;
                 S4 = S3 * N_a1;
                 S5 = S4 * N_a2;
-                S6 = S5 * 1;
 
-                linidx_lower = d_ind + S1*(1 - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S6*e_off;
-                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S6*e_off;
+                linidx_lower = d_ind + S1*(1 - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*e_off;
+                linidx_upper = d_ind + S1*(n2long - 1) + S2*(a2p_idx_chosen - 1) + S3*a1_off + S4*a2_off + S5*e_off;
 
                 isInfLower = (RM_L2(linidx_lower) == -Inf);
                 isInfUpper = (RM_L2(linidx_upper) == -Inf);
@@ -472,7 +475,14 @@ end
                 inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
                 flag_val = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
-                chosen_midpt = reshape(midpoint, size(a2p_idx_chosen));
+                S_mid1 = N_d_inner;
+                S_mid2 = S_mid1 * N_a2;
+                S_mid3 = S_mid2 * N_a1;
+                S_mid4 = S_mid3 * N_a2;
+
+                midpt_idx = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*a1_off + S_mid3*a2_off + S_mid4*e_off;
+                chosen_midpt = reshape(midpoint(midpt_idx), size(a2p_idx_chosen));
+
                 joint_a_idx = chosen_midpt + N_a1 * (a2p_idx_chosen - 1);
                 d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
@@ -533,16 +543,11 @@ end
 
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, N_a1, N_a2, N_semiz, 1]);
-                    [~, maxindex1] = max(RHS_L1_flat, [], 1);
+                    [~, maxindex1] = max(RHS_L1, [], 2);
 
-                    a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
-                    a1prime_idx = rem(a1p_a2p_ind - 1, N_a1) + 1;
-
-                    midpoint = max(min(a1prime_idx, N_a1-1), 2);
-                    midpoint_shifted = shiftdim(midpoint, -2);
-                    a1primeindexes = (midpoint_shifted + (midpoint_shifted-1)*n2short) + n2_offsets;
-                    a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [1, n2long, 1, N_a1, N_a2, N_semiz, 1]);
+                    midpoint = max(min(maxindex1, N_a1-1), 2);
+                    a1primeindexes = (midpoint + (midpoint-1)*n2short) + n2_offsets;
+                    a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a2, N_a1, N_a2, N_semiz, 1]);
 
                     RM_L2 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1p_grid_safe, a2_gridvals, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2, 0);
                     RM_L2 = reshape(RM_L2, [N_d_inner, n2long, N_a2, N_a1, N_a2, N_semiz, 1]);
@@ -577,7 +582,14 @@ end
                     inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
                     flag_val = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
-                    chosen_midpt = reshape(midpoint, size(a2p_idx_chosen));
+                    S_mid1 = N_d_inner;
+                    S_mid2 = S_mid1 * N_a2;
+                    S_mid3 = S_mid2 * N_a1;
+                    S_mid4 = S_mid3 * N_a2;
+
+                    midpt_idx = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*a1_off + S_mid3*a2_off + S_mid4*sb_off;
+                    chosen_midpt = reshape(midpoint(midpt_idx), size(a2p_idx_chosen));
+
                     joint_a_idx = chosen_midpt + N_a1 * (a2p_idx_chosen - 1);
                     d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
@@ -636,16 +648,11 @@ end
 
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, N_a1, N_a2, 1, 1]);
-                    [~, maxindex1] = max(RHS_L1_flat, [], 1);
+                    [~, maxindex1] = max(RHS_L1, [], 2);
 
-                    a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
-                    a1prime_idx = rem(a1p_a2p_ind - 1, N_a1) + 1;
-
-                    midpoint = max(min(a1prime_idx, N_a1-1), 2);
-                    midpoint_shifted = shiftdim(midpoint, -2);
-                    a1primeindexes = (midpoint_shifted + (midpoint_shifted-1)*n2short) + n2_offsets;
-                    a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [1, n2long, 1, N_a1, N_a2, 1, 1]);
+                    midpoint = max(min(maxindex1, N_a1-1), 2);
+                    a1primeindexes = (midpoint + (midpoint-1)*n2short) + n2_offsets;
+                    a1p_grid_safe = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a2, N_a1, N_a2, 1, 1]);
 
                     RM_L2 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1p_grid_safe, a2_gridvals, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2, 0);
                     RM_L2 = reshape(RM_L2, [N_d_inner, n2long, N_a2, N_a1, N_a2, 1, 1]);
@@ -679,7 +686,13 @@ end
                     inUpperStrict = (L2offset >= n2short+3) & (L2offset <= n2long-1);
                     flag_val = 2 + (inLowerStrict & isInfLower) - (inUpperStrict & isInfUpper);
 
-                    chosen_midpt = reshape(midpoint, size(a2p_idx_chosen));
+                    S_mid1 = N_d_inner;
+                    S_mid2 = S_mid1 * N_a2;
+                    S_mid3 = S_mid2 * N_a1;
+
+                    midpt_idx = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*a1_off + S_mid3*a2_off;
+                    chosen_midpt = reshape(midpoint(midpt_idx), size(a2p_idx_chosen));
+
                     joint_a_idx = chosen_midpt + N_a1 * (a2p_idx_chosen - 1);
                     d_idx_val = d_ind + N_d_inner * (d_outer_c - 1);
 
@@ -740,5 +753,6 @@ end
         EV_interp_next = permute(interp1(a1_gridvals, permute(EV_reshaped, [1, 2, 3]), a1prime_grid), [1, 2, 3]);
         EV_interp = reshape(EV_interp_next, [length(a1prime_grid), N_a2, N_bothz]);
     end
+
 
 end
