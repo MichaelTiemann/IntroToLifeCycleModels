@@ -1,10 +1,6 @@
-function Fmatrix = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d, n_a1, n_a2, n_bothz, n_e, d_gridvals, a1prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec)
-
-% Pack parameters into cells so arrayfun treats them as scalars
+function Fmatrix = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d, n_a1, n_a2, n_bothz, n_e, d_gridvals, a1prime_gridvals, a1_gridvals, a2_gridvals, bothz_gridvals, e_gridvals, ReturnFnParamsVec, step)
+if nargin < 14; step = 1; end
 ReturnFnParamsCell = num2cell(ReturnFnParamsVec)';
-
-% Conditionally append grid states ONLY if the model actually defines them.
-% This cleanly filters out dummy zero-matrices so arrayfun signature matches perfectly.
 GridParamsCell = {};
 
 if sum(n_d) > 0
@@ -12,7 +8,11 @@ if sum(n_d) > 0
 end
 
 if sum(n_a1) > 0
-    for i = 1:size(a1prime_gridvals, 2); GridParamsCell{end+1} = shiftdim(a1prime_gridvals(:, i), -1); end % Dim 2
+    if step == 1
+        for i = 1:size(a1prime_gridvals, 2); GridParamsCell{end+1} = shiftdim(a1prime_gridvals(:, i), -1); end % Dim 2
+    else
+        GridParamsCell{end+1} = a1prime_gridvals; % Step 2 N-D tensor
+    end
     for i = 1:size(a1_gridvals, 2); GridParamsCell{end+1} = shiftdim(a1_gridvals(:, i), -2); end % Dim 3
 end
 

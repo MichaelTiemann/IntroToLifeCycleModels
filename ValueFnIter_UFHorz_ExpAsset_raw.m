@@ -1,4 +1,4 @@
-function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_raw(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
+function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_raw(n_d, n_a, n_z, N_j, d_gridvals, a_gridvals, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 % --- 1. Universal Setup ---
 [Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
@@ -465,8 +465,17 @@ end
             EV_interp = EV_interp_sum;
         else
             if N_e_interp > 1; EV_expected_base = repmat(EV_expected_base, [1, N_e_interp]); end
-            a2p_idx_flat = reshape(ExpAsset_J.a2primeIndex, [N_d2, prod(n_a2), N_bothz * N_e_interp]);
-            a2p_prb_flat = reshape(ExpAsset_J.a2primeProbs, [N_d2, prod(n_a2), N_bothz * N_e_interp]);
+            exp_idx = ExpAsset_J.a2primeIndex;
+            exp_prb = ExpAsset_J.a2primeProbs;
+            num_z_interp = N_bothz * N_e_interp;
+
+            if size(exp_idx, 3) < num_z_interp
+                exp_idx = repmat(exp_idx, [1, 1, num_z_interp / size(exp_idx, 3)]);
+                exp_prb = repmat(exp_prb, [1, 1, num_z_interp / size(exp_prb, 3)]);
+            end
+
+            a2p_idx_flat = reshape(exp_idx, [N_d2, prod(n_a2), num_z_interp]);
+            a2p_prb_flat = reshape(exp_prb, [N_d2, prod(n_a2), num_z_interp]);
             EV_interp = InterpolateExpAssetEV(EV_expected_base, n_a2, N_d2, prod(n_a1), prod(n_a2), N_bothz * N_e_interp, a2p_idx_flat, a2p_prb_flat);
         end
         EV_interp = reshape(EV_interp, [N_d2 * prod(n_a1) * prod(n_a2), N_bothz, N_e_interp]);

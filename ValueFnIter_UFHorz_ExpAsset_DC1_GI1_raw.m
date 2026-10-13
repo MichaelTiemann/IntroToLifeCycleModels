@@ -210,7 +210,7 @@ end
 
             if has_cont
                 EV_idx_GI = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2_off_L2 + N_d2*N_a1fine*N_a2*bz_off_L2 + N_d2*N_a1fine*N_a2*N_bothz*e_off_L2;
-                RHS_GI = RM_GI + df * reshape(EV_fine_flat(EV_idx_GI), size(a1primeindexes));
+                RHS_GI = RM_GI + df * EV_fine_flat(EV_idx_GI);
             else
                 RHS_GI = RM_GI;
             end
@@ -333,7 +333,7 @@ end
 
                 if has_cont
                     EV_idx_GI = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2_off_L2 + N_d2*N_a1fine*N_a2*bz_off_L2;
-                    RHS_GI = RM_GI + df * reshape(EV_fine_flat_e(EV_idx_GI), size(a1primeindexes));
+                    RHS_GI = RM_GI + df * EV_fine_flat_e(EV_idx_GI);
                 else
                     RHS_GI = RM_GI;
                 end
@@ -461,7 +461,7 @@ end
 
                 if has_cont
                     EV_idx_GI = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2_off_L2 + N_d2*N_a1fine*N_a2*sb_off_L2 + N_d2*N_a1fine*N_a2*N_semiz*e_off_L2;
-                    RHS_GI = RM_GI + df * reshape(EV_fine_flat_z(EV_idx_GI), size(a1primeindexes));
+                    RHS_GI = RM_GI + df * EV_fine_flat_z(EV_idx_GI);
                 else
                     RHS_GI = RM_GI;
                 end
@@ -584,7 +584,7 @@ end
 
                 if has_cont
                     EV_idx_GI = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2_off_L2 + N_d2*N_a1fine*N_a2*e_off_L2;
-                    RHS_GI = RM_GI + df * reshape(EV_fine_flat_bz(EV_idx_GI), size(a1primeindexes));
+                    RHS_GI = RM_GI + df * EV_fine_flat_bz(EV_idx_GI);
                 else
                     RHS_GI = RM_GI;
                 end
@@ -713,7 +713,7 @@ end
 
                     if has_cont
                         EV_idx_GI = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2_off_L2 + N_d2*N_a1fine*N_a2*sb_off_L2;
-                        RHS_GI = RM_GI + df * reshape(EV_fine_flat_ze(EV_idx_GI), size(a1primeindexes));
+                        RHS_GI = RM_GI + df * EV_fine_flat_ze(EV_idx_GI);
                     else
                         RHS_GI = RM_GI;
                     end
@@ -838,7 +838,7 @@ end
 
                     if has_cont
                         EV_idx_GI = (d2_off_L2 + 1) + N_d2*(a1primeindexes - 1) + N_d2*N_a1fine*a2_off_L2;
-                        RHS_GI = RM_GI + df * reshape(EV_fine_flat_bze(EV_idx_GI), size(a1primeindexes));
+                        RHS_GI = RM_GI + df * EV_fine_flat_bze(EV_idx_GI);
                     else
                         RHS_GI = RM_GI;
                     end

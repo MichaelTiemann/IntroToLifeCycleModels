@@ -130,7 +130,7 @@ for jj = N_j:-1:1
         % =======================================================
         % Layer 1
         % =======================================================
-        ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1, n_d3, n_a1, vfoptions.level1n, n_a2, special_n_z, d13_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec, 1, 0);
+        ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1, n_d3, n_a1, vfoptions.level1n, n_a2, special_n_z, d13_gridvals, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, z_val, ReturnFnParamsVec, 1, 0);
         ReturnMatrix_ii = reshape(ReturnMatrix_ii, [N_d1, N_d3, N_a1, vfoptions.level1n, N_a2, length(z_idx)]);
 
         if is_terminal
@@ -164,7 +164,7 @@ for jj = N_j:-1:1
                 end
 
                 a1primeindexes = loweredge + (0:1:maxgap(ii));
-                ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1, n_d3, maxgap(ii)+1, level1iidiff(ii), n_a2, special_n_z, d13_gridvals, a1_gridvals(a1primeindexes), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec, 3, 0);
+                ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1, n_d3, maxgap(ii)+1, level1iidiff(ii), n_a2, special_n_z, d13_gridvals, a1_gridvals(a1primeindexes), a1_gridvals(level1ii(ii)+1:level1ii(ii+1)-1), a2_gridvals, z_val, ReturnFnParamsVec, 3, 0);
 
                 if is_terminal
                     entireRHS_ii = ReturnMatrix_ii;
@@ -198,7 +198,7 @@ for jj = N_j:-1:1
         midpoint_jj = max(min(midpoint_jj, n_a1(1)-1), 2);
         a1primeindexesfine = (midpoint_jj + (midpoint_jj-1)*n2short) + (-n2short-1:1:1+n2short);
 
-        ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1, n_d3, n2long, n_a1, n_a2, special_n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec, 2, 0);
+        ReturnMatrix_ii = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1, n_d3, n2long, n_a1, n_a2, special_n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec, 2, 0);
 
         if is_terminal
             entireRHS_ii = reshape(ReturnMatrix_ii, [N_d13*n2long, N_a, length(z_idx)]);

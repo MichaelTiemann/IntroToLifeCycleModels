@@ -9,12 +9,9 @@ if length(n_a) == 2
             vfoptions.level1n=[floor(sqrt(n_a(1))),n_a(2)]; % default DC2A
             if n_a(1)<5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
         end
-        if vfoptions.verbose==1
-            fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n \n')
-        end
     else
         if ~isscalar(n_a) && isscalar(vfoptions.level1n)
-            vfoptions.level1n=[vfoptions.level1n,n_a(2:end)]; % user only needs to declare level1n for first dimension
+            vfoptions.level1n=[vfoptions.level1n,n_a(2:end)];
         end
     end
     [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC1_GI1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
@@ -38,7 +35,8 @@ end
 N_d = max(prod(n_d), 1);
 l_d = length(n_d); if N_d == 1 && (isempty(n_d) || n_d(1) == 0); l_d = 0; end
 
-s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3); s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3);
+s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
 
 l_a_choice = length(n_a) - 1;
 n_rows = l_d + l_a_choice + 2; % [d's, a's, L2off, flag]
@@ -64,14 +62,8 @@ end
 
 n2short = vfoptions.ngridinterp;
 L2off = PolicyKron(3,:,:,:,:);
-flag  = PolicyKron(4,:,:,:,:);
-
-adjust = (L2off < 1 + n2short + 1);
-Policy(l_d+1,:,:,:,:) = Policy(l_d+1,:,:,:,:) - adjust;
-L2off = L2off - (n2short + 1) .* (~adjust);
-
-Policy(n_rows-1,:,:,:,:) = L2off;
-Policy(n_rows,:,:,:,:) = flag;
+Policy(l_d + l_a_choice + 1,:,:,:,:) = (L2off - 1) / (n2short + 1);
+Policy(l_d + l_a_choice + 2,:,:,:,:) = PolicyKron(4,:,:,:,:);
 V = VKron;
 
 

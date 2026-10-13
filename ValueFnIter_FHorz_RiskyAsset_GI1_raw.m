@@ -61,13 +61,13 @@ if ~isfield(vfoptions,'V_Jplus1')
     % No EV; d2 is meaningless. Just do GI search on Return alone (treat as ExpAssetu_GI with d=d13).
     if vfoptions.lowmemory==0
         % Layer 1: full ReturnMatrix max for initial midpoint
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % [N_d13,N_a1prime,N_a1,N_a2,N_z]; Level=1, Refine=0
+        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0); % [N_d13,N_a1prime,N_a1,N_a2,N_z]; Level=1, Refine=0
         [~,maxindex]=max(ReturnMatrix,[],2);
         midpoint_jj=max(min(maxindex,n_a1(1)-1),2); % avoid the top end (inner), and avoid the bottom end (outer)
 
         % Grid interpolation layer
         aprimeindexes=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0); % [N_d13,n2long,N_a1,N_a2,N_z]; Level=2, Refine=0
+        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0); % [N_d13,n2long,N_a1,N_a2,N_z]; Level=2, Refine=0
         [Vtempii,maxindexL2]=max(ReturnMatrix_ii,[],1);
         V(:,:,N_j)=shiftdim(Vtempii,1);
         d_ind=rem(maxindexL2-1,N_d13)+1; % d13 combined
@@ -95,12 +95,12 @@ if ~isfield(vfoptions,'V_Jplus1')
     elseif vfoptions.lowmemory>=1 % lm1 already does the most-looped variant, so it also serves the higher lowmemory values
         for z_c=1:N_z
             z_val=z_gridvals_J(z_c,:,N_j);
-            ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0);
+            ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0);
             [~,maxindex]=max(ReturnMatrix_z,[],2);
             midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
 
             aprimeindexes=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-            ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0);
+            ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z, d13_gridvals, a1prime_grid(aprimeindexes), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0);
             [Vtempii,maxindexL2]=max(ReturnMatrix_ii_z,[],1);
             V(:,z_c,N_j)=shiftdim(Vtempii,1);
             d_ind=rem(maxindexL2-1,N_d13)+1;
@@ -175,14 +175,14 @@ else % V_Jplus1
 
     if vfoptions.lowmemory==0
         % Layer 1: full ReturnMatrix max for initial midpoint
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
+        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,1,0);
         entireRHS=ReturnMatrix+DiscountedEV_d13; % broadcast over a2 (which is dim 4)
         [~,maxindex]=max(entireRHS,[],2);
         midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
 
         % Grid interpolation layer
         a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
+        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,N_j), ReturnFnParamsVec,2,0);
         % EV does not depend on a2, so the linear index into DiscountedEVinterp_d13 [N_d13,N_a1prime,1,1,N_z] omits an a2 offset
         da1primez=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1)+N_d13*N_a1prime*zind;
         entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_d13(da1primez(:)),[N_d13*n2long,N_a1*N_a2,N_z]);
@@ -220,13 +220,13 @@ else % V_Jplus1
             DiscountedEVinterp_z=DiscountedEVinterp_d13(:,:,:,:,z_c);
             d2index_z=d2index_resh(:,:,z_c); % [N_d3,N_a1]
 
-            ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0);
+            ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0);
             entireRHS_z=ReturnMatrix_z+DiscountedEV_z;
             [~,maxindex]=max(entireRHS_z,[],2);
             midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
 
             a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-            ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0);
+            ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0);
             % EV does not depend on a2; index into DiscountedEVinterp_z [N_d13,N_a1prime,1,1]
             da1prime=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1);
             entireRHS_ii=ReturnMatrix_ii_z+reshape(DiscountedEVinterp_z(da1prime(:)),[N_d13*n2long,N_a1*N_a2]);
@@ -311,14 +311,14 @@ for reverse_j=1:N_j-1
 
     if vfoptions.lowmemory==0
         % Layer 1: full ReturnMatrix max for initial midpoint
-        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
+        ReturnMatrix=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,1,0);
         entireRHS=ReturnMatrix+DiscountedEV_d13;
         [~,maxindex]=max(entireRHS,[],2);
         midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
 
         % Grid interpolation layer
         a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
+        ReturnMatrix_ii=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_gridvals_J(:,:,jj), ReturnFnParamsVec,2,0);
         da1primez=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1)+N_d13*N_a1prime*zind;
         entireRHS_ii=ReturnMatrix_ii+reshape(DiscountedEVinterp_d13(da1primez(:)),[N_d13*n2long,N_a1*N_a2,N_z]);
         [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
@@ -355,13 +355,13 @@ for reverse_j=1:N_j-1
             DiscountedEVinterp_z=DiscountedEVinterp_d13(:,:,:,:,z_c);
             d2index_z=d2index_resh(:,:,z_c);
 
-            ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0);
+            ReturnMatrix_z=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n_a1,n_a1,n_a2,special_n_z, d13_gridvals, a1_gridvals, a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,1,0);
             entireRHS_z=ReturnMatrix_z+DiscountedEV_z;
             [~,maxindex]=max(entireRHS_z,[],2);
             midpoint_jj=max(min(maxindex,n_a1(1)-1),2);
 
             a1primeindexesfine=(midpoint_jj+(midpoint_jj-1)*n2short)+(-n2short-1:1:1+n2short);
-            ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_Disc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0);
+            ReturnMatrix_ii_z=CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, n_d1,n_d3,n2long,n_a1,n_a2,special_n_z, d13_gridvals, a1prime_grid(a1primeindexesfine), a1_gridvals, a2_gridvals, z_val, ReturnFnParamsVec,2,0);
             da1prime=(1:1:N_d13)'+N_d13*(a1primeindexesfine-1);
             entireRHS_ii=ReturnMatrix_ii_z+reshape(DiscountedEVinterp_z(da1prime(:)),[N_d13*n2long,N_a1*N_a2]);
             [Vtempii,maxindexL2]=max(entireRHS_ii,[],1);
