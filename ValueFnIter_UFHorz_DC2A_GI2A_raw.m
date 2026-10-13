@@ -23,8 +23,7 @@ n2long = n2short*2 + 3;
 a1prime_grid = gpuArray(interp1(1:1:N_a1, gather(a1_gridvals), linspace(1, N_a1, N_a1+(N_a1-1)*n2short))');
 N_a1fine = length(a1prime_grid);
 
-if ~isfield(vfoptions, 'level1n'); vfoptions.level1n = min(floor(sqrt(N_a1)), N_a1); end
-level1ii = round(linspace(1, N_a1, vfoptions.level1n));
+level1ii = round(linspace(1, N_a1, Dims.level1n));
 
 % --- 2. Determine Iteration Strategy ---
 if vfoptions.lowmemory == 0
@@ -121,26 +120,26 @@ end
             end
 
             RM_L1 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a2_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1, 0);
-            RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, vfoptions.level1n, N_a2, N_bothz, N_e]);
+            RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, Dims.level1n, N_a2, N_bothz, N_e]);
 
             if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-            RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, vfoptions.level1n, N_a2, N_bothz, N_e]);
+            RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, Dims.level1n, N_a2, N_bothz, N_e]);
             [~, maxindex1] = max(RHS_L1_flat, [], 1);
 
             a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
             a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a1) + 1;
             midpt_local(1, 1, level1ii, :, :, :) = a1p_idx_L1;
 
-            [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, vfoptions.level1n, N_a2, N_bothz, N_e]), [], 1);
-            V_fordouter(level1ii,:,:,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_a2, N_bothz, N_e]);
-            P1_fordouter(level1ii,:,:,:,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_a2, N_bothz, N_e]);
+            [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, Dims.level1n, N_a2, N_bothz, N_e]), [], 1);
+            V_fordouter(level1ii,:,:,:,d_outer_c) = reshape(v_tmp, [Dims.level1n, N_a2, N_bothz, N_e]);
+            P1_fordouter(level1ii,:,:,:,d_outer_c) = reshape(p_tmp, [Dims.level1n, N_a2, N_bothz, N_e]);
 
             diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, :, :) - a1p_idx_L1(1, 1:end-1, :, :, :));
             maxgap_vec = gather(squeeze(max(max(max(max(diff_a1p, [], 6), [], 5), [], 4), [], 3)));
             if isempty(maxgap_vec); maxgap_vec = 0; end
 
-            for ii = 1:(vfoptions.level1n-1)
+            for ii = 1:(Dims.level1n-1)
                 curraindex = level1ii(ii)+1 : level1ii(ii+1)-1;
                 L = length(curraindex);
                 if L == 0; continue; end
@@ -266,24 +265,24 @@ end
                 end
 
                 RM_L1 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a2_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1, 0);
-                RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, vfoptions.level1n, N_a2, N_bothz, 1]);
+                RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, Dims.level1n, N_a2, N_bothz, 1]);
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, vfoptions.level1n, N_a2, N_bothz, 1]);
+                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, Dims.level1n, N_a2, N_bothz, 1]);
                 [~, maxindex1] = max(RHS_L1_flat, [], 1);
                 a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
                 a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a1) + 1;
                 midpt_local(1, 1, level1ii, :, :, 1) = a1p_idx_L1;
 
-                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, vfoptions.level1n, N_a2, N_bothz, 1]), [], 1);
-                V_fordouter(level1ii,:,:,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_a2, N_bothz, 1]);
-                P1_fordouter(level1ii,:,:,e_c,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_a2, N_bothz, 1]);
+                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, Dims.level1n, N_a2, N_bothz, 1]), [], 1);
+                V_fordouter(level1ii,:,:,e_c,d_outer_c) = reshape(v_tmp, [Dims.level1n, N_a2, N_bothz, 1]);
+                P1_fordouter(level1ii,:,:,e_c,d_outer_c) = reshape(p_tmp, [Dims.level1n, N_a2, N_bothz, 1]);
 
                 diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, :, 1) - a1p_idx_L1(1, 1:end-1, :, :, 1));
                 maxgap_vec = gather(squeeze(max(max(max(diff_a1p, [], 5), [], 4), [], 3)));
                 if isempty(maxgap_vec); maxgap_vec = 0; end
 
-                for ii = 1:(vfoptions.level1n-1)
+                for ii = 1:(Dims.level1n-1)
                     curraindex = level1ii(ii)+1 : level1ii(ii+1)-1;
                     L = length(curraindex);
                     if L == 0; continue; end
@@ -414,24 +413,24 @@ end
                 end
 
                 RM_L1 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a2_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1, 0);
-                RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, vfoptions.level1n, N_a2, N_semiz, N_e]);
+                RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, Dims.level1n, N_a2, N_semiz, N_e]);
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, vfoptions.level1n, N_a2, N_semiz, N_e]);
+                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, Dims.level1n, N_a2, N_semiz, N_e]);
                 [~, maxindex1] = max(RHS_L1_flat, [], 1);
                 a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
                 a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a1) + 1;
                 midpt_local(1, 1, level1ii, :, :, :) = a1p_idx_L1;
 
-                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, vfoptions.level1n, N_a2, N_semiz, N_e]), [], 1);
-                V_fordouter(level1ii,:,sb,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_a2, N_semiz, N_e]);
-                P1_fordouter(level1ii,:,sb,:,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_a2, N_semiz, N_e]);
+                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, Dims.level1n, N_a2, N_semiz, N_e]), [], 1);
+                V_fordouter(level1ii,:,sb,:,d_outer_c) = reshape(v_tmp, [Dims.level1n, N_a2, N_semiz, N_e]);
+                P1_fordouter(level1ii,:,sb,:,d_outer_c) = reshape(p_tmp, [Dims.level1n, N_a2, N_semiz, N_e]);
 
                 diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, :, :) - a1p_idx_L1(1, 1:end-1, :, :, :));
                 maxgap_vec = gather(squeeze(max(max(max(max(diff_a1p, [], 6), [], 5), [], 4), [], 3)));
                 if isempty(maxgap_vec); maxgap_vec = 0; end
 
-                for ii = 1:(vfoptions.level1n-1)
+                for ii = 1:(Dims.level1n-1)
                     curraindex = level1ii(ii)+1 : level1ii(ii+1)-1;
                     L = length(curraindex);
                     if L == 0; continue; end
@@ -556,24 +555,24 @@ end
                 end
 
                 RM_L1 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a2_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1, 0);
-                RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, vfoptions.level1n, N_a2, 1, N_e]);
+                RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, Dims.level1n, N_a2, 1, N_e]);
                 if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, vfoptions.level1n, N_a2, 1, N_e]);
+                RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, Dims.level1n, N_a2, 1, N_e]);
                 [~, maxindex1] = max(RHS_L1_flat, [], 1);
                 a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
                 a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a1) + 1;
                 midpt_local(1, 1, level1ii, :, 1, :) = a1p_idx_L1;
 
-                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, vfoptions.level1n, N_a2, 1, N_e]), [], 1);
-                V_fordouter(level1ii,:,z_c,:,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_a2, 1, N_e]);
-                P1_fordouter(level1ii,:,z_c,:,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_a2, 1, N_e]);
+                [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, Dims.level1n, N_a2, 1, N_e]), [], 1);
+                V_fordouter(level1ii,:,z_c,:,d_outer_c) = reshape(v_tmp, [Dims.level1n, N_a2, 1, N_e]);
+                P1_fordouter(level1ii,:,z_c,:,d_outer_c) = reshape(p_tmp, [Dims.level1n, N_a2, 1, N_e]);
 
                 diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, 1, :) - a1p_idx_L1(1, 1:end-1, :, 1, :));
                 maxgap_vec = gather(squeeze(max(max(max(diff_a1p, [], 7), [], 5), [], 4)));
                 if isempty(maxgap_vec); maxgap_vec = 0; end
 
-                for ii = 1:(vfoptions.level1n-1)
+                for ii = 1:(Dims.level1n-1)
                     curraindex = level1ii(ii)+1 : level1ii(ii+1)-1;
                     L = length(curraindex);
                     if L == 0; continue; end
@@ -700,24 +699,24 @@ end
                     end
 
                     RM_L1 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, [Dims.n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a1_gridvals, a2_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1, 0);
-                    RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, vfoptions.level1n, N_a2, N_semiz, 1]);
+                    RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, Dims.level1n, N_a2, N_semiz, 1]);
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, vfoptions.level1n, N_a2, N_semiz, 1]);
+                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, Dims.level1n, N_a2, N_semiz, 1]);
                     [~, maxindex1] = max(RHS_L1_flat, [], 1);
                     a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
                     a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a1) + 1;
                     midpt_local(1, 1, level1ii, :, :, 1) = a1p_idx_L1;
 
-                    [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, vfoptions.level1n, N_a2, N_semiz, 1]), [], 1);
-                    V_fordouter(level1ii,:,sb,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_a2, N_semiz, 1]);
-                    P1_fordouter(level1ii,:,sb,e_c,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_a2, N_semiz, 1]);
+                    [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, Dims.level1n, N_a2, N_semiz, 1]), [], 1);
+                    V_fordouter(level1ii,:,sb,e_c,d_outer_c) = reshape(v_tmp, [Dims.level1n, N_a2, N_semiz, 1]);
+                    P1_fordouter(level1ii,:,sb,e_c,d_outer_c) = reshape(p_tmp, [Dims.level1n, N_a2, N_semiz, 1]);
 
                     diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, :, 1) - a1p_idx_L1(1, 1:end-1, :, :, 1));
                     maxgap_vec = gather(squeeze(max(max(max(diff_a1p, [], 5), [], 4), [], 3)));
                     if isempty(maxgap_vec); maxgap_vec = 0; end
 
-                    for ii = 1:(vfoptions.level1n-1)
+                    for ii = 1:(Dims.level1n-1)
                         curraindex = level1ii(ii)+1 : level1ii(ii+1)-1;
                         L = length(curraindex);
                         if L == 0; continue; end
@@ -843,24 +842,24 @@ end
                     end
 
                     RM_L1 = CreateReturnFnMatrix_UDisc_DC2A(ReturnFn, n_d, Dims.special_n_bothz, Dims.special_n_e, d_val, a1_gridvals, a2_gridvals, a1_gridvals(level1ii,:), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1, 0);
-                    RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, vfoptions.level1n, N_a2, 1, 1]);
+                    RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, N_a2, Dims.level1n, N_a2, 1, 1]);
                     if has_cont; RHS_L1 = RM_L1 + DiscountedEV_L1; else; RHS_L1 = RM_L1; end
 
-                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, vfoptions.level1n, N_a2, 1, 1]);
+                    RHS_L1_flat = reshape(RHS_L1, [N_d_inner * N_a1 * N_a2, Dims.level1n, N_a2, 1, 1]);
                     [~, maxindex1] = max(RHS_L1_flat, [], 1);
                     a1p_a2p_ind = ceil(maxindex1 / N_d_inner);
                     a1p_idx_L1 = rem(a1p_a2p_ind - 1, N_a1) + 1;
                     midpt_local(1, 1, level1ii, :, 1, 1) = a1p_idx_L1;
 
-                    [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, vfoptions.level1n, N_a2, 1, 1]), [], 1);
-                    V_fordouter(level1ii,:,z_c,e_c,d_outer_c) = reshape(v_tmp, [vfoptions.level1n, N_a2, 1, 1]);
-                    P1_fordouter(level1ii,:,z_c,e_c,d_outer_c) = reshape(p_tmp, [vfoptions.level1n, N_a2, 1, 1]);
+                    [v_tmp, p_tmp] = max(reshape(RHS_L1, [N_d_inner*N_a1*N_a2, Dims.level1n, N_a2, 1, 1]), [], 1);
+                    V_fordouter(level1ii,:,z_c,e_c,d_outer_c) = reshape(v_tmp, [Dims.level1n, N_a2, 1, 1]);
+                    P1_fordouter(level1ii,:,z_c,e_c,d_outer_c) = reshape(p_tmp, [Dims.level1n, N_a2, 1, 1]);
 
                     diff_a1p = max(0, a1p_idx_L1(1, 2:end, :, 1, 1) - a1p_idx_L1(1, 1:end-1, :, 1, 1));
                     maxgap_vec = gather(squeeze(max(max(diff_a1p, [], 4), [], 3)));
                     if isempty(maxgap_vec); maxgap_vec = 0; end
 
-                    for ii = 1:(vfoptions.level1n-1)
+                    for ii = 1:(Dims.level1n-1)
                         curraindex = level1ii(ii)+1 : level1ii(ii+1)-1;
                         L = length(curraindex);
                         if L == 0; continue; end

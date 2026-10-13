@@ -3,23 +3,23 @@ function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC_GI(n_d, n_a, n_z, N_j, d_g
 if length(n_a) == 2
     if ~isfield(vfoptions,'level1n')
         if isscalar(n_a)
-            vfoptions.level1n=floor(sqrt(n_a(1)));
+            Dims.level1n=floor(sqrt(n_a(1)));
             if n_a(1)<5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
         elseif length(n_a)==2
-            vfoptions.level1n=[floor(sqrt(n_a(1))),n_a(2)]; % default DC2A
+            Dims.level1n=[floor(sqrt(n_a(1))),n_a(2)]; % default DC2A
             if n_a(1)<5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
         end
     else
-        if ~isscalar(n_a) && isscalar(vfoptions.level1n)
-            vfoptions.level1n=[vfoptions.level1n,n_a(2:end)];
+        if ~isscalar(n_a) && isscalar(Dims.level1n)
+            Dims.level1n=[Dims.level1n,n_a(2:end)];
         end
     end
     [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC1_GI1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 elseif length(n_a) >= 3
     if isscalar(vfoptions.ngridinterp)
-        if length(vfoptions.level1n)>1
-            if vfoptions.level1n(2)>=n_a(2)
-                vfoptions.level1n=vfoptions.level1n(1); % Only first one is relevant for DC2A
+        if length(Dims.level1n)>1
+            if Dims.level1n(2)>=n_a(2)
+                Dims.level1n=Dims.level1n(1); % Only first one is relevant for DC2A
             else
                 error('With two endogenous states, can only do divide-and-conquer in the first endogenous state (not in both)')
             end
