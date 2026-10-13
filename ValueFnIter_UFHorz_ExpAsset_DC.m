@@ -1,162 +1,81 @@
-function [V,Policy]=ValueFnIter_UFHorz_ExpAsset_DC(n_d1,n_d2,n_a1,n_a2,n_z, N_j, d_gridvals , d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions)
-% vfoptions are already set by ValueFnIter_FHorz()
-% Handles vfoptions.divideandconquer==1, vfoptions.gridinterplayer==0
+function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-N_d1=prod(n_d1);
-N_a1=prod(n_a1);
-N_z=prod(n_z);
-N_e=prod(vfoptions.n_e);
-
-%% Divide-and-conquer level1n setup (divide-and-conquer requires the standard endogenous state)
-if N_a1==0
-    error('Cannot use vfoptions.divideandconquer with experience asset if there is no standard endogenous state (N_a1==0)')
-end
+% --- 1. Level1n Default Expansion ---
 if ~isfield(vfoptions,'level1n')
-    vfoptions.level1n=floor(sqrt(n_a1(1)));
-    if n_a1(1)<5
-        error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable (you need to turn off divide-and-conquer, or put more points into the a variable)')
+    if length(n_a) == 2
+        vfoptions.level1n = floor(sqrt(n_a(1)));
+        if n_a(1) < 5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
+    elseif length(n_a) >= 3
+        vfoptions.level1n = [floor(sqrt(n_a(1))), n_a(2)]; % default DC2A
+        if n_a(1) < 5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
     end
-    if vfoptions.verbose==1
-        fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n (for smaller models 7 or 9 is good, but for larger models something 15 or 21 can be better) \n')
+    if vfoptions.verbose == 1
+        fprintf('Suggestion: When using vfoptions.divideandconquer it will be faster or slower if you set different values of vfoptions.level1n \n')
+    end
+else
+    if ~isscalar(n_a) && isscalar(vfoptions.level1n)
+        % Safely expand level1n for standard endo states, explicitly dropping the final exp asset
+        vfoptions.level1n = [vfoptions.level1n, n_a(2:end-1)];
     end
 end
-vfoptions.level1n=min(vfoptions.level1n,n_a1);
 
-%% DC2A path: two (or more) standard endogenous states. a is divided into a1 (first standard endogenous state, divide-and-conquer), a2 (remaining standard endogenous states, folded) and a3 (experience asset)
-if length(n_a1)>1
-    % a1_gridvals holds all the standard endogenous states (rows cycle the first fastest); n_a2/a2_grid hold the experience asset
-    n_a3=n_a2;
-    a3_grid=a2_grid;
-    a2_gridvals=a1_gridvals(1:n_a1(1):end,2:end);
-    a1_grid=a1_gridvals(1:n_a1(1),1);
-    n_a2=n_a1(2:end);
-    n_a1=n_a1(1);
-
-    if length(vfoptions.level1n)>1
-        if vfoptions.level1n(2)>=n_a2(1) % only DC on the first endo state
-            vfoptions.level1n=vfoptions.level1n(1);
+% --- 2. Raw Engine Dispatch ---
+if length(n_a) == 2
+    [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+elseif length(n_a) >= 3
+    if length(vfoptions.level1n) > 1
+        if vfoptions.level1n(2) >= n_a(2)
+            vfoptions.level1n = vfoptions.level1n(1); % Only first one is relevant for DC2A
         else
             error('With ExpAsset DC2A, can only do divide-and-conquer on the first standard endogenous state')
         end
     end
-    if vfoptions.gridinterplayer==1
-        error('vfoptions.gridinterplayer not yet supported with ExpAsset DC2A (two or more standard endogenous states)')
-    end
-    % noz_e: dedicated _noz_e raw files (no z, i.i.d. e)
-    if N_z==0 && N_e>0
-        if N_d1==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_nod1_noz_e_raw(n_d2, n_a1, n_a2, n_a3, vfoptions.n_e, N_j, d2_gridvals, a1_grid, a2_gridvals, a3_grid, vfoptions.e_gridvals_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=n_d2;
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_noz_e_raw(n_d1, n_d2, n_a1, n_a2, n_a3, vfoptions.n_e, N_j, d_gridvals, d2_gridvals, a1_grid, a2_gridvals, a3_grid, vfoptions.e_gridvals_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=[n_d1,n_d2];
-        end
-        if vfoptions.outputkron==1
-            V=VKron;
-            Policy=PolicyKron;
-            return
-        end
-        n_a=[n_a1,n_a2,n_a3];
-        V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-        Policy=UnKronPolicyIndexes3_FHorz_z(PolicyKron, nDPolicyChannel, n_a1, n_a2, n_a, vfoptions.n_e, N_j, vfoptions); % treat e as z (no z dim present)
-        return
-    end
-
-    % z+e: both Markov z and i.i.d. e present — route to dedicated _e raw files
-    if N_z>0 && N_e>0
-        if N_d1==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_nod1_e_raw(n_d2, n_a1, n_a2, n_a3, n_z, vfoptions.n_e, N_j, d2_gridvals, a1_grid, a2_gridvals, a3_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=n_d2;
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_e_raw(n_d1, n_d2, n_a1, n_a2, n_a3, n_z, vfoptions.n_e, N_j, d_gridvals, d2_gridvals, a1_grid, a2_gridvals, a3_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=[n_d1,n_d2];
-        end
-        if vfoptions.outputkron==1
-            V=VKron;
-            Policy=PolicyKron;
-            return
-        end
-        n_a=[n_a1,n_a2,n_a3];
-        V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-        Policy=UnKronPolicyIndexes3_FHorz_z_e(PolicyKron, nDPolicyChannel, n_a1, n_a2, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-        return
-    end
-
-    if N_z==0
-        if N_d1==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_nod1_noz_raw(n_d2, n_a1, n_a2, n_a3, N_j, d2_gridvals, a1_grid, a2_gridvals, a3_grid, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=n_d2;
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_noz_raw(n_d1, n_d2, n_a1, n_a2, n_a3, N_j, d_gridvals, d2_gridvals, a1_grid, a2_gridvals, a3_grid, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=[n_d1,n_d2];
-        end
-    else
-        if N_d1==0
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_nod1_raw(n_d2, n_a1, n_a2, n_a3, n_z, N_j, d2_gridvals, a1_grid, a2_gridvals, a3_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=n_d2;
-        else
-            [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC2A_raw(n_d1, n_d2, n_a1, n_a2, n_a3, n_z, N_j, d_gridvals, d2_gridvals, a1_grid, a2_gridvals, a3_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-            nDPolicyChannel=[n_d1,n_d2];
-        end
-    end
-
-    if vfoptions.outputkron==1
-        V=VKron;
-        Policy=PolicyKron;
-        return
-    end
-    n_a=[n_a1,n_a2,n_a3];
-    if N_z==0
-        V=reshape(VKron,[n_a,N_j]);
-        Policy=UnKronPolicyIndexes3_FHorz_noz(PolicyKron, nDPolicyChannel, n_a1, n_a2, n_a, N_j, vfoptions);
-    else
-        V=reshape(VKron,[n_a,n_z,N_j]);
-        Policy=UnKronPolicyIndexes3_FHorz_z(PolicyKron, nDPolicyChannel, n_a1, n_a2, n_a, n_z, N_j, vfoptions);
-    end
-    return
-end
-
-%% Dispatch (single DC dim — existing DC1 path)
-if N_e==0 % no e variable
-    [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC1_raw(n_d1,n_d2,n_a1,n_a2,n_z, N_j, d_gridvals , d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, pi_z_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-else % N_e
-    [VKron, PolicyKron]=ValueFnIter_FHorz_ExpAsset_DC1_e_raw(n_d1,n_d2,n_a1,n_a2,n_z, vfoptions.n_e, N_j, d_gridvals, d2_gridvals, a1_gridvals, a2_grid, z_gridvals_J, vfoptions.e_gridvals_J, pi_z_J, vfoptions.pi_e_J, ReturnFn, aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, aprimeFnParamNames, vfoptions);
-end
-
-
-
-%%
-if vfoptions.outputkron==1
-    V=VKron;
-    Policy=PolicyKron;
-    return
-end
-
-if n_d1>0
-    n_d=[n_d1,n_d2,n_a1];
+    [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC2A_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 else
-    n_d=[n_d2,n_a1];
+    error('Experience Asset requires at least 2 endogenous states.');
 end
-n_a=[n_a1,n_a2];
 
-% Transforming Value Fn and Optimal Policy Indexes matrices back out of Kronecker Form
-if N_e==0
-    if N_z==0
-        V=reshape(VKron,[n_a,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_noz(PolicyKron, n_d, n_a, N_j, vfoptions);
-    else
-        V=reshape(VKron,[n_a,n_z,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_z(PolicyKron, n_d, n_a, n_z, N_j, vfoptions);
-    end
-else
-    if N_z==0
-        V=reshape(VKron,[n_a,vfoptions.n_e,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_z(PolicyKron, n_d, n_a, vfoptions.n_e, N_j, vfoptions); % Treat e as z (because no z)
-    else
-        V=reshape(VKron,[n_a,n_z,vfoptions.n_e,N_j]);
-        Policy=UnKronPolicyIndexes1_FHorz_z_e(PolicyKron, n_d, n_a, n_z, vfoptions.n_e, N_j, vfoptions);
-    end
+if isfield(vfoptions, 'outputkron') && vfoptions.outputkron == 1
+    V = VKron;
+    Policy = PolicyKron;
+    return;
 end
+
+% --- 3. Native UnKron ---
+N_d = max(prod(n_d), 1);
+l_d = length(n_d);
+if N_d == 1 && (isempty(n_d) || n_d(1) == 0); l_d = 0; end
+
+% CRITICAL FIX: Experience Assets only permit choosing a1prime!
+if l_d == 0
+    n_actions = n_a(1);
+else
+    n_actions = [n_d, n_a(1)];
+end
+l_actions = length(n_actions);
+
+s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3);
+s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+
+Policy = zeros(l_actions, s2, s3, s4, s5, 'gpuArray');
+
+cum_dims = 1;
+for i = 1:l_actions
+    Policy(i, :, :, :, :) = rem(ceil(PolicyKron / cum_dims) - 1, n_actions(i)) + 1;
+    cum_dims = cum_dims * n_actions(i);
+end
+
+% --- 4. Final Legacy API Shaping ---
+sz_V = n_a;
+if isfield(vfoptions, 'n_semiz') && prod(vfoptions.n_semiz) > 0; sz_V = [sz_V, vfoptions.n_semiz]; end
+if prod(n_z) > 0; sz_V = [sz_V, n_z]; end
+if isfield(vfoptions, 'n_e') && prod(vfoptions.n_e) > 0; sz_V = [sz_V, vfoptions.n_e]; end
+sz_V = [sz_V, N_j];
+
+sz_P = [l_actions, sz_V];
+
+V = reshape(VKron, sz_V);
+Policy = reshape(Policy, sz_P);
 
 
 end
