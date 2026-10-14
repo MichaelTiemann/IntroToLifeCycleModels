@@ -132,6 +132,12 @@ for j = N_j:-1:1
     Policy(:,:,:,:,j) = Pol_j;
 end
 
+% --- 6. Grid Interpolation Post-Processing ---
+% Switch from midpoint to lower grid index
+adjust = (Policy(3,:,:,:,:) < 1 + n2short + 1);
+Policy(2,:,:,:,:) = Policy(2,:,:,:,:) - adjust;
+Policy(3,:,:,:,:) = Policy(3,:,:,:,:) - (n2short + 1) * (~adjust);
+
 % =====================================================================
 % SPECIALIZED SOLVE FUNCTIONS
 % =====================================================================
@@ -622,11 +628,12 @@ end
         % Because skipinterp overrides non-linear values inside the Expectation integral,
         % Expectation and Interpolation DO NOT COMMUTE mathematically in VFIToolkit.
         % To perfectly match the Legacy value peak, we must recreate the exact mangled
-        % "Interpolate over z_prime, then multiply by pi_bz" behavior.
+        % "Interpolate over z_prime, then multiply by pi_bz" behavior natively in 4D.
 
         a2p_idx_base = ExpAsset_J.a2primeIndex;
         a2p_weight_base = ExpAsset_J.a2primeProbs;
 
+        % UDisc Appends Exogenous Shocks to the END of [d2, a2]
         N_u_shocks = 1;
         if Dims.exp_flag == 6
             if length(n_a2) == 1
@@ -638,8 +645,8 @@ end
 
         EV_coarse = zeros(N_d2, N_a1, N_a2, N_bothz, N_e_interp, 'gpuArray');
 
-        % Legacy z_offset looks up the EV mapped to z_prime.
-        z_offset = N_a1*N_a2 * shiftdim(gpuArray(0:N_bothz-1), -1);
+        % Legacy z_offset looks up the EV mapped to z_prime (Dimension 4).
+        z_offset = reshape(gpuArray(0:N_bothz-1), [1, 1, 1, N_bothz]) * (N_a1*N_a2);
 
         for u_c = 1:N_u_shocks
             if Dims.exp_flag == 6
@@ -655,11 +662,7 @@ end
                 a2p_idx = a2p_idx_base; a2p_prb = a2p_weight_base; u_prob = 1;
             end
 
-            % ---------------------------------------------------------
-            % UDisc Canonical Shape
-            % CreateExperienceAssetFnMatrix_UDisc natively returns [N_d2, N_a2, state_dims]
-            % No defensive permutes allowed here, prevents 21 vs 5 collision.
-            % ---------------------------------------------------------
+            % Canonical Dimensions: [N_d_exp, N_a2_exp, z_cur]
             if length(n_a2) == 1
                 N_d_exp = size(a2p_idx, 1); N_a2_exp = size(a2p_idx, 2); N_z_exp = max(size(a2p_idx, 3), 1);
             else
@@ -686,11 +689,20 @@ end
                 end
 
                 % Interpolate FIRST, across unintegrated EVpre_flat.
-                Vlower = reshape(EVpre_flat(idx_lo + z_offset), [N_d_exp*N_a1, N_a2_exp, max(N_z_exp, N_bothz)]);
-                Vupper = reshape(EVpre_flat(idx_hi + z_offset), [N_d_exp*N_a1, N_a2_exp, max(N_z_exp, N_bothz)]);
+                % idx_lo implicitly expands with z_offset to shape: [N_d_exp*N_a1, N_a2_exp, z_cur, z_prime]
+                Vlower = reshape(EVpre_flat(idx_lo + z_offset), [N_d_exp*N_a1, N_a2_exp, max(N_z_exp, 1), N_bothz]);
+                Vupper = reshape(EVpre_flat(idx_hi + z_offset), [N_d_exp*N_a1, N_a2_exp, max(N_z_exp, 1), N_bothz]);
 
+                % If policy didn't depend on z_cur, we must natively expand it to map to pi_bz(z_cur, z_prime)
                 if N_z_exp == 1 && N_bothz > 1
+                    Vlower = repmat(Vlower, 1, 1, N_bothz, 1);
+                    Vupper = repmat(Vupper, 1, 1, N_bothz, 1);
                     prob_exp = repmat(prob_exp, 1, 1, N_bothz);
+                end
+
+                % Expand scalar probability bounds to cover z_prime
+                if ndims(prob_exp) < 4
+                    prob_exp = repmat(prob_exp, 1, 1, 1, N_bothz);
                 end
 
                 skipinterp = (Vlower == Vupper); prob_exp(skipinterp) = 0;
@@ -699,6 +711,7 @@ end
 
                 EV_u = c_lo + c_hi; EV_u(prob_exp == 0) = Vupper(prob_exp == 0); EV_u(prob_exp == 1) = Vlower(prob_exp == 1);
             else
+                % length(n_a2) > 1 branch
                 loIdx_1 = reshape(a2p_idx(1,:,:,:), [N_d_exp, N_a2_exp, N_z_exp]);
                 loIdx_2 = reshape(a2p_idx(2,:,:,:), [N_d_exp, N_a2_exp, N_z_exp]);
                 prob_1  = reshape(a2p_prb(1,:,:,:), [N_d_exp, N_a2_exp, N_z_exp]);
@@ -724,16 +737,21 @@ end
                 idx_lh = a1_base + N_a1 * repmat(loIdx_1 + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
                 idx_hh = a1_base + N_a1 * repmat((loIdx_1+1) + n_a2_1*loIdx_2 - 1, N_a1, 1, 1);
 
-                V_ll = reshape(EVpre_flat(idx_ll + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, N_bothz)]);
-                V_hl = reshape(EVpre_flat(idx_hl + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, N_bothz)]);
-                V_lh = reshape(EVpre_flat(idx_lh + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, N_bothz)]);
-                V_hh = reshape(EVpre_flat(idx_hh + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, N_bothz)]);
+                V_ll = reshape(EVpre_flat(idx_ll + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, 1), N_bothz]);
+                V_hl = reshape(EVpre_flat(idx_hl + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, 1), N_bothz]);
+                V_lh = reshape(EVpre_flat(idx_lh + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, 1), N_bothz]);
+                V_hh = reshape(EVpre_flat(idx_hh + z_offset), [N_d_exp * N_a1, N_a2_exp, max(N_z_exp, 1), N_bothz]);
+
+                if N_z_exp == 1 && N_bothz > 1
+                    V_ll = repmat(V_ll, 1, 1, N_bothz, 1); V_hl = repmat(V_hl, 1, 1, N_bothz, 1);
+                    V_lh = repmat(V_lh, 1, 1, N_bothz, 1); V_hh = repmat(V_hh, 1, 1, N_bothz, 1);
+                end
 
                 prb1_full = repmat(prob_1, N_a1, 1, 1); prb2_full = repmat(prob_2, N_a1, 1, 1);
                 if N_z_exp == 1 && N_bothz > 1
-                    prb1_full = repmat(prb1_full, 1, 1, N_bothz);
-                    prb2_full = repmat(prb2_full, 1, 1, N_bothz);
+                    prb1_full = repmat(prb1_full, 1, 1, N_bothz); prb2_full = repmat(prb2_full, 1, 1, N_bothz);
                 end
+                prb1_full = repmat(prb1_full, 1, 1, 1, N_bothz); prb2_full = repmat(prb2_full, 1, 1, 1, N_bothz);
 
                 p1_loy = prb1_full; p1_loy(V_ll == V_hl) = 0; c_ll = p1_loy .* V_ll; c_ll(isnan(c_ll)) = 0;
                 c_hl = (1-p1_loy) .* V_hl; c_hl(isnan(c_hl)) = 0; EV_loy = c_ll + c_hl;
@@ -745,12 +763,16 @@ end
                 c_hiy = (1-p2) .* EV_hiy; c_hiy(isnan(c_hiy)) = 0; EV_u = c_loy + c_hiy;
             end
 
-            % Legacy Mangle: EV_u has z_prime in dim 3. Multiply by pi_bz' to get z_cur.
-            EV_weighted = EV_u .* shiftdim(pi_bz', -2);
+            % EXPECT SECOND (Legacy pi_bz Mangle)
+            % EV_u contains [..., z_cur, z_prime]. pi_bz is [z_cur, z_prime].
+            % shiftdim pushes pi_bz into dims 3 and 4 to align perfectly.
+            pi_bz_shift = shiftdim(pi_bz, -2);
+            EV_weighted = EV_u .* pi_bz_shift;
             EV_weighted(isnan(EV_weighted)) = 0;
 
+            % Sum out z_prime (Dimension 4), collapsing back to exactly [..., z_cur]
             if N_bothz > 1
-                EV_exp_u = sum(EV_weighted, 3);
+                EV_exp_u = sum(EV_weighted, 4);
             else
                 EV_exp_u = EV_weighted;
             end
@@ -768,9 +790,9 @@ end
         end
 
         if N_e_interp > 1; EV_coarse = repmat(EV_coarse, 1, 1, 1, 1, N_e_interp); end
-        EV_perm = permute(EV_coarse, [2, 1, 3, 4, 5]); % [N_a1, N_d2, N_a2, N_bothz, N_e_interp]
+        EV_perm = permute(EV_coarse, [2, 1, 3, 4, 5]);
         EV_interp_next = interp1(a1_gridvals, EV_perm, a1prime_grid_col);
-        EV_fine = permute(EV_interp_next, [2, 1, 3, 4, 5]); % [N_d2, N_a1fine, N_a2, N_bothz, N_e_interp]
+        EV_fine = permute(EV_interp_next, [2, 1, 3, 4, 5]);
     end
 
 
