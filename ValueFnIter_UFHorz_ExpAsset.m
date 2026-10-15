@@ -1,37 +1,39 @@
 function [V, Policy] = ValueFnIter_UFHorz_ExpAsset(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-% 1. Grid Interpolation (Has its own bridge to handle decoding and shrink-wrapping)
-if vfoptions.gridinterplayer == 1
-    a_grid = [vfoptions.a1_grid(:); vfoptions.a2_grid(:)];
+% 1. Dispatch to Grid Interpolation / Divide-and-Conquer Bridges
+if vfoptions.divideandconquer == 1 && vfoptions.gridinterplayer == 1
+    [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    return;
+elseif vfoptions.gridinterplayer == 1
     [V, Policy] = ValueFnIter_UFHorz_ExpAsset_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    return;
+elseif vfoptions.divideandconquer == 1
+    [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     return;
 end
 
-% 2. Divide and Conquer / Raw (Returns 1-row Kron index to be decoded)
-if vfoptions.divideandconquer == 1
-    [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-else
-    [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+% 2. Base ExpAsset Solver (Returns 1-row Kron index)
+[VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+
+if vfoptions.outputkron == 1
+    V = VKron;
+    Policy = PolicyKron;
+    return;
 end
 
-% 3. Extract dimensions for 1-row encoded policies
+% 3. Decode 1-row Kron Policy into [l_d + l_a1] choice rows and UnKron dimensions
 N_d = max(prod(n_d), 1);
 l_d = length(n_d); if N_d == 1 && (isempty(n_d) || n_d(1) == 0); l_d = 0; end
 
-s2 = size(PolicyKron, 2);
-s3 = size(PolicyKron, 3);
-s4 = size(PolicyKron, 4);
-s5 = size(PolicyKron, 5);
+n_a1 = vfoptions.n_a1;
+l_a1 = length(n_a1); if isempty(n_a1) || n_a1(1) == 0; l_a1 = 0; end
 
-% 4. Decode 1-row linear index into [l_d + 1] choice rows
-n_rows = l_d + 1;
+s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3); s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+n_rows = l_d + l_a1;
 Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
 
-d_idx = rem(PolicyKron - 1, N_d) + 1;
-
-if l_d == 1
-    Policy(1,:,:,:,:) = d_idx;
-elseif l_d > 1
+if l_d > 0
+    d_idx = rem(PolicyKron - 1, N_d) + 1;
     d_cum = 1;
     for i = 1:l_d
         Policy(i,:,:,:,:) = rem(ceil(d_idx / d_cum) - 1, n_d(i)) + 1;
@@ -39,8 +41,22 @@ elseif l_d > 1
     end
 end
 
-Policy(n_rows,:,:,:,:) = ceil(PolicyKron / N_d); % aprime_idx
-V = VKron;
+if l_a1 > 0
+    a1_idx = ceil(PolicyKron / N_d);
+    a1_cum = 1;
+    for i = 1:l_a1
+        Policy(l_d + i,:,:,:,:) = rem(ceil(a1_idx / a1_cum) - 1, n_a1(i)) + 1;
+        a1_cum = a1_cum * n_a1(i);
+    end
+end
 
+% 4. Reshape V and Policy to match canonical VFI Toolkit output dimensions
+state_dims = n_a;
+if prod(vfoptions.n_semiz) > 0; state_dims = [state_dims, vfoptions.n_semiz]; end
+if prod(n_z) > 0;               state_dims = [state_dims, n_z];               end
+if prod(vfoptions.n_e) > 0;     state_dims = [state_dims, vfoptions.n_e];     end
+
+V      = reshape(VKron,  [state_dims, N_j]);
+Policy = reshape(Policy, [n_rows, state_dims, N_j]);
 
 end

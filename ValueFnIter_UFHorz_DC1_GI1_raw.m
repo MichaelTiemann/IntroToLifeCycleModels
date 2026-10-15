@@ -1,22 +1,5 @@
 function [V, Policy] = ValueFnIter_UFHorz_DC1_GI1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-% --- 1. Universal Setup ---
-[Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
-
-N_a     = Dims.N_a;
-N_bothz = Dims.N_bothz;
-N_e     = Dims.N_e;
-N_z     = Dims.N_z;
-N_semiz = Dims.N_semiz;
-
-has_semiz = Dims.N_semiz_raw > 0;
-has_e     = Dims.N_e_raw > 0;
-has_z     = Dims.special_n_z(1) > 0;
-has_bothz = has_semiz || has_z;
-
-N_d_inner = Dims.N_d_inner;
-N_d_outer = Dims.N_d_outer;
-
 a_gridvals = gpuArray(a_grid);
 n2short    = vfoptions.ngridinterp;
 n2long     = n2short*2 + 3;
@@ -112,7 +95,7 @@ for j = N_j:-1:1
     if has_cont
         df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
         if has_e
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            EVpre = sum(V_next .* reshape(vfoptions.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         else
             EVpre = V_next;
         end
@@ -129,9 +112,9 @@ for j = N_j:-1:1
         if has_cont
             if has_bothz
                 if has_semiz
-                    pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j));
+                    pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
                 else
-                    pi_bz = Probs.pi_z_J(:,:,j);
+                    pi_bz = pi_z_J(:,:,j);
                 end
             else
                 pi_bz = 1;
@@ -154,14 +137,14 @@ for j = N_j:-1:1
             for e_c = 1:N_e_iter
                 if e_mode == 0
                     e_idx = 1:N_e;
-                    e_val = get_grid_slice_local(Grids.e_gridvals_J, 'all', j, has_e);
+                    e_val = get_grid_slice_local(vfoptions.e_gridvals_J, 'all', j, has_e);
                 else
                     e_idx = e_c;
-                    e_val = get_grid_slice_local(Grids.e_gridvals_J, e_c, j, has_e);
+                    e_val = get_grid_slice_local(vfoptions.e_gridvals_J, e_c, j, has_e);
                 end
 
                 % --- Stage 1: Coarse Level 1 Divide-and-Conquer (Conditional on d_inner) ---
-                RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, Dims.special_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
+                RM_L1 = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, spec_n_e, d_val, a_gridvals, a_gridvals(level1ii), bz_val, e_val, ReturnFnParamsVec, 1);
                 RM_L1 = reshape(RM_L1, [N_d_inner, N_a, level1n, N_z_slice, N_e_slice]);
 
                 if has_cont
@@ -197,7 +180,7 @@ for j = N_j:-1:1
                         a1p_idx = loweredge + a1p_offsets; % [N_d_inner, mg+1, 1, N_z_slice, N_e_slice]
                         a1p_grid_safe = reshape(a_gridvals(a1p_idx), [N_d_inner, mg+1, 1, N_z_slice, N_e_slice]);
 
-                        RM_L2_DC = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
+                        RM_L2_DC = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, spec_n_e, d_val, a1p_grid_safe, a_gridvals(curraindex), bz_val, e_val, ReturnFnParamsVec, 2);
                         RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_z_slice, N_e_slice]);
 
                         if has_cont
@@ -219,7 +202,7 @@ for j = N_j:-1:1
                 a1primeindexes = (midpoint + (midpoint - 1)*n2short) + n2_offsets; % [N_d_inner, n2long, N_a, N_z_slice, N_e_slice]
                 a1p_grid_safe  = reshape(a1prime_grid(a1primeindexes), [N_d_inner, n2long, N_a, N_z_slice, N_e_slice]);
 
-                RM_GI = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, Dims.special_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_GI = CreateReturnFnMatrix_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, spec_n_e, d_val, a1p_grid_safe, a_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_GI = reshape(RM_GI, [N_d_inner * n2long, N_a, N_z_slice, N_e_slice]);
 
                 if has_cont

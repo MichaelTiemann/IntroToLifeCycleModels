@@ -1,30 +1,22 @@
 function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC1_GI1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
 % --- 1. Universal Setup ---
-[Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
+[Dims, Grids] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, vfoptions);
 
 N_a1 = Dims.N_a1; N_a2 = Dims.N_a2; N_a = Dims.N_a;
 N_bothz = Dims.N_bothz; N_e = Dims.N_e; N_z = Dims.N_z; N_semiz = Dims.N_semiz;
+N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_d_inner = Dims.N_d_inner; N_d_outer = Dims.N_d_outer;
+has_z = Dims.has_z; has_semiz = Dims.has_semiz; has_e = Dims.has_e; has_bothz = Dims.has_bothz;
+n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e; n_semiz = Dims.n_semiz; n_d2 = Dims.n_d2;
 
-has_z     = Dims.special_n_z(1) > 0;
-has_semiz = Dims.N_semiz_raw > 0;
-has_e     = Dims.N_e_raw > 0;
-has_bothz = has_semiz || has_z;
+N_z_iter = Dims.N_z_iter; N_z_slice = Dims.N_z_slice; z_mode = Dims.z_mode; spec_n_bz = Dims.spec_n_bz;
+N_e_iter = Dims.N_e_iter; N_e_slice = Dims.N_e_slice; e_mode = Dims.e_mode; spec_n_e  = Dims.spec_n_e;
 
-n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e; n_semiz = Dims.n_semiz;
-n_d1 = vfoptions.n_d1; n_d2 = vfoptions.n_d2;
-N_d1 = max(prod(n_d1), 1); N_d2 = max(prod(n_d2), 1);
-if isfield(vfoptions, 'n_d3') && prod(vfoptions.n_d3) > 0
-    n_d3 = vfoptions.n_d3; N_d3 = max(prod(n_d3), 1);
-else
-    n_d3 = 0; N_d3 = 1;
-end
-N_d_inner = N_d1 * N_d2;
-N_d_outer = N_d3;
-
-Dims.N_d1 = N_d1; Dims.N_d2 = N_d2; Dims.N_d_inner = N_d_inner; Dims.N_d_outer = N_d_outer;
-Dims.has_z = has_z; Dims.has_semiz = has_semiz; Dims.has_e = has_e; Dims.has_bothz = has_bothz;
-Dims.n_d = n_d;
+a1_gridvals = Grids.a1_gridvals;
+a2_gridvals = Grids.a2_gridvals;
+d2_gridvals = Grids.d2_gridvals;
+aprimeFnParamNames = Dims.aprimeFnParamNames;
+N_e_interp = Dims.N_e_interp;
 
 % --- 2. Determine Iteration Strategy & Unified Slice Dimensions ---
 if vfoptions.lowmemory == 0
@@ -110,7 +102,7 @@ else
 end
 
 if Dims.exp_flag == 6
-    u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
+    Grids.u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
 end
 
 if Dims.exp_flag == 3 || Dims.exp_flag == 4; N_e_interp = N_e; else; N_e_interp = 1; end
@@ -163,7 +155,7 @@ for j = N_j:-1:1
     if has_cont
         df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
         if has_e
-            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
+            EVpre = sum(V_next .* reshape(vfoptions.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         else
             EVpre = V_next;
         end
@@ -171,13 +163,13 @@ for j = N_j:-1:1
 
         aprimeFnParamsVec = CreateVectorFromParams(Parameters, aprimeFnParamNames, j);
         if Dims.exp_flag == 3 || Dims.exp_flag == 4
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, Grids.z_gridvals_J(:,:,j), n_e, get_grid_slice_local(Grids.e_gridvals_J, 'all', j, has_e));
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, vfoptions.z_gridvals_J(:,:,j), n_e, get_grid_slice_local(vfoptions.e_gridvals_J, 'all', j, has_e));
         elseif Dims.exp_flag == 2
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, z_gridvals_J(:,:,j));
         elseif Dims.exp_flag == 5
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_semiz, get_grid_slice_local(vfoptions.semiz_gridvals_J, 'all', j, has_semiz));
         elseif Dims.exp_flag == 6
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, u_gridvals);
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, vfoptions.n_u, Grids.u_gridvals);
         else
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2);
         end
@@ -194,9 +186,9 @@ for j = N_j:-1:1
 
         if has_cont
             if has_semiz
-                pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d_outer_c,j));
+                pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
             else
-                pi_bz = Probs.pi_z_J(:,:,j);
+                pi_bz = pi_z_J(:,:,j);
             end
             [DiscountedEV, DiscountedEVinterp] = precalc_ev_local(EVpre_flat, df, pi_bz, N_e_interp, ExpAsset_J, Dims, Grids, vfoptions);
         end
@@ -216,16 +208,16 @@ for j = N_j:-1:1
             for e_c = 1:N_e_iter
                 if e_mode == 0
                     e_idx = 1:N_e;
-                    e_val = get_grid_slice_local(Grids.e_gridvals_J, 'all', j, has_e);
+                    e_val = get_grid_slice_local(vfoptions.e_gridvals_J, 'all', j, has_e);
                     e_ev_idx = 1:N_e_interp;
                 else
                     e_idx = e_c;
-                    e_val = get_grid_slice_local(Grids.e_gridvals_J, e_c, j, has_e);
+                    e_val = get_grid_slice_local(vfoptions.e_gridvals_J, e_c, j, has_e);
                     e_ev_idx = min(e_c, N_e_interp);
                 end
 
                 % --- Stage 1: Coarse Level 1 Divide-and-Conquer (Conditional on d_inner) ---
-                RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, Dims.special_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
+                RM_L1 = CreateReturnFnMatrix_ExpAsset_UDisc(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, spec_n_e, d_val, a1_gridvals, a1_gridvals(level1ii), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 1);
                 RM_L1 = reshape(RM_L1, [N_d_inner, N_a1, level1n, N_a2, N_z_slice, N_e_slice]);
 
                 if has_cont
@@ -261,7 +253,7 @@ for j = N_j:-1:1
                         a1p_idx = loweredge + a1p_offsets; % [N_d_inner, mg+1, 1, N_a2, N_z_slice, N_e_slice]
                         a1p_grid_safe = reshape(a1_gridvals(a1p_idx), [N_d_inner, mg+1, 1, N_a2, N_z_slice, N_e_slice]);
 
-                        RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                        RM_L2_DC = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, spec_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                         RM_L2_DC = reshape(RM_L2_DC, [N_d_inner, mg+1, L, N_a2, N_z_slice, N_e_slice]);
 
                         if has_cont
@@ -287,7 +279,7 @@ for j = N_j:-1:1
                 a1primeindexesfine = (midpoint + (midpoint - 1)*n2short) + n2_offsets; % [N_d_inner, n2long, N_a1, N_a2, N_z_slice, N_e_slice]
                 a1p_grid_safe = reshape(a1prime_grid_col(a1primeindexesfine), [N_d_inner, n2long, N_a1, N_a2, N_z_slice, N_e_slice]);
 
-                RM_GI = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, Dims.special_n_e, d_val, a1p_grid_safe, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
+                RM_GI = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, spec_n_e, d_val, a1p_grid_safe, a1_gridvals, a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                 RM_GI = reshape(RM_GI, [N_d_inner, n2long, N_a1, N_a2, N_z_slice, N_e_slice]);
 
                 if has_cont
