@@ -277,11 +277,6 @@ for j = N_j:-1:1
     end
 end
 
-% --- 7. Grid Interpolation Post-Processing ---
-adjust = (Policy(3,:,:,:,:) < 1 + n2short + 1);
-Policy(2,:,:,:,:) = Policy(2,:,:,:,:) - adjust;
-Policy(3,:,:,:,:) = Policy(3,:,:,:,:) - (n2short + 1) * (~adjust);
-
 end % <--- MAIN FUNCTION ENDS HERE!
 
 % =========================================================================

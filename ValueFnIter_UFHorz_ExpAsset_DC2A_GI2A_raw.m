@@ -346,19 +346,6 @@ for j = N_j:-1:1
     end
 end
 
-% --- 7. Post-Loop Policy Adjustments (Unified over all J) ---
-L2_adjust = (Policy(3,:,:,:,:) - 1 - n2short) .* (Policy(4,:,:,:,:) == 2) ...
-          + (Policy(3,:,:,:,:) - 1)           .* (Policy(4,:,:,:,:) == 1) ...
-          + (Policy(3,:,:,:,:) - 2*n2short - 1) .* (Policy(4,:,:,:,:) == 3);
-
-Policy(2,:,:,:,:) = Policy(2,:,:,:,:) + (Policy(4,:,:,:,:) == 3) - (Policy(4,:,:,:,:) == 1);
-Policy(3,:,:,:,:) = max(min(1 + n2short + L2_adjust, 1 + 2*n2short), 1);
-Policy = Policy(1:3, :, :, :, :);
-
-if Dims.n_d(1) == 0
-    Policy = Policy(2:3, :, :, :, :);
-end
-
 end % <--- MAIN FUNCTION ENDS HERE!
 
 % =========================================================================

@@ -1,51 +1,67 @@
 function [V, Policy] = ValueFnIter_UFHorz_ExpAsset_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-if length(n_a) == 2
-    if ~isfield(vfoptions,'level1n')
-        if isscalar(n_a)
-            Dims.level1n=floor(sqrt(n_a(1)));
-            if n_a(1)<5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
-        elseif length(n_a)==2
-            Dims.level1n=[floor(sqrt(n_a(1))),n_a(2)]; % default DC2A
-            if n_a(1)<5; error('cannot use vfoptions.divideandconquer=1 with less than 5 points in the a variable'); end
-        end
+n_a1 = vfoptions.n_a1;
+if n_a1(1) < 5
+    error('Cannot use vfoptions.divideandconquer=1 with less than 5 points in the first a variable.');
+end
+if ~isfield(vfoptions, 'level1n') || isempty(vfoptions.level1n)
+    vfoptions.level1n = floor(sqrt(n_a1(1)));
+elseif ~isscalar(n_a1) && length(vfoptions.level1n) > 1
+    if vfoptions.level1n(2) >= n_a1(2)
+        vfoptions.level1n = vfoptions.level1n(1);
     else
-        if ~isscalar(n_a) && isscalar(Dims.level1n)
-            Dims.level1n=[Dims.level1n,n_a(2:end)];
-        end
+        error('With two standard endogenous states, can only do divide-and-conquer in the first endogenous state.');
     end
+end
+
+if isscalar(n_a1)
     [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC1_GI1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-elseif length(n_a) >= 3
-    if isscalar(vfoptions.ngridinterp)
-        if length(Dims.level1n)>1
-            if Dims.level1n(2)>=n_a(2)
-                Dims.level1n=Dims.level1n(1); % Only first one is relevant for DC2A
-            else
-                error('With two endogenous states, can only do divide-and-conquer in the first endogenous state (not in both)')
-            end
-        end
-        [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC2A_GI2A_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
-    else
-        error('vfoptions.gridinterplayer=1 with two endogenous states can only be applied to the first of the two endo states')
-    end
+elseif length(n_a1) == 2
+    [VKron, PolicyKron] = ValueFnIter_UFHorz_ExpAsset_DC2A_GI2A_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 else
-    error('Experience Asset requires at least 2 endogenous states.');
+    error('Cannot use vfoptions.gridinterplayer with more than two standard endogenous states.');
+end
+
+% If _raw returned 4 rows (unadjusted), resolve boundary flag (row 4) into rows 2 and 3
+if size(PolicyKron, 1) == 4
+    n2short = vfoptions.ngridinterp;
+    L2_adjust = (PolicyKron(3,:,:,:,:) - 1 - n2short)   .* (PolicyKron(4,:,:,:,:) == 2) ...
+              + (PolicyKron(3,:,:,:,:) - 1)             .* (PolicyKron(4,:,:,:,:) == 1) ...
+              + (PolicyKron(3,:,:,:,:) - 2*n2short - 1) .* (PolicyKron(4,:,:,:,:) == 3);
+
+    PolicyKron(2,:,:,:,:) = PolicyKron(2,:,:,:,:) + (PolicyKron(4,:,:,:,:) == 3) - (PolicyKron(4,:,:,:,:) == 1);
+    PolicyKron(3,:,:,:,:) = max(min(1 + n2short + L2_adjust, 1 + 2*n2short), 1);
+    PolicyKron = PolicyKron(1:3, :, :, :, :);
+end
+
+if vfoptions.outputkron == 1
+    if n_d(1) == 0 && size(PolicyKron, 1) == 3
+        Policy = PolicyKron(2:3, :, :, :, :);
+    else
+        Policy = PolicyKron;
+    end
+    V = VKron;
+    return;
 end
 
 N_d = max(prod(n_d), 1);
-l_d = length(n_d); if N_d == 1 && (isempty(n_d) || n_d(1) == 0); l_d = 0; end
+l_d = length(n_d); if n_d(1) == 0; l_d = 0; end
+l_a1 = length(n_a1);
 
-s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3);
-s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+if size(PolicyKron, 1) == 2
+    a_kron_row = 1;
+    L2_kron_row = 2;
+else
+    a_kron_row = 2;
+    L2_kron_row = 3;
+end
 
-l_a_choice = length(n_a) - 1;
-n_rows = l_d + l_a_choice + 2; % [d's, a's, L2, flag]
+s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3); s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+n_rows = l_d + l_a1 + 1; % [d's, a1's, L2_index]
 Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
 
-d_idx = PolicyKron(1,:,:,:,:);
-if l_d == 1
-    Policy(1,:,:,:,:) = d_idx;
-elseif l_d > 1
+if l_d > 0
+    d_idx = PolicyKron(1,:,:,:,:);
     d_cum = 1;
     for i = 1:l_d
         Policy(i,:,:,:,:) = rem(ceil(d_idx / d_cum) - 1, n_d(i)) + 1;
@@ -53,44 +69,21 @@ elseif l_d > 1
     end
 end
 
-n2short = vfoptions.ngridinterp;
-n_a1_c = n_a(1);
-
-if length(n_a) == 2
-    % PolicyKron is [d_idx; joint_midpt; L2off; flag_val]
-    joint_midpt = PolicyKron(2,:,:,:,:);
-    L2off = PolicyKron(3,:,:,:,:);
-    flag_val = PolicyKron(4,:,:,:,:);
-
-    a1_midpt = rem(joint_midpt - 1, n_a1_c) + 1;
-    a1fine_idx = (a1_midpt - 1)*(n2short + 1) + 1 + (L2off - (n2short + 2));
-else
-    % PolicyKron is [d_idx; joint_midpt; L2off; flag_val]
-    joint_midpt = PolicyKron(2,:,:,:,:);
-    L2off = PolicyKron(3,:,:,:,:);
-    flag_val = PolicyKron(4,:,:,:,:);
-
-    a1_midpt = rem(joint_midpt - 1, n_a1_c) + 1;
-    a1fine_idx = (a1_midpt - 1)*(n2short + 1) + 1 + (L2off - (n2short + 2));
-
-    a_idx = ceil(joint_midpt / n_a1_c);
-    a_cum = 1;
-    for i = 2:l_a_choice
-        Policy(l_d+i,:,:,:,:) = rem(ceil(a_idx / a_cum) - 1, n_a(i)) + 1;
-        a_cum = a_cum * n_a(i);
-    end
+a1_idx = PolicyKron(a_kron_row,:,:,:,:);
+a1_cum = 1;
+for i = 1:l_a1
+    Policy(l_d + i,:,:,:,:) = rem(ceil(a1_idx / a1_cum) - 1, n_a1(i)) + 1;
+    a1_cum = a1_cum * n_a1(i);
 end
 
-% Convert absolute fine index into coarse lower-bound and L2 offset
-a1_idx = floor((a1fine_idx - 1) ./ (n2short + 1)) + 1;
-a1_idx = min(a1_idx, n_a1_c - 1); % Ensure it doesn't index out of bounds at the top
-L2 = a1fine_idx - 1 - (a1_idx - 1).*(n2short + 1);
+Policy(n_rows,:,:,:,:) = PolicyKron(L2_kron_row,:,:,:,:);
 
-Policy(l_d + 1,:,:,:,:) = a1_idx;
-Policy(l_d + l_a_choice + 1,:,:,:,:) = L2;
-Policy(l_d + l_a_choice + 2,:,:,:,:) = flag_val;
+state_dims = n_a;
+if prod(vfoptions.n_semiz) > 0; state_dims = [state_dims, vfoptions.n_semiz]; end
+if prod(n_z) > 0;               state_dims = [state_dims, n_z];               end
+if prod(vfoptions.n_e) > 0;     state_dims = [state_dims, vfoptions.n_e];     end
 
-V = VKron;
-
+V      = reshape(VKron,  [state_dims, N_j]);
+Policy = reshape(Policy, [n_rows, state_dims, N_j]);
 
 end

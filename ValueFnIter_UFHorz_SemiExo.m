@@ -1,106 +1,84 @@
 function [V, Policy] = ValueFnIter_UFHorz_SemiExo(n_d1, n_d2, n_a, n_semiz, n_z, N_j, d1_gridvals, d2_gridvals, a_grid, z_gridvals_J, semiz_gridvals_J, pi_z_J, pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-% 1. Inject the necessary SemiExo dimensions into vfoptions so Setup_UFHorz can find them
+% 1. Inject SemiExo dimensions into vfoptions for Setup_UFHorz
 if sum(n_d1) > 0
     vfoptions.n_d1 = n_d1;
     l_d1 = length(n_d1);
+    n_d = [n_d1, n_d2];
 else
     vfoptions.n_d1 = 0;
     l_d1 = 0;
+    n_d = n_d2;
 end
-
 vfoptions.n_d2 = n_d2;
 l_d2 = length(n_d2); if sum(n_d2) == 0; l_d2 = 0; end
-
 vfoptions.n_semiz = n_semiz;
 vfoptions.semiz_gridvals_J = semiz_gridvals_J;
 vfoptions.pi_semiz_J = pi_semiz_J;
 
-if sum(n_d1) > 0
-    n_d = [n_d1, n_d2];
-else
-    n_d = n_d2;
-end
-
 N_d1 = max(prod(n_d1), 1);
 N_d2 = max(prod(n_d2), 1);
 
-% 2. Build the exact [N_d1, l_d, N_d2] combined tensor grid
-% CreateGridvals strictly outputs grids as [N_points, l_vars]
-if sum(n_d1) > 0
-    d1_clean = reshape(d1_gridvals, [N_d1, l_d1]); % Ensure column format
-    d2_clean = reshape(d2_gridvals, [N_d2, l_d2]); % Ensure column format
-
-    d1_rep = repmat(d1_clean, [1, 1, N_d2]); % [N_d1, l_d1, N_d2]
-
-    d2_reshaped = permute(d2_clean, [3, 2, 1]); % [1, l_d2, N_d2]
-    d2_rep = repmat(d2_reshaped, [N_d1, 1, 1]); % [N_d1, l_d2, N_d2]
-
-    d_gridvals = cat(2, d1_rep, d2_rep); % [N_d1, l_d1 + l_d2, N_d2]
-else
+% 2. Build standard 2D [N_d1 * N_d2, l_d] joint d_gridvals for Setup_UFHorz
+if l_d1 > 0
+    d1_clean = reshape(d1_gridvals, [N_d1, l_d1]);
     d2_clean = reshape(d2_gridvals, [N_d2, l_d2]);
-    d_gridvals = permute(d2_clean, [3, 2, 1]); % [1, l_d2, N_d2]
-end
-
-% 3. Pass to the universal raw engine
-vfoptions_inner = vfoptions;
-vfoptions_inner.outputkron = 1;
-
-if vfoptions.divideandconquer == 1
-    if vfoptions.gridinterplayer == 1
-        [V, PolicyKron] = ValueFnIter_UFHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
-    else
-        [V, PolicyKron] = ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
-    end
-elseif vfoptions.gridinterplayer == 1
-    % Grid-interpolation does not return Kronecker format
-    [V, Policy] = ValueFnIter_UFHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
-    return
+    d_gridvals = [repmat(d1_clean, N_d2, 1), repelem(d2_clean, N_d1, 1)];
 else
-    [V, PolicyKron] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions_inner);
+    d_gridvals = reshape(d2_gridvals, [N_d2, l_d2]);
 end
 
-% 4. UnKron the Policy
-n_actions = [n_d, n_a];
-l_actions = length(n_actions);
+% 3. Dispatch to DC_GI, GI, DC, or Base Raw Engine
+if vfoptions.divideandconquer == 1 && vfoptions.gridinterplayer == 1
+    [V, Policy] = ValueFnIter_UFHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    return;
+elseif vfoptions.gridinterplayer == 1
+    [V, Policy] = ValueFnIter_UFHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    return;
+elseif vfoptions.divideandconquer == 1
+    [V, Policy] = ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    return;
+end
 
-sz_Kron = size(PolicyKron);
-if length(sz_Kron) < 2; sz_Kron = [sz_Kron, 1]; end
-sz_Pol = sz_Kron;
-sz_Pol(1) = l_actions;
+[VKron, PolicyKron] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
 
-Policy = zeros(sz_Pol, 'gpuArray');
+if vfoptions.outputkron == 1
+    V = VKron;
+    Policy = PolicyKron;
+    return;
+end
 
-cum_dims = 1;
-for i = 1:l_actions
-    slice = rem(ceil(PolicyKron / cum_dims) - 1, n_actions(i)) + 1;
+% 4. Decode 1-row Kron Policy into [l_d + l_a] rows and UnKron dimensions
+N_d = N_d1 * N_d2;
+l_d = l_d1 + l_d2;
+l_a = length(n_a);
 
-    if length(sz_Pol) == 6
-        Policy(i, :, :, :, :, :) = slice;
-    elseif length(sz_Pol) == 5
-        Policy(i, :, :, :, :) = slice;
-    elseif length(sz_Pol) == 7
-        Policy(i, :, :, :, :, :, :) = slice;
-    elseif length(sz_Pol) == 4
-        Policy(i, :, :, :) = slice;
-    else
-        error('Unexpected dimensions in PolicyKron');
+s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3); s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+n_rows = l_d + l_a;
+Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
+
+if l_d > 0
+    d_idx = rem(PolicyKron - 1, N_d) + 1;
+    d_cum = 1;
+    for i = 1:l_d
+        Policy(i,:,:,:,:) = rem(ceil(d_idx / d_cum) - 1, n_d(i)) + 1;
+        d_cum = d_cum * n_d(i);
     end
-
-    cum_dims = cum_dims * n_actions(i);
 end
 
-% 5. Shape the final output to strictly match legacy API
-sz_V = n_a;
-if prod(n_semiz) > 0; sz_V = [sz_V, n_semiz]; end
-if prod(n_z) > 0; sz_V = [sz_V, n_z]; end
-if isfield(vfoptions, 'n_e') && prod(vfoptions.n_e) > 0; sz_V = [sz_V, vfoptions.n_e]; end
-sz_V = [sz_V, N_j];
+a_idx = ceil(PolicyKron / N_d);
+a_cum = 1;
+for i = 1:l_a
+    Policy(l_d + i,:,:,:,:) = rem(ceil(a_idx / a_cum) - 1, n_a(i)) + 1;
+    a_cum = a_cum * n_a(i);
+end
 
-sz_P = [l_actions, sz_V];
+state_dims = n_a;
+if prod(n_semiz) > 0;       state_dims = [state_dims, n_semiz];       end
+if prod(n_z) > 0;           state_dims = [state_dims, n_z];           end
+if prod(vfoptions.n_e) > 0; state_dims = [state_dims, vfoptions.n_e]; end
 
-V = reshape(V, sz_V);
-Policy = reshape(Policy, sz_P);
-
+V      = reshape(VKron,  [state_dims, N_j]);
+Policy = reshape(Policy, [n_rows, state_dims, N_j]);
 
 end

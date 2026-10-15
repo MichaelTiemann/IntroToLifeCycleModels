@@ -17,51 +17,9 @@ a2_gridvals = Grids.a2_gridvals;
 d2_gridvals = Grids.d2_gridvals;
 aprimeFnParamNames = Dims.aprimeFnParamNames;
 N_e_interp = Dims.N_e_interp;
+N_e_SL_interp = min(N_e_slice, N_e_interp);
 
-% --- 2. Determine Iteration Strategy & Unified Slice Dimensions ---
-if vfoptions.lowmemory == 0
-    IterStrategy = 'Full';
-elseif vfoptions.lowmemory == 1
-    if has_e; IterStrategy = 'Loop_e';
-    elseif has_semiz && has_z; IterStrategy = 'Loop_z_parallel_semiz';
-    else; IterStrategy = 'Loop_bothz'; end
-elseif vfoptions.lowmemory == 2
-    if has_e && has_semiz && has_z; IterStrategy = 'Loop_z_parallel_semiz_e';
-    elseif has_e; IterStrategy = 'Loop_bothz_e';
-    elseif has_semiz && has_z; IterStrategy = 'Loop_bothz';
-    else; error('Invalid lowmemory=2 for this shock combination.'); end
-elseif vfoptions.lowmemory == 3
-    if has_e && has_semiz && has_z; IterStrategy = 'Loop_bothz_e';
-    else; error('Invalid lowmemory=3 for this shock combination.'); end
-end
-
-switch IterStrategy
-    case 'Full'
-        N_z_iter = 1;       N_z_slice = N_bothz; z_mode = 0; spec_n_bz = Dims.special_n_bothz;
-        N_e_iter = 1;       N_e_slice = N_e;     e_mode = 0;
-    case 'Loop_e'
-        N_z_iter = 1;       N_z_slice = N_bothz; z_mode = 0; spec_n_bz = Dims.special_n_bothz;
-        N_e_iter = N_e;     N_e_slice = 1;       e_mode = 1;
-    case 'Loop_z_parallel_semiz'
-        N_z_iter = N_z;     N_z_slice = N_semiz; z_mode = 1; spec_n_bz = [Dims.n_semiz, Dims.special_n_z];
-        N_e_iter = 1;       N_e_slice = N_e;     e_mode = 0;
-    case 'Loop_z_parallel_semiz_e'
-        N_z_iter = N_z;     N_z_slice = N_semiz; z_mode = 1; spec_n_bz = [Dims.n_semiz, Dims.special_n_z];
-        N_e_iter = N_e;     N_e_slice = 1;       e_mode = 1;
-    case 'Loop_bothz'
-        N_z_iter = N_bothz; N_z_slice = 1;       z_mode = 2; spec_n_bz = Dims.special_n_bothz;
-        N_e_iter = 1;       N_e_slice = N_e;     e_mode = 0;
-    case 'Loop_bothz_e'
-        N_z_iter = N_bothz; N_z_slice = 1;       z_mode = 2; spec_n_bz = Dims.special_n_bothz;
-        N_e_iter = N_e;     N_e_slice = 1;       e_mode = 1;
-end
-
-% --- 3. Grid Extracts, Interpolation & Divide-and-Conquer Setup ---
-a1_gridvals = gpuArray(a_grid(1:N_a1));
-a2_grid = gpuArray(a_grid(N_a1+1:end));
-a2_gridvals = CreateGridvals(n_a2, a2_grid, 1);
-d2_gridvals = CreateGridvals(n_d2, vfoptions.d2_grid, 1);
-
+% --- 2. Interpolation & Divide-and-Conquer Setup ---
 n2short = vfoptions.ngridinterp;
 n2long = n2short*2 + 3;
 a1prime_grid_col = gpuArray(interp1(1:1:N_a1, gather(a1_gridvals), linspace(1, N_a1, N_a1+(N_a1-1)*n2short))');
@@ -70,8 +28,6 @@ N_a1fine = length(a1prime_grid_col);
 level1n = Dims.level1n;
 level1ii = round(linspace(1, N_a1, level1n));
 
-Grids.a1_gridvals = a1_gridvals;
-Grids.a2_gridvals = a2_gridvals;
 Grids.a1prime_grid_col = a1prime_grid_col;
 Dims.n2short = n2short; Dims.n2long = n2long; Dims.N_a1fine = N_a1fine;
 
@@ -80,27 +36,6 @@ if isempty(ReturnFnParamNames)
 end
 
 % --- 4. Introspect ExpAsset Parameters ---
-if Dims.exp_flag > 0
-    l_d2_len = length(n_d2); if sum(n_d2) == 0; l_d2_len = 0; end
-    l_a2_len = length(n_a2); if sum(n_a2) == 0; l_a2_len = 0; end
-    l_z_len  = length(n_z);  if sum(n_z) == 0;  l_z_len = 0; end
-    l_e_len  = length(n_e);  if sum(n_e) == 0;  l_e_len = 0; end
-    l_semiz_len = length(n_semiz); if sum(n_semiz) == 0; l_semiz_len = 0; end
-    if isfield(vfoptions, 'n_u'); l_u_len = length(vfoptions.n_u); if sum(vfoptions.n_u) == 0; l_u_len = 0; end; else; l_u_len = 0; end
-
-    if Dims.exp_flag == 3 || Dims.exp_flag == 4; num_state_args = l_d2_len + l_a2_len + l_z_len + l_e_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 2; num_state_args = l_d2_len + l_a2_len + l_z_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 5; num_state_args = l_d2_len + l_a2_len + l_semiz_len + (l_a2_len >= 2);
-    elseif Dims.exp_flag == 6; num_state_args = l_d2_len + l_a2_len + l_u_len + (l_a2_len >= 2);
-    else; num_state_args = l_d2_len + l_a2_len + (l_a2_len >= 2); end
-
-    temp_args = getAnonymousFnInputNames(vfoptions.aprimeFn);
-    if length(temp_args) > num_state_args; aprimeFnParamNames = temp_args(num_state_args + 1 : end);
-    else; aprimeFnParamNames = {}; end
-else
-    aprimeFnParamNames = {};
-end
-
 if Dims.exp_flag == 6
     Grids.u_gridvals = CreateGridvals(vfoptions.n_u, vfoptions.u_grid, 1);
 end
@@ -163,7 +98,7 @@ for j = N_j:-1:1
 
         aprimeFnParamsVec = CreateVectorFromParams(Parameters, aprimeFnParamNames, j);
         if Dims.exp_flag == 3 || Dims.exp_flag == 4
-            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, vfoptions.z_gridvals_J(:,:,j), n_e, get_grid_slice_local(vfoptions.e_gridvals_J, 'all', j, has_e));
+            [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, z_gridvals_J(:,:,j), n_e, get_grid_slice_local(vfoptions.e_gridvals_J, 'all', j, has_e));
         elseif Dims.exp_flag == 2
             [a2primeIndex, a2primeProbs] = CreateExperienceAssetFnMatrix_UDisc(vfoptions.aprimeFn, n_d2, n_a2, d2_gridvals, vfoptions.a2_grid, aprimeFnParamsVec, 2, n_z, z_gridvals_J(:,:,j));
         elseif Dims.exp_flag == 5
@@ -327,19 +262,6 @@ for j = N_j:-1:1
     if N_d_outer > 1
         [V(:,:,:,j), Policy(:,:,:,:,j)] = extract_pol_local(V_fordouter, P1_fordouter, P2_fordouter, P3_fordouter, P4_fordouter, N_a, N_bothz, N_e);
     end
-end
-
-% --- 7. Post-Loop Policy Adjustments (Unified over all J) ---
-L2_adjust = (Policy(3,:,:,:,:) - 1 - n2short) .* (Policy(4,:,:,:,:) == 2) ...
-          + (Policy(3,:,:,:,:) - 1)           .* (Policy(4,:,:,:,:) == 1) ...
-          + (Policy(3,:,:,:,:) - 2*n2short - 1) .* (Policy(4,:,:,:,:) == 3);
-
-Policy(2,:,:,:,:) = Policy(2,:,:,:,:) + (Policy(4,:,:,:,:) == 3) - (Policy(4,:,:,:,:) == 1);
-Policy(3,:,:,:,:) = max(min(1 + n2short + L2_adjust, 1 + 2*n2short), 1);
-Policy = Policy(1:3, :, :, :, :);
-
-if Dims.n_d(1) == 0
-    Policy = Policy(2:3, :, :, :, :);
 end
 
 end
