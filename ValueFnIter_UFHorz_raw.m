@@ -1,338 +1,204 @@
 function [V, Policy] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
 
-    % --- 1. Universal Setup ---
-    [Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
-    
-    N_a = Dims.N_a;
-    N_bothz = Dims.N_bothz; N_e = Dims.N_e; 
-    N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; 
-    N_z = Dims.N_z; N_semiz = Dims.N_semiz;
-    
-    has_d2    = Dims.has_d2; 
-    has_semiz = Dims.N_semiz_raw > 0;
-    has_e     = Dims.N_e_raw > 0;
-    has_z     = Dims.special_n_z(1) > 0;
-    has_bothz = has_semiz || has_z;
+% --- 1. Universal Setup ---
+[Dims, Grids, Probs] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, pi_z_J, vfoptions);
 
-    % --- 2. Determine Iteration Strategy ---
-    if vfoptions.lowmemory == 0
-        IterStrategy = 'Full';
-    elseif vfoptions.lowmemory == 1
+N_a     = Dims.N_a;
+N_bothz = Dims.N_bothz;
+N_e     = Dims.N_e;
+N_d1    = Dims.N_d1;
+N_d2    = Dims.N_d2;
+N_z     = Dims.N_z;
+N_semiz = Dims.N_semiz;
+
+has_d2    = Dims.has_d2;
+has_semiz = Dims.N_semiz_raw > 0;
+has_e     = Dims.N_e_raw > 0;
+has_z     = Dims.special_n_z(1) > 0;
+has_bothz = has_semiz || has_z;
+
+% --- 2. Determine Iteration Strategy & Unified Slice Dimensions ---
+if vfoptions.lowmemory == 0
+    IterStrategy = 'Full';
+elseif vfoptions.lowmemory == 1
+    if has_e; IterStrategy = 'Loop_e';
+    elseif has_semiz && has_z; IterStrategy = 'Loop_z_parallel_semiz';
+    else; IterStrategy = 'Loop_bothz'; end
+elseif vfoptions.lowmemory == 2
+    if has_e && has_semiz && has_z; IterStrategy = 'Loop_z_parallel_semiz_e';
+    elseif has_e; IterStrategy = 'Loop_bothz_e';
+    elseif has_semiz && has_z; IterStrategy = 'Loop_bothz';
+    else; error('Invalid lowmemory=2 for this shock combination.'); end
+elseif vfoptions.lowmemory == 3
+    if has_e && has_semiz && has_z; IterStrategy = 'Loop_bothz_e';
+    else; error('Invalid lowmemory=3 for this shock combination.'); end
+end
+
+switch IterStrategy
+    case 'Full'
+        N_z_iter = 1;       N_z_slice = N_bothz; z_mode = 0; spec_n_bz = Dims.special_n_bothz;
+        N_e_iter = 1;       N_e_slice = N_e;     e_mode = 0;
+    case 'Loop_e'
+        N_z_iter = 1;       N_z_slice = N_bothz; z_mode = 0; spec_n_bz = Dims.special_n_bothz;
+        N_e_iter = N_e;     N_e_slice = 1;       e_mode = 1;
+    case 'Loop_z_parallel_semiz'
+        N_z_iter = N_z;     N_z_slice = N_semiz; z_mode = 1; spec_n_bz = [Dims.special_n_semiz, Dims.special_n_z];
+        N_e_iter = 1;       N_e_slice = N_e;     e_mode = 0;
+    case 'Loop_z_parallel_semiz_e'
+        N_z_iter = N_z;     N_z_slice = N_semiz; z_mode = 1; spec_n_bz = [Dims.special_n_semiz, Dims.special_n_z];
+        N_e_iter = N_e;     N_e_slice = 1;       e_mode = 1;
+    case 'Loop_bothz'
+        N_z_iter = N_bothz; N_z_slice = 1;       z_mode = 2; spec_n_bz = Dims.special_n_bothz;
+        N_e_iter = 1;       N_e_slice = N_e;     e_mode = 0;
+    case 'Loop_bothz_e'
+        N_z_iter = N_bothz; N_z_slice = 1;       z_mode = 2; spec_n_bz = Dims.special_n_bothz;
+        N_e_iter = N_e;     N_e_slice = 1;       e_mode = 1;
+end
+
+if isempty(ReturnFnParamNames)
+    ReturnFnParamNames = ReturnFnParamNamesFn(ReturnFn, n_d, n_a, n_z, N_j, vfoptions, Parameters);
+end
+
+% --- 3. Preallocate Outputs & Persistent Buffers ---
+V = zeros(N_a, N_bothz, N_e, N_j, 'gpuArray');
+Policy = zeros(1, N_a, N_bothz, N_e, N_j, 'gpuArray');
+
+if N_d2 > 1
+    V_ford2   = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
+    Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
+end
+
+% --- 4. Backward Induction Loop (All 6 Strategies Inlined for Buffer Reuse) ---
+for j = N_j:-1:1
+    if vfoptions.verbose == 1; fprintf('Finite horizon: %i of %i \n', j, N_j); end
+
+    if j == N_j
+        if isfield(vfoptions, 'V_Jplus1')
+            V_next = reshape(vfoptions.V_Jplus1, [N_a, N_bothz, N_e]);
+        else
+            V_next = [];
+        end
+    else
+        V_next = V(:, :, :, j+1);
+    end
+    has_cont = ~isempty(V_next);
+
+    ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
+
+    if has_cont
+        df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
         if has_e
-            IterStrategy = 'Loop_e';
-        elseif has_semiz && has_z
-            IterStrategy = 'Loop_z_parallel_semiz';
+            EVpre = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
         else
-            IterStrategy = 'Loop_bothz'; % Covers z-only or semiz-only
+            EVpre = V_next;
         end
-    elseif vfoptions.lowmemory == 2
-        if has_e && has_semiz && has_z
-            IterStrategy = 'Loop_z_parallel_semiz_e';
-        elseif has_e
-            IterStrategy = 'Loop_bothz_e'; % Covers z+e or semiz+e
-        elseif has_semiz && has_z
-            IterStrategy = 'Loop_bothz';
-        else
-            error('Invalid lowmemory=2 for this shock combination.');
-        end
-    elseif vfoptions.lowmemory == 3
-        if has_e && has_semiz && has_z
-            IterStrategy = 'Loop_bothz_e';
-        else
-            error('Invalid lowmemory=3 for this shock combination.');
-        end
+        EVpre_flat = reshape(EVpre, [N_a, N_bothz]);
     end
 
-    % --- 3. Preallocate Outputs ---
-    V = zeros(N_a, N_bothz, N_e, N_j, 'gpuArray');
-    Policy = zeros(1, N_a, N_bothz, N_e, N_j, 'gpuArray');
-
-    % --- 4. Backward Induction Loop ---
-    for j = N_j:-1:1
-        if vfoptions.verbose == 1; fprintf('Finite horizon: %i of %i \n', j, N_j); end
-
-        if j == N_j
-            if isfield(vfoptions, 'V_Jplus1'); V_next = reshape(vfoptions.V_Jplus1, [N_a, N_bothz, N_e]); else; V_next = []; end
-        else
-            V_next = V(:, :, :, j+1);
-        end
-
-        switch IterStrategy
-            case 'Full'
-                [V(:,:,:,j), Pol_j] = solve_period_full(j, V_next);
-            case 'Loop_e'
-                [V(:,:,:,j), Pol_j] = solve_period_loop_e(j, V_next);
-            case 'Loop_z_parallel_semiz'
-                [V(:,:,:,j), Pol_j] = solve_period_loop_z_parallel_semiz(j, V_next);
-            case 'Loop_bothz'
-                [V(:,:,:,j), Pol_j] = solve_period_loop_bothz(j, V_next);
-            case 'Loop_z_parallel_semiz_e'
-                [V(:,:,:,j), Pol_j] = solve_period_loop_z_parallel_semiz_e(j, V_next);
-            case 'Loop_bothz_e'
-                [V(:,:,:,j), Pol_j] = solve_period_loop_bothz_e(j, V_next);
-        end
-        Policy(:,:,:,:,j) = Pol_j;
-    end
-
-    % =====================================================================
-    % SPECIALIZED SOLVE FUNCTIONS
-    % =====================================================================
-    function [V_j, Pol_j] = solve_period_full(j, V_next)
-        ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
-        has_cont = ~isempty(V_next);
-        if has_cont
-            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if has_e; EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EV = V_next; end
-        end
-
-        V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-        Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2);
-
-            if has_cont
-                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
-                EV_d2 = compute_expected_value(EV, pi_bz, N_a, N_bothz);
-            end
-
-            RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e), ReturnFnParamsVec, 0);
-            RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, N_e]);
-
-            if has_cont; RHS = RM + df * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]); else; RHS = RM; end
-
-            [v_tmp, p_tmp] = max(reshape(RHS, [N_d1 * N_a, N_a, N_bothz, N_e]), [], 1);
-            V_ford2(:,:,:,d2_c) = shiftdim(v_tmp, 1);
-            Pol_ford2(:,:,:,d2_c) = shiftdim(p_tmp, 1);
-        end
-        [V_j, Pol_j] = extract_pol(V_ford2, Pol_ford2);
-    end
-
-    function [V_j, Pol_j] = solve_period_loop_e(j, V_next)
-        ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
-        has_cont = ~isempty(V_next);
-        if has_cont
-            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
-        end
-
-        V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-        Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2);
-
-            if has_cont
-                if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end
-                EV_d2 = compute_expected_value(EV, pi_bz, N_a, N_bothz);
-            end
-
-            for e_c = 1:N_e
-                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, 'all', j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e), ReturnFnParamsVec, 0);
-                RM = reshape(RM, [N_d1, N_a, N_a, N_bothz, 1]);
-
-                if has_cont; RHS = RM + df * reshape(EV_d2, [1, N_a, 1, N_bothz, 1]); else; RHS = RM; end
-
-                [v_tmp, p_tmp] = max(reshape(RHS, [N_d1 * N_a, N_a, N_bothz, 1]), [], 1);
-                V_ford2(:,:,e_c,d2_c) = shiftdim(v_tmp, 1);
-                Pol_ford2(:,:,e_c,d2_c) = shiftdim(p_tmp, 1);
-            end
-        end
-        [V_j, Pol_j] = extract_pol(V_ford2, Pol_ford2);
-    end
-
-    function [V_j, Pol_j] = solve_period_loop_bothz(j, V_next)
-        ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
-        has_cont = ~isempty(V_next);
-        if has_cont
-            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if has_e; EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EV = V_next; end
-        end
-
-        V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-        Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2);
-
-            if has_cont; if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end; end
-
-            for z_c = 1:N_bothz
-                if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a); end
-                
-                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e), ReturnFnParamsVec, 0);
-                RM = reshape(RM, [N_d1, N_a, N_a, 1, N_e]);
-
-                if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, 1, 1]); else; RHS = RM; end
-
-                [v_tmp, p_tmp] = max(reshape(RHS, [N_d1 * N_a, N_a, 1, N_e]), [], 1);
-                V_ford2(:,z_c,:,d2_c) = shiftdim(v_tmp, 1);
-                Pol_ford2(:,z_c,:,d2_c) = shiftdim(p_tmp, 1);
-            end
-        end
-        [V_j, Pol_j] = extract_pol(V_ford2, Pol_ford2);
-    end
-
-    function [V_j, Pol_j] = solve_period_loop_z_parallel_semiz(j, V_next)
-        ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
-        has_cont = ~isempty(V_next);
-        if has_cont
-            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            if has_e; EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3); else; EV = V_next; end
-        end
-
-        V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-        Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2);
-
-            if has_cont; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); end
-
-            for z_c = 1:N_z
-                sb = (z_c-1)*N_semiz + (1:N_semiz);
-                if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(sb,:)', N_a); end
-                
-                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, 'all', j, has_e), ReturnFnParamsVec, 0);
-                RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, N_e]);
-
-                if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]); else; RHS = RM; end
-
-                [v_tmp, p_tmp] = max(reshape(RHS, [N_d1 * N_a, N_a, N_semiz, N_e]), [], 1);
-                V_ford2(:,sb,:,d2_c) = shiftdim(v_tmp, 1);
-                Pol_ford2(:,sb,:,d2_c) = shiftdim(p_tmp, 1);
-            end
-        end
-        [V_j, Pol_j] = extract_pol(V_ford2, Pol_ford2);
-    end
-
-    function [V_j, Pol_j] = solve_period_loop_bothz_e(j, V_next)
-        ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
-        has_cont = ~isempty(V_next);
-        if has_cont
-            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
-        end
-
-        V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-        Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2);
-
-            if has_cont; if has_bothz; if has_semiz; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); else; pi_bz = Probs.pi_z_J(:,:,j); end; else; pi_bz = 1; end; end
-
-            for z_c = 1:N_bothz
-                if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(z_c,:)', N_a); end
-                
-                for e_c = 1:N_e
-                    RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, Dims.special_n_bothz, Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, z_c, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e), ReturnFnParamsVec, 0);
-                    RM = reshape(RM, [N_d1, N_a, N_a, 1, 1]);
-
-                    if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, 1, 1]); else; RHS = RM; end
-
-                    [v_tmp, p_tmp] = max(reshape(RHS, [N_d1 * N_a, N_a, 1, 1]), [], 1);
-                    V_ford2(:,z_c,e_c,d2_c) = shiftdim(v_tmp, 1);
-                    Pol_ford2(:,z_c,e_c,d2_c) = shiftdim(p_tmp, 1);
-                end
-            end
-        end
-        [V_j, Pol_j] = extract_pol(V_ford2, Pol_ford2);
-    end
-
-    function [V_j, Pol_j] = solve_period_loop_z_parallel_semiz_e(j, V_next)
-        ReturnFnParamsVec = CreateVectorFromParams(Parameters, ReturnFnParamNames, j);
-        has_cont = ~isempty(V_next);
-        if has_cont
-            df = prod(CreateVectorFromParams(Parameters, DiscountFactorParamNames, j));
-            EV = sum(V_next .* reshape(Probs.pi_e_J(:, j+1), [1, 1, N_e]), 3);
-        end
-
-        V_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-        Pol_ford2 = zeros(N_a, N_bothz, N_e, N_d2, 'gpuArray');
-
-        for d2_c = 1:N_d2
-            d_val = get_d_slice(Grids.d12_gridvals, d2_c, has_d2);
-
-            if has_cont; pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j)); end
-
-            for z_c = 1:N_z
-                sb = (z_c-1)*N_semiz + (1:N_semiz);
-                if has_cont; EV_d2z = compute_expected_value_cond(EV, pi_bz(sb,:)', N_a); end
-                
-                for e_c = 1:N_e
-                    RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, [Dims.special_n_semiz, Dims.special_n_z], Dims.special_n_e, d_val, a_grid, get_grid_slice(Grids.bothz_gridvals_J, sb, j, has_bothz), get_grid_slice(Grids.e_gridvals_J, e_c, j, has_e), ReturnFnParamsVec, 0);
-                    RM = reshape(RM, [N_d1, N_a, N_a, N_semiz, 1]);
-
-                    if has_cont; RHS = RM + df * reshape(EV_d2z, [1, N_a, 1, N_semiz, 1]); else; RHS = RM; end
-
-                    [v_tmp, p_tmp] = max(reshape(RHS, [N_d1 * N_a, N_a, N_semiz, 1]), [], 1);
-                    V_ford2(:,sb,e_c,d2_c) = shiftdim(v_tmp, 1);
-                    Pol_ford2(:,sb,e_c,d2_c) = shiftdim(p_tmp, 1);
-                end
-            end
-        end
-        [V_j, Pol_j] = extract_pol(V_ford2, Pol_ford2);
-    end
-
-    % =====================================================================
-    % SUB-HELPERS
-    % =====================================================================
-    function [V_out, Pol_out] = extract_pol(V_d2, Pol_d2)
-        [V_out, maxindex_d2] = max(V_d2, [], 4);
-        
-        if has_d2 && has_semiz
-            linear_d2 = reshape(maxindex_d2, [N_a * N_bothz * N_e, 1]);
-            lin_idx = (1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (linear_d2 - 1);
-            inner_pol = reshape(Pol_d2(lin_idx), [1, N_a, N_bothz, N_e]);
-
-            % Unpack inner_pol to d1 and aprime
-            d1_idx = rem(inner_pol - 1, N_d1) + 1;
-            aprime_idx = ceil(inner_pol / N_d1);
-
-            % Re-pack into strict d1 x d2 x aprime order for standard UnKron
-            Pol_out = d1_idx + reshape(maxindex_d2 - 1, [1, N_a, N_bothz, N_e]) * N_d1 + (aprime_idx - 1) * (N_d1 * N_d2);
-        else
-            Pol_out = shiftdim(Pol_d2(:,:,:,1), -1);
-        end
-    end
-
-    function d_slice = get_d_slice(d12_gridvals, d2_c, has_d2)
-        % CreateGridvals format implies [N_d1, l_d, N_d2] tensor for SemiExo
+    for d2_c = 1:N_d2
         if has_d2
-            d_slice = d12_gridvals(:,:,d2_c);
+            d_val = Grids.d12_gridvals(:, :, d2_c);
         else
-            d_slice = d12_gridvals;
+            d_val = Grids.d12_gridvals;
         end
-    end
 
-    function EV_out = compute_expected_value(EV, pi_bothz, N_a, N_bothz)
-        EVinf = (EV == -Inf);
-        EV_val = EV;
-        EV_val(EVinf) = -1e250;
-        EV_val = EV_val * pi_bothz';
-        EV_val(EVinf * (pi_bothz' > 0) > 0) = -Inf;
-        EV_out = reshape(EV_val, [N_a, 1, N_bothz]);
-    end
-
-    function EV_out = compute_expected_value_cond(EV, pi_slice, N_a)
-        EV_val = EV .* shiftdim(pi_slice, -1);
-        EV_val(isnan(EV_val)) = 0;
-        EV_out = sum(EV_val, 2);
-    end
-
-    function val = get_grid_slice(grid, idx, j, has_flag)
-        if has_flag
-            if ischar(idx)
-                val = grid(:,:,j);
+        if has_cont
+            if has_bothz
+                if has_semiz
+                    pi_bz = kron(Probs.pi_z_J(:,:,j), Probs.pi_semiz_J(:,:,d2_c,j));
+                else
+                    pi_bz = Probs.pi_z_J(:,:,j);
+                end
             else
-                val = grid(idx,:,j);
+                pi_bz = 1;
             end
-        else
-            val = [];
+            DiscountedEV = precalc_ev_local(EVpre_flat, df, pi_bz, N_a, N_bothz);
+        end
+
+        for z_c = 1:N_z_iter
+            if z_mode == 0
+                z_idx = 1:N_bothz;
+                bz_val = get_grid_slice_local(Grids.bothz_gridvals_J, 'all', j, has_bothz);
+            elseif z_mode == 1
+                z_idx = (z_c-1)*N_semiz + (1:N_semiz);
+                bz_val = get_grid_slice_local(Grids.bothz_gridvals_J, z_idx, j, has_bothz);
+            else
+                z_idx = z_c;
+                bz_val = get_grid_slice_local(Grids.bothz_gridvals_J, z_c, j, has_bothz);
+            end
+
+            for e_c = 1:N_e_iter
+                if e_mode == 0
+                    e_idx = 1:N_e;
+                    e_val = get_grid_slice_local(Grids.e_gridvals_J, 'all', j, has_e);
+                else
+                    e_idx = e_c;
+                    e_val = get_grid_slice_local(Grids.e_gridvals_J, e_c, j, has_e);
+                end
+
+                RM = CreateReturnFnMatrix_UDisc(ReturnFn, Dims.special_n_d, n_a, spec_n_bz, Dims.special_n_e, d_val, a_grid, bz_val, e_val, ReturnFnParamsVec, 0);
+                RM = reshape(RM, [N_d1, N_a, N_a, N_z_slice, N_e_slice]);
+
+                if has_cont
+                    if z_mode == 0
+                        entireRHS = RM + DiscountedEV;
+                    else
+                        entireRHS = RM + DiscountedEV(:, :, :, z_idx, 1);
+                    end
+                else
+                    entireRHS = RM;
+                end
+
+                [v_tmp, p_tmp] = max(reshape(entireRHS, [N_d1 * N_a, N_a, N_z_slice, N_e_slice]), [], 1);
+
+                if N_d2 == 1
+                    V(:, z_idx, e_idx, j)         = reshape(v_tmp, [N_a, N_z_slice, N_e_slice]);
+                    Policy(1, :, z_idx, e_idx, j) = reshape(p_tmp, [1, N_a, N_z_slice, N_e_slice]);
+                else
+                    d1_idx     = rem(p_tmp - 1, N_d1) + 1;
+                    aprime_idx = ceil(p_tmp / N_d1);
+                    linear_p   = d1_idx + N_d1 * (d2_c - 1) + (N_d1 * N_d2) * (aprime_idx - 1);
+
+                    V_ford2(:, z_idx, e_idx, d2_c)   = reshape(v_tmp, [N_a, N_z_slice, N_e_slice]);
+                    Pol_ford2(:, z_idx, e_idx, d2_c) = reshape(linear_p, [N_a, N_z_slice, N_e_slice]);
+                end
+            end
         end
     end
 
+    if N_d2 > 1
+        [V(:,:,:,j), Policy(:,:,:,:,j)] = extract_pol_local(V_ford2, Pol_ford2, N_a, N_bothz, N_e);
+    end
+end
 
+end % <--- MAIN FUNCTION ENDS HERE!
 
+% =========================================================================
+% LOCAL SUBFUNCTIONS (Small Array Outputs Only)
+% =========================================================================
+
+function DiscountedEV = precalc_ev_local(EVpre_flat, df, pi_bz, N_a, N_bothz)
+    EVinf = (EVpre_flat == -Inf);
+    EV_val = EVpre_flat;
+    EV_val(EVinf) = -1e250;
+    EV_val = EV_val * pi_bz';
+    EV_val(EVinf * (pi_bz' > 0) > 0) = -Inf; % Exact -Inf restoration
+
+    % Broadcasts against RM's [N_d1, N_a_prime, N_a_current, N_z_slice, N_e_slice]
+    DiscountedEV = df * reshape(EV_val, [1, N_a, 1, N_bothz, 1]);
+end
+
+function [V_j, Pol_j] = extract_pol_local(V_ford2, Pol_ford2, N_a, N_bothz, N_e)
+    [V_j, max_d2] = max(V_ford2, [], 4);
+    lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d2(:) - 1);
+    Pol_j = reshape(Pol_ford2(lin_idx), [1, N_a, N_bothz, N_e]);
+end
+
+function slice = get_grid_slice_local(grid_J, idx, j, has_var)
+    if ~has_var || isempty(grid_J); slice = []; return; end
+    if strcmp(idx, 'all')
+        if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
+    else
+        if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
+    end
 end
