@@ -221,9 +221,9 @@ if Dims.risky_flag
     end
 
     if sum(Dims.n_a1) > 0
-        Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.N_a1));
+	Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.n_a1(1)));
     else
-        Grids.a1_gridvals = gpuArray([]);
+	Grids.a1_gridvals = gpuArray([]);
     end
     Grids.a2_grid     = gpuArray(vfoptions.a2_grid(:));
     Grids.a2_gridvals = CreateGridvals(Dims.n_a2, Grids.a2_grid, 1);
