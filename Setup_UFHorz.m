@@ -28,7 +28,7 @@ else
 end
 Dims.N_bothz = Dims.N_semiz * Dims.N_z;
 
-% --- 3. Experience Asset Flags ---
+% --- 3. Experience Asset & Risky Asset Flags ---
 Dims.exp_flag = 0;
 if vfoptions.experienceasset >= 1;      Dims.exp_flag = 1; end
 if vfoptions.experienceassetz >= 1;     Dims.exp_flag = 2; end
@@ -37,8 +37,41 @@ if vfoptions.experienceassetze >= 1;    Dims.exp_flag = 4; end
 if vfoptions.experienceassetsemiz >= 1; Dims.exp_flag = 5; end
 if vfoptions.experienceassetu >= 1;     Dims.exp_flag = 6; end
 
+Dims.risky_flag = isfield(vfoptions, 'riskyasset') && vfoptions.riskyasset == 1;
+
 % --- 4. Unpack Splits for Endogenous States and Decisions ---
-if Dims.exp_flag > 0
+if Dims.risky_flag
+    % RiskyAsset: a = [a1, a2] (where n_a1 can be 0 for noa1), d = [d1, d2, d3, (d4)] via refine_d
+    Dims.n_a1 = vfoptions.n_a1;
+    Dims.n_a2 = vfoptions.n_a2;
+    Dims.N_a1 = max(prod(Dims.n_a1(Dims.n_a1 > 0)), 1);
+    Dims.N_a2 = max(prod(Dims.n_a2(Dims.n_a2 > 0)), 1);
+
+    ref_d = vfoptions.refine_d;
+    if length(ref_d) == 3; ref_d = [ref_d, 0]; end
+    c1 = ref_d(1); c2 = c1 + ref_d(2); c3 = c2 + ref_d(3);
+
+    if ref_d(1) > 0; Dims.n_d1 = n_d(1:c1);      else; Dims.n_d1 = 0; end
+    if ref_d(2) > 0; Dims.n_d2 = n_d(c1+1:c2);   else; Dims.n_d2 = 0; end
+    if ref_d(3) > 0; Dims.n_d3 = n_d(c2+1:c3);   else; Dims.n_d3 = 0; end
+    if ref_d(4) > 0; Dims.n_d4 = n_d(c3+1:end);  else; Dims.n_d4 = 0; end
+
+    Dims.N_d1 = max(prod(Dims.n_d1(Dims.n_d1 > 0)), 1);
+    Dims.N_d2 = max(prod(Dims.n_d2(Dims.n_d2 > 0)), 1);
+    Dims.N_d3 = max(prod(Dims.n_d3(Dims.n_d3 > 0)), 1);
+    Dims.N_d4 = max(prod(Dims.n_d4(Dims.n_d4 > 0)), 1);
+
+    % In RiskyAsset, ReturnFn takes (d1, d3, [d4]); aprimeFn takes (d2, d3)
+    Dims.n_d13 = [Dims.n_d1(Dims.n_d1 > 0), Dims.n_d3(Dims.n_d3 > 0)];
+    if isempty(Dims.n_d13); Dims.n_d13 = 0; end
+    Dims.n_d23 = [Dims.n_d2(Dims.n_d2 > 0), Dims.n_d3(Dims.n_d3 > 0)];
+    if isempty(Dims.n_d23); Dims.n_d23 = 0; end
+
+    Dims.N_d13 = Dims.N_d1 * Dims.N_d3;
+    Dims.N_d23 = Dims.N_d2 * Dims.N_d3;
+    Dims.N_d_inner = Dims.N_d13;
+    Dims.N_d_outer = Dims.N_d4;
+elseif Dims.exp_flag > 0
     Dims.n_a1 = vfoptions.n_a1;
     Dims.n_a2 = vfoptions.n_a2;
     Dims.N_a1 = max(prod(Dims.n_a1), 1);
@@ -91,7 +124,13 @@ Dims.has_d1 = prod(Dims.n_d1) > 0;
 Dims.has_d2 = prod(Dims.n_d2) > 0;
 
 % --- 5. Special Dimension Vectors for CreateReturnFnMatrix Kernels ---
-if isempty(n_d) || n_d(1) == 0
+if Dims.risky_flag
+    if Dims.N_d_outer > 1
+        Dims.special_n_d = [Dims.n_d13(Dims.n_d13 > 0), ones(1, length(Dims.n_d4))];
+    else
+        Dims.special_n_d = Dims.n_d13;
+    end
+elseif isempty(n_d) || n_d(1) == 0
     Dims.special_n_d = 0;
 elseif Dims.N_d_outer > 1
     if Dims.exp_flag > 0
@@ -140,27 +179,66 @@ ones_bz = ones(1, length(Dims.n_bothz)); if ~Dims.has_bothz; ones_bz = 0; end
 
 switch IterStrategy
     case 'Full'
-        Dims.N_z_iter = 1;           Dims.N_z_slice = Dims.N_bothz; Dims.z_mode = 0; Dims.spec_n_bz = Dims.special_n_bothz;
-        Dims.N_e_iter = 1;           Dims.N_e_slice = Dims.N_e;     Dims.e_mode = 0; Dims.spec_n_e  = Dims.special_n_e;
+        Dims.N_z_iter = 1;            Dims.N_z_slice = Dims.N_bothz; Dims.z_mode = 0; Dims.spec_n_bz = Dims.special_n_bothz;
+        Dims.N_e_iter = 1;            Dims.N_e_slice = Dims.N_e;     Dims.e_mode = 0; Dims.spec_n_e  = Dims.special_n_e;
     case 'Loop_e'
-        Dims.N_z_iter = 1;           Dims.N_z_slice = Dims.N_bothz; Dims.z_mode = 0; Dims.spec_n_bz = Dims.special_n_bothz;
-        Dims.N_e_iter = Dims.N_e;    Dims.N_e_slice = 1;            Dims.e_mode = 1; Dims.spec_n_e  = ones(1, length(Dims.n_e));
+        Dims.N_z_iter = 1;            Dims.N_z_slice = Dims.N_bothz; Dims.z_mode = 0; Dims.spec_n_bz = Dims.special_n_bothz;
+        Dims.N_e_iter = Dims.N_e;     Dims.N_e_slice = 1;            Dims.e_mode = 1; Dims.spec_n_e  = ones(1, length(Dims.n_e));
     case 'Loop_z_parallel_semiz'
-        Dims.N_z_iter = Dims.N_z;    Dims.N_z_slice = Dims.N_semiz; Dims.z_mode = 1; Dims.spec_n_bz = [Dims.n_semiz, ones_z];
-        Dims.N_e_iter = 1;           Dims.N_e_slice = Dims.N_e;     Dims.e_mode = 0; Dims.spec_n_e  = Dims.special_n_e;
+        Dims.N_z_iter = Dims.N_z;     Dims.N_z_slice = Dims.N_semiz; Dims.z_mode = 1; Dims.spec_n_bz = [Dims.n_semiz, ones_z];
+        Dims.N_e_iter = 1;            Dims.N_e_slice = Dims.N_e;     Dims.e_mode = 0; Dims.spec_n_e  = Dims.special_n_e;
     case 'Loop_z_parallel_semiz_e'
-        Dims.N_z_iter = Dims.N_z;    Dims.N_z_slice = Dims.N_semiz; Dims.z_mode = 1; Dims.spec_n_bz = [Dims.n_semiz, ones_z];
-        Dims.N_e_iter = Dims.N_e;    Dims.N_e_slice = 1;            Dims.e_mode = 1; Dims.spec_n_e  = ones(1, length(Dims.n_e));
+        Dims.N_z_iter = Dims.N_z;     Dims.N_z_slice = Dims.N_semiz; Dims.z_mode = 1; Dims.spec_n_bz = [Dims.n_semiz, ones_z];
+        Dims.N_e_iter = Dims.N_e;     Dims.N_e_slice = 1;            Dims.e_mode = 1; Dims.spec_n_e  = ones(1, length(Dims.n_e));
     case 'Loop_bothz'
-        Dims.N_z_iter = Dims.N_bothz; Dims.N_z_slice = 1;           Dims.z_mode = 2; Dims.spec_n_bz = ones_bz;
-        Dims.N_e_iter = 1;            Dims.N_e_slice = Dims.N_e;    Dims.e_mode = 0; Dims.spec_n_e  = Dims.special_n_e;
+        Dims.N_z_iter = Dims.N_bothz; Dims.N_z_slice = 1;            Dims.z_mode = 2; Dims.spec_n_bz = ones_bz;
+        Dims.N_e_iter = 1;            Dims.N_e_slice = Dims.N_e;     Dims.e_mode = 0; Dims.spec_n_e  = Dims.special_n_e;
     case 'Loop_bothz_e'
-        Dims.N_z_iter = Dims.N_bothz; Dims.N_z_slice = 1;           Dims.z_mode = 2; Dims.spec_n_bz = ones_bz;
-        Dims.N_e_iter = Dims.N_e;     Dims.N_e_slice = 1;           Dims.e_mode = 1; Dims.spec_n_e  = ones(1, length(Dims.n_e));
+        Dims.N_z_iter = Dims.N_bothz; Dims.N_z_slice = 1;            Dims.z_mode = 2; Dims.spec_n_bz = ones_bz;
+        Dims.N_e_iter = Dims.N_e;     Dims.N_e_slice = 1;            Dims.e_mode = 1; Dims.spec_n_e  = ones(1, length(Dims.n_e));
 end
 
-% --- 7. Synthesized Grids (d12_gridvals, bothz_gridvals_J, ExpAsset grids) ---
-if Dims.N_d_outer > 1 && ~isempty(d_gridvals)
+% --- 7. Synthesized Grids (d12_gridvals, bothz_gridvals_J, ExpAsset & RiskyAsset grids) ---
+if Dims.risky_flag
+    % Extract d1, d2, d3, d4 grids from vfoptions.d_grid
+    d_grid = gpuArray(vfoptions.d_grid(:));
+    s1 = sum(Dims.n_d1(Dims.n_d1 > 0));
+    s2 = s1 + sum(Dims.n_d2(Dims.n_d2 > 0));
+    s3 = s2 + sum(Dims.n_d3(Dims.n_d3 > 0));
+
+    d1_grid = d_grid(1:s1);
+    d2_grid = d_grid(s1+1:s2);
+    d3_grid = d_grid(s2+1:s3);
+    d4_grid = d_grid(s3+1:end);
+
+    Grids.d23_grid = [d2_grid; d3_grid];
+    if Dims.N_d4 > 1
+        n_d134 = [Dims.n_d13(Dims.n_d13 > 0), Dims.n_d4];
+        d134_gv = CreateGridvals(n_d134, [d1_grid; d3_grid; d4_grid], 1);
+        Grids.d12_gridvals = reshape(d134_gv, [Dims.N_d_inner, Dims.N_d_outer, size(d134_gv, 2)]);
+    else
+        Grids.d12_gridvals = CreateGridvals(Dims.n_d13, [d1_grid; d3_grid], 1);
+    end
+
+    if sum(Dims.n_a1) > 0
+        Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.N_a1));
+    else
+        Grids.a1_gridvals = gpuArray([]);
+    end
+    Grids.a2_grid     = gpuArray(vfoptions.a2_grid(:));
+    Grids.a2_gridvals = CreateGridvals(Dims.n_a2, Grids.a2_grid, 1);
+    Grids.u_gridvals  = CreateGridvals(vfoptions.n_u, gpuArray(vfoptions.u_grid), 1);
+    Dims.N_u          = max(prod(vfoptions.n_u), 1);
+
+    l_d23_len = length(Dims.n_d23(Dims.n_d23 > 0));
+    l_u_len   = length(vfoptions.n_u(vfoptions.n_u > 0));
+    temp_args = getAnonymousFnInputNames(vfoptions.aprimeFn);
+    if length(temp_args) > (l_d23_len + l_u_len)
+        Dims.aprimeFnParamNames = temp_args(l_d23_len + l_u_len + 1 : end);
+    else
+        Dims.aprimeFnParamNames = {};
+    end
+elseif Dims.N_d_outer > 1 && ~isempty(d_gridvals)
     Grids.d12_gridvals = reshape(d_gridvals, [Dims.N_d_inner, Dims.N_d_outer, size(d_gridvals, 2)]);
 else
     Grids.d12_gridvals = d_gridvals;
@@ -214,8 +292,10 @@ end
 % --- 8. Divide and Conquer ---
 if isfield(vfoptions, 'level1n') && ~isempty(vfoptions.level1n)
     Dims.level1n = vfoptions.level1n(1);
-else
+elseif sum(Dims.n_a1) > 0
     Dims.level1n = min(floor(sqrt(Dims.n_a1(1))), Dims.n_a1(1));
+else
+    Dims.level1n = 1;
 end
 
 end
