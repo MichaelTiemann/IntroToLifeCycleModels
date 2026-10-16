@@ -312,7 +312,9 @@ if strcmp(vfoptions.exoticpreferences, 'QuasiHyperbolic')
     else
         error('vfoptions.quasi_hyperbolic must be Naive or Sophisticated');
     end
-elseif strcmp(vfoptions.exoticpreferences, 'EpsteinZin')
+end
+
+if strcmp(vfoptions.exoticpreferences, 'EpsteinZin')
     Dims.ez_flag = 1;
     if ~isfield(vfoptions, 'EZriskaversion')
         error('When using Epstein-Zin preferences you must declare vfoptions.EZriskaversion');

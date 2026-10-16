@@ -268,7 +268,22 @@ if strcmp(vfoptions.exoticpreferences,'None')
 elseif strcmp(vfoptions.exoticpreferences,'QuasiHyperbolic')
     % All of quasi-hyperbolic now goes through this one dispatcher, including the experience-asset
     % variants: it reads beta0 once and then dispatches on the asset type.
+    tic;
     [V,Policy, Valt,Policyalt]=ValueFnIter_FHorz_QuasiHyperbolic(n_d,n_a,n_z,N_j,d_grid,a_grid,z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_ref=toc;
+    V_ref=V; Policy_ref=Policy;
+
+    tic;
+    [V_new,Policy_new, Valt_new,Policyalt_new]=ValueFnIter_UFHorz_raw(n_d,n_a,n_z,N_j,d_grid,a_grid,z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_new=toc;
+
+    benchcheck();
+
+    V_ref=Valt; Policy_ref=Policyalt;
+    V_new=Valt_new; Policy_new=Policyalt_new;
+
+    benchcheck();
+
     % The dispatcher always returns four outputs (Policyalt is [] under Sophisticated). Trimming to
     % three here is deliberate: under Sophisticated there is no Policyalt, so a caller asking for one
     % should get an error rather than a silent empty. Hence this is not folded into the dispatcher.
@@ -281,7 +296,17 @@ elseif strcmp(vfoptions.exoticpreferences,'QuasiHyperbolic')
 elseif strcmp(vfoptions.exoticpreferences,'EpsteinZin')
     % All of Epstein-Zin now goes through this one dispatcher, including riskyasset:
     % it dispatches on the asset type before setting up the Epstein-Zin constants.
+    tic;
     [V, Policy]=ValueFnIter_FHorz_EpsteinZin(n_d,n_a,n_z,N_j,d_grid, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_ref=toc;
+    V_ref=V; Policy_ref=Policy;
+
+    tic;
+    [V, Policy]=ValueFnIter_UFHorz_raw(n_d,n_a,n_z,N_j,d_grid, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_new=toc;
+
+    benchcheck();
+    
     varargout={V, Policy};
     return
 elseif strcmp(vfoptions.exoticpreferences,'GulPesendorfer')
@@ -397,11 +422,20 @@ if vfoptions.riskyasset==1
     a2_grid=vfoptions.a2_grid;
 
     % Now just send all this to the right value fn iteration command
+    tic;
     if prod(vfoptions.n_semiz)>0
         [V, Policy]=ValueFnIter_FHorz_RiskyAssetSemiExo(n_d,n_a1,n_a2,vfoptions.n_semiz,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, vfoptions.semiz_gridvals_J,z_gridvals_J, vfoptions.u_grid, vfoptions.pi_semiz_J, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     else
         [V,Policy]=ValueFnIter_FHorz_RiskyAsset(n_d,n_a1,n_a2,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.u_grid, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     end
+    time_ref=toc;
+    V_ref=V; Policy_Ref=Policy;
+
+    tic;
+    [V_new,Policy_new]=ValueFnIter_UFHorz_RiskyAsset(n_d,n_a1,n_a2,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.u_grid, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    time_new=toc;
+
+    benchcheck();
 
     varargout={V, Policy};
     return
