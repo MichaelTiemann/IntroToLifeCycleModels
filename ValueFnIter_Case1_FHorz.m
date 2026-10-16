@@ -274,13 +274,8 @@ elseif strcmp(vfoptions.exoticpreferences,'QuasiHyperbolic')
     V_ref=V; Policy_ref=Policy;
 
     tic;
-    [V_new,Policy_new, Valt_new,Policyalt_new]=ValueFnIter_UFHorz_raw(n_d,n_a,n_z,N_j,d_grid,a_grid,z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new, Valt_new,Policyalt_new]=solve_ufhorz_local()
     time_new=toc;
-
-    benchcheck();
-
-    V_ref=Valt; Policy_ref=Policyalt;
-    V_new=Valt_new; Policy_new=Policyalt_new;
 
     benchcheck();
 
@@ -288,10 +283,14 @@ elseif strcmp(vfoptions.exoticpreferences,'QuasiHyperbolic')
     % three here is deliberate: under Sophisticated there is no Policyalt, so a caller asking for one
     % should get an error rather than a silent empty. Hence this is not folded into the dispatcher.
     if strcmp(vfoptions.quasi_hyperbolic,'Naive')
-        varargout={V, Policy,Valt,Policyalt}; % Vtilde, Policytilde, V, Policy (the last two are the exponential discounter)
+        V_ref = Valt; Policy_ref = Policyalt;
+        V_new = Valt_new; Policy_new = Policyalt_new;
+        benchcheck();
+        varargout = {V, Policy, Valt, Policyalt}; % Vtilde, Policytilde, V, Policy (the last two are the exponential discounter)
     elseif strcmp(vfoptions.quasi_hyperbolic,'Sophisticated')
-        varargout={V, Policy,Valt}; % Vhat, Policyhat, Vunderbar (the last is the exponential discounter V from the Policyhat)
+        varargout = {V, Policy, Valt}; % Vhat, Policyhat, Vunderbar (the last is the exponential discounter V from the Policyhat)
     end
+
     return
 elseif strcmp(vfoptions.exoticpreferences,'EpsteinZin')
     % All of Epstein-Zin now goes through this one dispatcher, including riskyasset:
@@ -302,12 +301,19 @@ elseif strcmp(vfoptions.exoticpreferences,'EpsteinZin')
     V_ref=V; Policy_ref=Policy;
 
     tic;
-    [V, Policy]=ValueFnIter_UFHorz_raw(n_d,n_a,n_z,N_j,d_grid, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V, Policy]=solve_ufhorz_local()
     time_new=toc;
 
     benchcheck();
     
-    varargout={V, Policy};
+    if strcmp(vfoptions.quasi_hyperbolic,'Naive')
+        V_ref = Valt; Policy_ref = Policyalt;
+        V_new = Valt_new; Policy_new = Policyalt_new;
+        benchcheck();
+        varargout = {V, Policy, Valt, Policyalt};
+    elseif strcmp(vfoptions.quasi_hyperbolic,'Sophisticated')
+        varargout = {V, Policy, Valt};
+    end
     return
 elseif strcmp(vfoptions.exoticpreferences,'GulPesendorfer')
     [V, Policy]=ValueFnIter_FHorz_GulPesendorfer(n_d,n_a,n_z,N_j,d_gridvals,a_grid,z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
@@ -424,12 +430,11 @@ if vfoptions.riskyasset==1
     % Now just send all this to the right value fn iteration command
     tic;
     if prod(vfoptions.n_semiz)>0
-        [V, Policy]=ValueFnIter_FHorz_RiskyAssetSemiExo(n_d,n_a1,n_a2,vfoptions.n_semiz,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, vfoptions.semiz_gridvals_J,z_gridvals_J, vfoptions.u_grid, vfoptions.pi_semiz_J, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+        [V_ref, Policy_ref]=ValueFnIter_FHorz_RiskyAssetSemiExo(n_d,n_a1,n_a2,vfoptions.n_semiz,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, vfoptions.semiz_gridvals_J,z_gridvals_J, vfoptions.u_grid, vfoptions.pi_semiz_J, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     else
-        [V,Policy]=ValueFnIter_FHorz_RiskyAsset(n_d,n_a1,n_a2,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.u_grid, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+        [V_ref,Policy_ref]=ValueFnIter_FHorz_RiskyAsset(n_d,n_a1,n_a2,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.u_grid, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     end
     time_ref=toc;
-    V_ref=V; Policy_Ref=Policy;
 
     tic;
     [V_new,Policy_new]=ValueFnIter_UFHorz_RiskyAsset(n_d,n_a1,n_a2,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.u_grid, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
@@ -437,7 +442,7 @@ if vfoptions.riskyasset==1
 
     benchcheck();
 
-    varargout={V, Policy};
+    varargout={V_ref, Policy_ref};
     return
 end
 
@@ -780,7 +785,24 @@ varargout={V_ref, Policy_ref};
         fprintf('%s -- time reference: %.2f seconds; time difference: %.2f seconds; time ratio to ref: %.0f%%\n', ...
             filenames{4-isempty(strfind(filenames{3}, 'Horz_PType'))}, time_ref, time_new-time_ref, 100*time_new/time_ref);
 
+    end
 
+
+    function [V_out, Pol_out, Valt_out, Polalt_out] = solve_ufhorz_local()
+        if vfoptions.experienceasset>=1 || vfoptions.experienceassetu>=1 || vfoptions.experienceassete>=1 || vfoptions.experienceassetz>=1 || vfoptions.experienceassetze>=1 || vfoptions.experienceassetsemiz>=1
+	    [V_out, Pol_out, Valt_out, Polalt_out] = ValueFnIter_UFHorz_ExpAsset(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+	elseif vfoptions.riskyasset == 1
+	    [V_out, Pol_out, Valt_out, Polalt_out] = ValueFnIter_UFHorz_RiskyAsset(n_d, n_a, n_z, N_j, d_grid, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+	elseif vfoptions.divideandconquer == 1 && vfoptions.gridinterplayer == 1
+	    [V_out, Pol_out, Valt_out, Polalt_out] = ValueFnIter_UFHorz_DC_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+	elseif vfoptions.gridinterplayer == 1
+	    [V_out, Pol_out, Valt_out, Polalt_out] = ValueFnIter_UFHorz_GI(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+	elseif vfoptions.divideandconquer == 1
+	    [V_out, Pol_out, Valt_out, Polalt_out] = ValueFnIter_UFHorz_DC(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+	else
+	    [VK_tmp, PK_tmp, VaK_tmp, PaK_tmp] = ValueFnIter_UFHorz_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+	    [V_out, Pol_out, Valt_out, Polalt_out] = UnKronUFHorz(VK_tmp, PK_tmp, VaK_tmp, PaK_tmp, n_d, n_a, n_a, n_z, N_j, vfoptions, 0);
+	end
     end
 
 
