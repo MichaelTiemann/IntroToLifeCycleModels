@@ -1,4 +1,4 @@
-function [Dims, Grids] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, vfoptions)
+function [Dims, Grids] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, vfoptions, Parameters)
 
 % --- 1. Endogenous States (a) & Decisions (d) ---
 Dims.N_a = max(prod(n_a), 1);
@@ -41,7 +41,6 @@ Dims.risky_flag = isfield(vfoptions, 'riskyasset') && vfoptions.riskyasset == 1;
 
 % --- 4. Unpack Splits for Endogenous States and Decisions ---
 if Dims.risky_flag
-    % RiskyAsset: a = [a1, a2] (where n_a1 can be 0 for noa1), d = [d1, d2, d3, (d4)] via refine_d
     Dims.n_a1 = vfoptions.n_a1;
     Dims.n_a2 = vfoptions.n_a2;
     Dims.N_a1 = max(prod(Dims.n_a1(Dims.n_a1 > 0)), 1);
@@ -61,7 +60,6 @@ if Dims.risky_flag
     Dims.N_d3 = max(prod(Dims.n_d3(Dims.n_d3 > 0)), 1);
     Dims.N_d4 = max(prod(Dims.n_d4(Dims.n_d4 > 0)), 1);
 
-    % In RiskyAsset, ReturnFn takes (d1, d3, [d4]); aprimeFn takes (d2, d3)
     Dims.n_d13 = [Dims.n_d1(Dims.n_d1 > 0), Dims.n_d3(Dims.n_d3 > 0)];
     if isempty(Dims.n_d13); Dims.n_d13 = 0; end
     Dims.n_d23 = [Dims.n_d2(Dims.n_d2 > 0), Dims.n_d3(Dims.n_d3 > 0)];
@@ -200,7 +198,6 @@ end
 
 % --- 7. Synthesized Grids (d12_gridvals, bothz_gridvals_J, ExpAsset & RiskyAsset grids) ---
 if Dims.risky_flag
-    % Extract d1, d2, d3, d4 grids from vfoptions.d_grid
     d_grid = gpuArray(vfoptions.d_grid(:));
     s1 = sum(Dims.n_d1(Dims.n_d1 > 0));
     s2 = s1 + sum(Dims.n_d2(Dims.n_d2 > 0));
@@ -221,9 +218,9 @@ if Dims.risky_flag
     end
 
     if sum(Dims.n_a1) > 0
-	Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.n_a1(1)));
+        Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.n_a1(1)));
     else
-	Grids.a1_gridvals = gpuArray([]);
+        Grids.a1_gridvals = gpuArray([]);
     end
     Grids.a2_grid     = gpuArray(vfoptions.a2_grid(:));
     Grids.a2_gridvals = CreateGridvals(Dims.n_a2, Grids.a2_grid, 1);
@@ -255,7 +252,7 @@ else
 end
 
 if Dims.exp_flag > 0
-    Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.N_a1));
+    Grids.a1_gridvals = gpuArray(vfoptions.a1_grid(1:Dims.n_a1(1)));
     Grids.a2_gridvals = CreateGridvals(Dims.n_a2, gpuArray(vfoptions.a2_grid), 1);
     Grids.d2_gridvals = CreateGridvals(Dims.n_d2, gpuArray(vfoptions.d2_grid), 1);
     if Dims.exp_flag == 6
@@ -303,91 +300,91 @@ Dims.qh_mode = 0; % 0 = None, 1 = Naive QH, 2 = Sophisticated QH
 Dims.beta0   = 1;
 Dims.ez_flag = 0;
 
-if strcmp(vfoptions.exoticpreferences, 'QuasiHyperbolic')
-    Dims.beta0 = prod(CreateVectorFromParams(Parameters, vfoptions.QHadditionaldiscount, 1));
-    if strcmp(vfoptions.quasi_hyperbolic, 'Naive')
-        Dims.qh_mode = 1;
-    elseif strcmp(vfoptions.quasi_hyperbolic, 'Sophisticated')
-        Dims.qh_mode = 2;
-    else
-        error('vfoptions.quasi_hyperbolic must be Naive or Sophisticated');
-    end
-end
-
-if strcmp(vfoptions.exoticpreferences, 'EpsteinZin')
-    Dims.ez_flag = 1;
-    if ~isfield(vfoptions, 'EZriskaversion')
-        error('When using Epstein-Zin preferences you must declare vfoptions.EZriskaversion');
-    end
-    if ~isfield(vfoptions, 'EZutils'); vfoptions.EZutils = 1; end
-    if vfoptions.EZutils == 1
-        if ~isfield(vfoptions, 'EZpositiveutility'); vfoptions.EZpositiveutility = 0; end
-    else
-        if ~isfield(vfoptions, 'EZeis')
-            error('When using traditional Epstein-Zin preferences you must declare vfoptions.EZeis');
-        end
-    end
-    if ~isfield(vfoptions, 'EZoneminusbeta'); vfoptions.EZoneminusbeta = 0; end
-
-    if isfield(vfoptions, 'survivalprobability')
-        sj = Parameters.(vfoptions.survivalprobability);
-    elseif isfield(vfoptions, 'WarmGlowBequestsFn')
-        sj = ones(N_j, 1); sj(end) = 0;
-    else
-        sj = ones(N_j, 1);
-    end
-    Dims.sj = sj(:);
-
-    if isfield(vfoptions, 'WarmGlowBequestsFn')
-        Dims.warmglow = 1;
-        l_a_wg = length(n_a);
-        if Dims.risky_flag; l_a_wg = length(Dims.n_a2); end
-        temp_wg = getAnonymousFnInputNames(vfoptions.WarmGlowBequestsFn);
-        Dims.WarmGlowParamNames = {temp_wg{l_a_wg+1:end}};
-    else
-        Dims.warmglow = 0;
-        Dims.WarmGlowParamNames = {};
-    end
-
-    crisk = Parameters.(vfoptions.EZriskaversion);
-    if vfoptions.EZutils == 0
-        ceis = Parameters.(vfoptions.EZeis);
-        ezc1 = 1; ezc2 = 1 - 1./ceis; ezc3 = 1; ezc4 = 1;
-        ezc5 = 1 - crisk; ezc6 = (1 - 1./ceis)./(1 - crisk); ezc7 = 1./(1 - 1./ceis);
-    else
-        ezc1 = 1; ezc2 = 1;
-        if vfoptions.EZpositiveutility == 1
-            ezc3 = 1; ezc4 = 1; ezc5 = 1 - crisk; ezc6 = 1./(1 - crisk);
+if nargin >= 8 && ~isempty(Parameters)
+    if strcmp(vfoptions.exoticpreferences, 'QuasiHyperbolic')
+        Dims.beta0 = prod(CreateVectorFromParams(Parameters, vfoptions.QHadditionaldiscount, 1));
+        if strcmp(vfoptions.quasi_hyperbolic, 'Naive')
+            Dims.qh_mode = 1;
+        elseif strcmp(vfoptions.quasi_hyperbolic, 'Sophisticated')
+            Dims.qh_mode = 2;
         else
-            ezc3 = -1; ezc4 = -1; ezc5 = 1 + crisk; ezc6 = 1./(1 + crisk);
+            error('vfoptions.quasi_hyperbolic must be Naive or Sophisticated');
         end
-        ezc7 = 1;
     end
+    if strcmp(vfoptions.exoticpreferences, 'EpsteinZin')
+        Dims.ez_flag = 1;
+        if ~isfield(vfoptions, 'EZriskaversion')
+            error('When using Epstein-Zin preferences you must declare vfoptions.EZriskaversion');
+        end
+        if ~isfield(vfoptions, 'EZutils'); vfoptions.EZutils = 1; end
+        if vfoptions.EZutils == 1
+            if ~isfield(vfoptions, 'EZpositiveutility'); vfoptions.EZpositiveutility = 0; end
+        else
+            if ~isfield(vfoptions, 'EZeis')
+                error('When using traditional Epstein-Zin preferences you must declare vfoptions.EZeis');
+            end
+        end
+        if ~isfield(vfoptions, 'EZoneminusbeta'); vfoptions.EZoneminusbeta = 0; end
 
-    if isfield(vfoptions, 'EZmortalityriskaversion')
-        mrisk = Parameters.(vfoptions.EZmortalityriskaversion);
+        if isfield(vfoptions, 'survivalprobability')
+            sj = Parameters.(vfoptions.survivalprobability);
+        elseif isfield(vfoptions, 'WarmGlowBequestsFn')
+            sj = ones(N_j, 1); sj(end) = 0;
+        else
+            sj = ones(N_j, 1);
+        end
+        Dims.sj = sj(:);
+
+        if isfield(vfoptions, 'WarmGlowBequestsFn')
+            Dims.warmglow = 1;
+            l_a_wg = length(n_a);
+            if Dims.risky_flag; l_a_wg = length(Dims.n_a2); end
+            temp_wg = getAnonymousFnInputNames(vfoptions.WarmGlowBequestsFn);
+            Dims.WarmGlowParamNames = {temp_wg{l_a_wg+1:end}};
+        else
+            Dims.warmglow = 0;
+            Dims.WarmGlowParamNames = {};
+        end
+
+        crisk = Parameters.(vfoptions.EZriskaversion);
         if vfoptions.EZutils == 0
-            ezc6 = (1 - 1./ceis)./(1 - mrisk); ezc8 = (1 - mrisk)./(1 - crisk);
-        elseif vfoptions.EZpositiveutility == 1
-            ezc6 = 1./(1 - mrisk); ezc8 = (1 - mrisk)./(1 - crisk);
+            ceis = Parameters.(vfoptions.EZeis);
+            ezc1 = 1; ezc2 = 1 - 1./ceis; ezc3 = 1; ezc4 = 1;
+            ezc5 = 1 - crisk; ezc6 = (1 - 1./ceis)./(1 - crisk); ezc7 = 1./(1 - 1./ceis);
         else
-            ezc6 = 1./(1 + mrisk); ezc8 = (1 + mrisk)./(1 + crisk);
+            ezc1 = 1; ezc2 = 1;
+            if vfoptions.EZpositiveutility == 1
+                ezc3 = 1; ezc4 = 1; ezc5 = 1 - crisk; ezc6 = 1./(1 - crisk);
+            else
+                ezc3 = -1; ezc4 = -1; ezc5 = 1 + crisk; ezc6 = 1./(1 + crisk);
+            end
+            ezc7 = 1;
         end
-    else
-        ezc8 = 1;
+
+        if isfield(vfoptions, 'EZmortalityriskaversion')
+            mrisk = Parameters.(vfoptions.EZmortalityriskaversion);
+            if vfoptions.EZutils == 0
+                ezc6 = (1 - 1./ceis)./(1 - mrisk); ezc8 = (1 - mrisk)./(1 - crisk);
+            elseif vfoptions.EZpositiveutility == 1
+                ezc6 = 1./(1 - mrisk); ezc8 = (1 - mrisk)./(1 - crisk);
+            else
+                ezc6 = 1./(1 + mrisk); ezc8 = (1 + mrisk)./(1 + crisk);
+            end
+        else
+            ezc8 = 1;
+        end
+
+        Dims.ezc1 = ezc1;
+        Dims.ezc2 = ezc2(:) .* ones(N_j, 1);
+        Dims.ezc3 = ezc3;
+        Dims.ezc4 = ezc4;
+        Dims.ezc5 = ezc5(:) .* ones(N_j, 1);
+        Dims.ezc6 = ezc6(:) .* ones(N_j, 1);
+        Dims.ezc7 = ezc7(:) .* ones(N_j, 1);
+        Dims.ezc8 = ezc8(:) .* ones(N_j, 1);
+        Dims.ezc9 = 1; if Dims.ezc7(1) < 0; Dims.ezc9 = -1; end
+        Dims.EZoneminusbeta = vfoptions.EZoneminusbeta;
     end
-
-    Dims.ezc1 = ezc1;
-    Dims.ezc2 = ezc2(:) .* ones(N_j, 1);
-    Dims.ezc3 = ezc3;
-    Dims.ezc4 = ezc4;
-    Dims.ezc5 = ezc5(:) .* ones(N_j, 1);
-    Dims.ezc6 = ezc6(:) .* ones(N_j, 1);
-    Dims.ezc7 = ezc7(:) .* ones(N_j, 1);
-    Dims.ezc8 = ezc8(:) .* ones(N_j, 1);
-    Dims.ezc9 = 1; if Dims.ezc7(1) < 0; Dims.ezc9 = -1; end
-    Dims.EZoneminusbeta = vfoptions.EZoneminusbeta;
 end
-
 
 end
