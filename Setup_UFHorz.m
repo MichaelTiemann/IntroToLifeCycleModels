@@ -302,7 +302,11 @@ Dims.ez_flag = 0;
 
 if nargin >= 8 && ~isempty(Parameters)
     if strcmp(vfoptions.exoticpreferences, 'QuasiHyperbolic')
-        Dims.beta0 = prod(CreateVectorFromParams(Parameters, vfoptions.QHadditionaldiscount, 1));
+        if iscell(vfoptions.QHadditionaldiscount)
+            Dims.beta0 = prod(CreateVectorFromParams(Parameters, vfoptions.QHadditionaldiscount, 1));
+        else
+            Dims.beta0 = Parameters.(vfoptions.QHadditionaldiscount);
+        end
         if strcmp(vfoptions.quasi_hyperbolic, 'Naive')
             Dims.qh_mode = 1;
         elseif strcmp(vfoptions.quasi_hyperbolic, 'Sophisticated')

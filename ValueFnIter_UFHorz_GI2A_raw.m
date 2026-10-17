@@ -111,6 +111,7 @@ for j = N_j:-1:1
         end
         has_ev_term = has_cont || Dims.warmglow;
     else
+        WG_j = [];
         has_ev_term = has_cont;
     end
 
@@ -140,9 +141,13 @@ for j = N_j:-1:1
         end
 
         if has_ev_term
-            if has_bothz
+            if has_cont && has_bothz
                 if has_semiz
-                    pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
+                    if Dims.has_z
+                        pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
+                    else
+                        pi_bz = vfoptions.pi_semiz_J(:,:,d_outer_c,j);
+                    end
                 else
                     pi_bz = pi_z_J(:,:,j);
                 end
@@ -249,7 +254,7 @@ for j = N_j:-1:1
                 linidx_lower = d_ind + S2*(a2p_idx_chosen - 1) + S3*state_lin_off;
                 linidx_upper = linidx_lower + S1*(n2long - 1);
                 flag_val = 2 + ((L2offset >= 2 & L2offset <= n2short+1) & (RM_L2(linidx_lower) == -Inf)) ...
-                             - ((L2offset >= n2short+3 & L2offset <= n2long-1) & (RM_L2(linidx_upper) == -Inf));
+                    - ((L2offset >= n2short+3 & L2offset <= n2long-1) & (RM_L2(linidx_upper) == -Inf));
 
                 midpt_idx    = d_ind + S_mid1*(a2p_idx_chosen - 1) + S_mid2*state_lin_off;
                 chosen_midpt = midpoint(midpt_idx);
@@ -304,63 +309,63 @@ end
 end % <--- MAIN FUNCTION ENDS HERE!
 
 function [DiscountedEV, DiscountedEVinterp] = precalc_ev_local(EVpre_flat, df, pi_bz, N_a1, N_a2, N_bothz, a1_gridvals, a1prime_grid, j, Dims, WG_j)
-    if ~Dims.ez_flag
+if ~Dims.ez_flag
+    EVinf = (EVpre_flat == -Inf);
+    EV_val = EVpre_flat;
+    EV_val(EVinf) = -1e250;
+    EV_expected = EV_val * pi_bz';
+    EV_expected((EVinf * (pi_bz' > 0)) > 0) = -Inf;
+    DiscountedEV_2D = df * EV_expected;
+else
+    sj_j = Dims.sj(j); ezc6_j = Dims.ezc6(j); ezc8_j = Dims.ezc8(j);
+    if ~isempty(EVpre_flat)
         EVinf = (EVpre_flat == -Inf);
-        EV_val = EVpre_flat;
-        EV_val(EVinf) = -1e250;
-        EV_expected = EV_val * pi_bz';
-        EV_expected((EVinf * (pi_bz' > 0)) > 0) = -Inf;
-        DiscountedEV_2D = df * EV_expected;
-    else
-        sj_j = Dims.sj(j); ezc6_j = Dims.ezc6(j); ezc8_j = Dims.ezc8(j);
-        if ~isempty(EVpre_flat)
-            EVinf = (EVpre_flat == -Inf);
-            EV_val = EVpre_flat; EV_val(EVinf) = 0;
-            EV = EV_val * pi_bz';
-            EV(EVinf * (pi_bz' > 0) > 0) = -Inf;
-            temp4 = EV;
-            if Dims.warmglow
-                WG_rep = repmat(WG_j, 1, N_bothz);
-                becareful = isfinite(temp4) & isfinite(WG_rep);
-                temp4(becareful) = (sj_j * temp4(becareful).^ezc8_j + (1 - sj_j) * WG_rep(becareful).^ezc8_j).^ezc6_j;
-                temp4((EV == 0) & (WG_rep == 0)) = 0;
-            else
-                fin_mask = isfinite(temp4);
-                temp4(fin_mask) = (sj_j * temp4(fin_mask).^ezc8_j).^ezc6_j;
-                temp4(EV == 0) = 0;
-            end
+        EV_val = EVpre_flat; EV_val(EVinf) = 0;
+        EV = EV_val * pi_bz';
+        EV(EVinf * (pi_bz' > 0) > 0) = -Inf;
+        temp4 = EV;
+        if Dims.warmglow
+            WG_rep = repmat(WG_j, 1, N_bothz);
+            becareful = isfinite(temp4) & isfinite(WG_rep);
+            temp4(becareful) = (sj_j * temp4(becareful).^ezc8_j + (1 - sj_j) * WG_rep(becareful).^ezc8_j).^ezc6_j;
+            temp4((EV == 0) & (WG_rep == 0)) = 0;
         else
-            temp4 = WG_j;
-            fin_mask = isfinite(temp4) & (temp4 ~= 0);
-            temp4(fin_mask) = ((1 - sj_j) * temp4(fin_mask).^ezc8_j).^ezc6_j;
-            temp4(WG_j == 0) = 0;
-            temp4 = repmat(temp4, 1, N_bothz);
+            fin_mask = isfinite(temp4);
+            temp4(fin_mask) = (sj_j * temp4(fin_mask).^ezc8_j).^ezc6_j;
+            temp4(EV == 0) = 0;
         end
-        DiscountedEV_2D = Dims.ezc3 * df * temp4;
-        DiscountedEV_2D(isinf(temp4)) = -Inf;
+    else
+        temp4 = WG_j;
+        fin_mask = isfinite(temp4) & (temp4 ~= 0);
+        temp4(fin_mask) = ((1 - sj_j) * temp4(fin_mask).^ezc8_j).^ezc6_j;
+        temp4(WG_j == 0) = 0;
+        temp4 = repmat(temp4, 1, N_bothz);
     end
+    DiscountedEV_2D = Dims.ezc3 * df * temp4;
+    DiscountedEV_2D(isinf(temp4)) = -Inf;
+end
 
-    DiscountedEV_3D    = reshape(DiscountedEV_2D, [N_a1, N_a2, N_bothz]);
-    DiscountedEVinterp = interp1(a1_gridvals, DiscountedEV_3D, a1prime_grid);
-    DiscountedEV       = reshape(DiscountedEV_3D, [1, N_a1, N_a2, 1, 1, N_bothz, 1]);
+DiscountedEV_3D    = reshape(DiscountedEV_2D, [N_a1, N_a2, N_bothz]);
+DiscountedEVinterp = interp1(a1_gridvals, DiscountedEV_3D, a1prime_grid);
+DiscountedEV       = reshape(DiscountedEV_3D, [1, N_a1, N_a2, 1, 1, N_bothz, 1]);
 end
 
 function [V_j, Pol_j, max_d_out] = extract_pol_local(V_fordouter, P1, P2, P3, P4, N_a, N_bothz, N_e)
-    [V_j, max_d_out] = max(V_fordouter, [], 4);
-    lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d_out(:) - 1);
+[V_j, max_d_out] = max(V_fordouter, [], 4);
+lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d_out(:) - 1);
 
-    Pol_j = zeros(4, N_a, N_bothz, N_e, 'gpuArray');
-    Pol_j(1,:,:,:) = reshape(P1(lin_idx), [1, N_a, N_bothz, N_e]);
-    Pol_j(2,:,:,:) = reshape(P2(lin_idx), [1, N_a, N_bothz, N_e]);
-    Pol_j(3,:,:,:) = reshape(P3(lin_idx), [1, N_a, N_bothz, N_e]);
-    Pol_j(4,:,:,:) = reshape(P4(lin_idx), [1, N_a, N_bothz, N_e]);
+Pol_j = zeros(4, N_a, N_bothz, N_e, 'gpuArray');
+Pol_j(1,:,:,:) = reshape(P1(lin_idx), [1, N_a, N_bothz, N_e]);
+Pol_j(2,:,:,:) = reshape(P2(lin_idx), [1, N_a, N_bothz, N_e]);
+Pol_j(3,:,:,:) = reshape(P3(lin_idx), [1, N_a, N_bothz, N_e]);
+Pol_j(4,:,:,:) = reshape(P4(lin_idx), [1, N_a, N_bothz, N_e]);
 end
 
 function slice = get_grid_slice_local(grid_J, idx, j, has_var)
-    if ~has_var || isempty(grid_J); slice = []; return; end
-    if strcmp(idx, 'all')
-        if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
-    else
-        if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
-    end
+if ~has_var || isempty(grid_J); slice = []; return; end
+if strcmp(idx, 'all')
+    if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
+else
+    if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
+end
 end

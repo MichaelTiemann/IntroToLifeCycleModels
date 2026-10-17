@@ -95,6 +95,7 @@ for j = N_j:-1:1
         end
         has_ev_term = has_cont || Dims.warmglow;
     else
+        WG_j = [];
         has_ev_term = has_cont;
     end
 
@@ -124,11 +125,15 @@ for j = N_j:-1:1
         end
 
         if has_ev_term
-            if has_bothz
+            if has_cont && has_bothz
                 if has_semiz
-                    pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
+                    if Dims.N_z > 0
+                        pi_bz = kron(pi_z_J(:,:,min(j, size(pi_z_J,3))), vfoptions.pi_semiz_J(:,:,d_outer_c,min(j, size(vfoptions.pi_semiz_J,4))));
+                    else
+                        pi_bz = vfoptions.pi_semiz_J(:,:,d_outer_c,min(j, size(vfoptions.pi_semiz_J,4)));
+                    end
                 else
-                    pi_bz = pi_z_J(:,:,j);
+                    pi_bz = pi_z_J(:,:,min(j, size(pi_z_J,3)));
                 end
             else
                 pi_bz = 1;
@@ -268,62 +273,62 @@ end % <--- MAIN FUNCTION ENDS HERE!
 % =========================================================================
 
 function DiscountedEV = precalc_ev_local(EVpre_flat, df, pi_bz, N_a, N_bothz, j, Dims, WG_j)
-    if ~Dims.ez_flag
-        EVinf = (EVpre_flat == -Inf);
-        EV_val = EVpre_flat;
-        EV_val(EVinf) = -1e250;
-        EV_val = EV_val * pi_bz';
-        EV_val(EVinf * (pi_bz' > 0) > 0) = -Inf;
-        DiscountedEV = df * reshape(EV_val, [1, N_a, 1, N_bothz, 1]);
-        return;
-    end
+if ~Dims.ez_flag
+    EVinf = (EVpre_flat == -Inf);
+    EV_val = EVpre_flat;
+    EV_val(EVinf) = -1e250;
+    EV_val = EV_val * pi_bz';
+    EV_val(EVinf * (pi_bz' > 0) > 0) = -Inf;
+    DiscountedEV = df * reshape(EV_val, [1, N_a, 1, N_bothz, 1]);
+    return;
+end
 
-    % Epstein-Zin certainty-equivalent + Warm-Glow bequest aggregation
-    sj_j = Dims.sj(j);
-    ezc6_j = Dims.ezc6(j);
-    ezc8_j = Dims.ezc8(j);
+% Epstein-Zin certainty-equivalent + Warm-Glow bequest aggregation
+sj_j = Dims.sj(j);
+ezc6_j = Dims.ezc6(j);
+ezc8_j = Dims.ezc8(j);
 
-    if ~isempty(EVpre_flat)
-        EVinf = (EVpre_flat == -Inf);
-        EV_val = EVpre_flat;
-        EV_val(EVinf) = 0; % In EZ, 0*pi_bz replaces NaN from -Inf*0, while -Inf*positive_prob stays -Inf
-        EV = EV_val * pi_bz';
-        EV(EVinf * (pi_bz' > 0) > 0) = -Inf;
+if ~isempty(EVpre_flat)
+    EVinf = (EVpre_flat == -Inf);
+    EV_val = EVpre_flat;
+    EV_val(EVinf) = 0; % In EZ, 0*pi_bz replaces NaN from -Inf*0, while -Inf*positive_prob stays -Inf
+    EV = EV_val * pi_bz';
+    EV(EVinf * (pi_bz' > 0) > 0) = -Inf;
 
-        temp4 = EV;
-        if Dims.warmglow
-            WG_rep = repmat(WG_j, 1, N_bothz);
-            becareful = isfinite(temp4) & isfinite(WG_rep);
-            temp4(becareful) = (sj_j * temp4(becareful).^ezc8_j + (1 - sj_j) * WG_rep(becareful).^ezc8_j).^ezc6_j;
-            temp4((EV == 0) & (WG_rep == 0)) = 0;
-        else
-            fin_mask = isfinite(temp4);
-            temp4(fin_mask) = (sj_j * temp4(fin_mask).^ezc8_j).^ezc6_j;
-            temp4(EV == 0) = 0;
-        end
+    temp4 = EV;
+    if Dims.warmglow
+        WG_rep = repmat(WG_j, 1, N_bothz);
+        becareful = isfinite(temp4) & isfinite(WG_rep);
+        temp4(becareful) = (sj_j * temp4(becareful).^ezc8_j + (1 - sj_j) * WG_rep(becareful).^ezc8_j).^ezc6_j;
+        temp4((EV == 0) & (WG_rep == 0)) = 0;
     else
-        % Terminal period j == N_j with Warm-Glow bequest only (no V_Jplus1)
-        temp4 = WG_j;
-        fin_mask = isfinite(temp4) & (temp4 ~= 0);
-        temp4(fin_mask) = ((1 - sj_j) * temp4(fin_mask).^ezc8_j).^ezc6_j;
-        temp4(WG_j == 0) = 0;
-        temp4 = repmat(temp4, 1, N_bothz);
+        fin_mask = isfinite(temp4);
+        temp4(fin_mask) = (sj_j * temp4(fin_mask).^ezc8_j).^ezc6_j;
+        temp4(EV == 0) = 0;
     end
+else
+    % Terminal period j == N_j with Warm-Glow bequest only (no V_Jplus1)
+    temp4 = WG_j;
+    fin_mask = isfinite(temp4) & (temp4 ~= 0);
+    temp4(fin_mask) = ((1 - sj_j) * temp4(fin_mask).^ezc8_j).^ezc6_j;
+    temp4(WG_j == 0) = 0;
+    temp4 = repmat(temp4, 1, N_bothz);
+end
 
-    DiscountedEV = Dims.ezc3 * df * reshape(temp4, [1, N_a, 1, N_bothz, 1]);
+DiscountedEV = Dims.ezc3 * df * reshape(temp4, [1, N_a, 1, N_bothz, 1]);
 end
 
 function [V_j, Pol_j, max_d_out] = extract_pol_local(V_fordouter, P_fordouter, N_a, N_bothz, N_e)
-    [V_j, max_d_out] = max(V_fordouter, [], 4);
-    lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d_out(:) - 1);
-    Pol_j = reshape(P_fordouter(lin_idx), [1, N_a, N_bothz, N_e]);
+[V_j, max_d_out] = max(V_fordouter, [], 4);
+lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d_out(:) - 1);
+Pol_j = reshape(P_fordouter(lin_idx), [1, N_a, N_bothz, N_e]);
 end
 
 function slice = get_grid_slice_local(grid_J, idx, j, has_var)
-    if ~has_var || isempty(grid_J); slice = []; return; end
-    if strcmp(idx, 'all')
-        if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
-    else
-        if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
-    end
+if ~has_var || isempty(grid_J); slice = []; return; end
+if strcmp(idx, 'all')
+    if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
+else
+    if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
+end
 end

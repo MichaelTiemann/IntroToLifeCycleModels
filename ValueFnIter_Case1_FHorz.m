@@ -274,7 +274,7 @@ elseif strcmp(vfoptions.exoticpreferences,'QuasiHyperbolic')
     V_ref=V; Policy_ref=Policy;
 
     tic;
-    [V_new,Policy_new, Valt_new,Policyalt_new]=solve_ufhorz_local()
+    [V_new,Policy_new, Valt_new,Policyalt_new]=solve_ufhorz_local();
     time_new=toc;
 
     benchcheck();
@@ -298,22 +298,13 @@ elseif strcmp(vfoptions.exoticpreferences,'EpsteinZin')
     tic;
     [V, Policy]=ValueFnIter_FHorz_EpsteinZin(n_d,n_a,n_z,N_j,d_grid, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
     time_ref=toc;
-    V_ref=V; Policy_ref=Policy;
-
+    V_ref=V;
+    Policy_ref=Policy;
     tic;
-    [V, Policy]=solve_ufhorz_local()
+    [V_new, Policy_new]=solve_ufhorz_local();
     time_new=toc;
-
     benchcheck();
-    
-    if strcmp(vfoptions.quasi_hyperbolic,'Naive')
-        V_ref = Valt; Policy_ref = Policyalt;
-        V_new = Valt_new; Policy_new = Policyalt_new;
-        benchcheck();
-        varargout = {V, Policy, Valt, Policyalt};
-    elseif strcmp(vfoptions.quasi_hyperbolic,'Sophisticated')
-        varargout = {V, Policy, Valt};
-    end
+    varargout={V, Policy};
     return
 elseif strcmp(vfoptions.exoticpreferences,'GulPesendorfer')
     [V, Policy]=ValueFnIter_FHorz_GulPesendorfer(n_d,n_a,n_z,N_j,d_gridvals,a_grid,z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
@@ -437,7 +428,7 @@ if vfoptions.riskyasset==1
     time_ref=toc;
 
     tic;
-    [V_new,Policy_new]=ValueFnIter_UFHorz_RiskyAsset(n_d,n_a1,n_a2,n_z,vfoptions.n_u, N_j, d_grid, a1_grid, a2_grid, z_gridvals_J, vfoptions.u_grid, pi_z_J, vfoptions.pi_u, ReturnFn, vfoptions.aprimeFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new]=solve_ufhorz_local();
     time_new=toc;
 
     benchcheck();
@@ -564,7 +555,7 @@ if prod(vfoptions.n_semiz)>0
     % profile clear
     % profile on
     tic;
-    [V_new,Policy_new] = ValueFnIter_UFHorz_SemiExo(n_d1,n_d2,n_a,vfoptions.n_semiz,n_z,N_j,d1_gridvals,d2_gridvals, a_grid, z_gridvals_J, vfoptions.semiz_gridvals_J, pi_z_J, vfoptions.pi_semiz_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions);
+    [V_new,Policy_new] = solve_ufhorz_local();
     time_new=toc;
     % profile off
     % profile viewer

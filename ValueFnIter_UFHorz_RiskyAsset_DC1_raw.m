@@ -139,9 +139,13 @@ for j = N_j:-1:1
         end
 
         if has_ev_term
-            if has_bothz
+            if has_cont && has_bothz
                 if has_semiz
-                    pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
+                    if Dims.has_z
+                        pi_bz = kron(pi_z_J(:,:,j), vfoptions.pi_semiz_J(:,:,d_outer_c,j));
+                    else
+                        pi_bz = vfoptions.pi_semiz_J(:,:,d_outer_c,j);
+                    end
                 else
                     pi_bz = pi_z_J(:,:,j);
                 end
@@ -370,93 +374,93 @@ end
 end % <--- MAIN FUNCTION ENDS HERE!
 
 function [DiscountedEV_d13, DiscountedEV_d3, d2index] = precalc_ev_risky_local(EVpre_flat, df, pi_bz, pi_u, Risky_J, Dims, j, WG_j)
-    N_a1 = Dims.N_a1; N_bothz = Dims.N_bothz;
-    N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_d3 = Dims.N_d3; N_d23 = Dims.N_d23; N_u = Dims.N_u;
+N_a1 = Dims.N_a1; N_bothz = Dims.N_bothz;
+N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_d3 = Dims.N_d3; N_d23 = Dims.N_d23; N_u = Dims.N_u;
 
-    a2p_idx   = Risky_J.a2primeIndex;
-    a2p_probs = Risky_J.a2primeProbs;
+a2p_idx   = Risky_J.a2primeIndex;
+a2p_probs = Risky_J.a2primeProbs;
 
-    if ~isempty(EVpre_flat)
-        EVinf = (EVpre_flat == -Inf);
-        EV_val = EVpre_flat;
-        if Dims.ez_flag; EV_val(EVinf) = 0; else; EV_val(EVinf) = -1e250; end
-        EV_z = EV_val * pi_bz';
-        EV_z((EVinf * (pi_bz' > 0)) > 0) = -Inf;
+if ~isempty(EVpre_flat)
+    EVinf = (EVpre_flat == -Inf);
+    EV_val = EVpre_flat;
+    if Dims.ez_flag; EV_val(EVinf) = 0; else; EV_val(EVinf) = -1e250; end
+    EV_z = EV_val * pi_bz';
+    EV_z((EVinf * (pi_bz' > 0)) > 0) = -Inf;
 
-        a1_base = repelem(gpuArray(1:1:N_a1)', N_d23, N_u);
-        idx_lo  = a1_base + N_a1 * repmat(a2p_idx - 1, N_a1, 1);
-        idx_hi  = a1_base + N_a1 * repmat(a2p_idx,     N_a1, 1);
+    a1_base = repelem(gpuArray(1:1:N_a1)', N_d23, N_u);
+    idx_lo  = a1_base + N_a1 * repmat(a2p_idx - 1, N_a1, 1);
+    idx_hi  = a1_base + N_a1 * repmat(a2p_idx,     N_a1, 1);
 
-        Vlower = reshape(EV_z(idx_lo(:), :), [N_d23 * N_a1, N_u, N_bothz]);
-        Vupper = reshape(EV_z(idx_hi(:), :), [N_d23 * N_a1, N_u, N_bothz]);
+    Vlower = reshape(EV_z(idx_lo(:), :), [N_d23 * N_a1, N_u, N_bothz]);
+    Vupper = reshape(EV_z(idx_hi(:), :), [N_d23 * N_a1, N_u, N_bothz]);
 
-        prob_u = repmat(reshape(a2p_probs, [N_d23, 1, N_u]), [1, N_a1, 1, N_bothz]);
-        prob_u = reshape(prob_u, [N_d23 * N_a1, N_u, N_bothz]);
-        prob_u(Vlower == Vupper) = 0;
+    prob_u = repmat(reshape(a2p_probs, [N_d23, 1, N_u]), [1, N_a1, 1, N_bothz]);
+    prob_u = reshape(prob_u, [N_d23 * N_a1, N_u, N_bothz]);
+    prob_u(Vlower == Vupper) = 0;
 
-        c_lo = prob_u .* Vlower;       c_lo(isnan(c_lo)) = 0;
-        c_hi = (1 - prob_u) .* Vupper; c_hi(isnan(c_hi)) = 0;
-        EV_integrated = reshape(sum((c_lo + c_hi) .* reshape(pi_u, [1, N_u, 1]), 2), [N_d23 * N_a1, N_bothz]);
-    else
-        EV_integrated = [];
+    c_lo = prob_u .* Vlower;       c_lo(isnan(c_lo)) = 0;
+    c_hi = (1 - prob_u) .* Vupper; c_hi(isnan(c_hi)) = 0;
+    EV_integrated = reshape(sum((c_lo + c_hi) .* reshape(pi_u, [1, N_u, 1]), 2), [N_d23 * N_a1, N_bothz]);
+else
+    EV_integrated = [];
+end
+
+if ~Dims.ez_flag
+    [EV_onlyd3, d2index] = max(reshape(df * EV_integrated, [N_d2, N_d3 * N_a1, N_bothz]), [], 1);
+else
+    sj_j = Dims.sj(j); ezc6_j = Dims.ezc6(j); ezc8_j = Dims.ezc8(j);
+    if Dims.warmglow
+        WG_lo  = reshape(WG_j(a2p_idx),     [N_d23, N_u]);
+        WG_hi  = reshape(WG_j(a2p_idx + 1), [N_d23, N_u]);
+        prb_wg = a2p_probs; prb_wg(WG_lo == WG_hi) = 0;
+        w1 = prb_wg .* WG_lo;       w1(isnan(w1)) = 0;
+        w2 = (1 - prb_wg) .* WG_hi; w2(isnan(w2)) = 0;
+        WG_u = sum((w1 + w2) .* reshape(pi_u, [1, N_u]), 2);
+        WG_rep = repmat(WG_u, N_a1, N_bothz);
     end
-
-    if ~Dims.ez_flag
-        [EV_onlyd3, d2index] = max(reshape(df * EV_integrated, [N_d2, N_d3 * N_a1, N_bothz]), [], 1);
-    else
-        sj_j = Dims.sj(j); ezc6_j = Dims.ezc6(j); ezc8_j = Dims.ezc8(j);
+    if ~isempty(EV_integrated)
+        temp4 = EV_integrated;
         if Dims.warmglow
-            WG_lo  = reshape(WG_j(a2p_idx),     [N_d23, N_u]);
-            WG_hi  = reshape(WG_j(a2p_idx + 1), [N_d23, N_u]);
-            prb_wg = a2p_probs; prb_wg(WG_lo == WG_hi) = 0;
-            w1 = prb_wg .* WG_lo;       w1(isnan(w1)) = 0;
-            w2 = (1 - prb_wg) .* WG_hi; w2(isnan(w2)) = 0;
-            WG_u = sum((w1 + w2) .* reshape(pi_u, [1, N_u]), 2);
-            WG_rep = repmat(WG_u, N_a1, N_bothz);
-        end
-        if ~isempty(EV_integrated)
-            temp4 = EV_integrated;
-            if Dims.warmglow
-                becareful = isfinite(temp4) & isfinite(WG_rep);
-                temp4(becareful) = (sj_j * temp4(becareful).^ezc8_j + (1 - sj_j) * WG_rep(becareful).^ezc8_j).^ezc6_j;
-                temp4((EV_integrated == 0) & (WG_rep == 0)) = 0;
-            else
-                fin_mask = isfinite(temp4);
-                temp4(fin_mask) = (sj_j * temp4(fin_mask).^ezc8_j).^ezc6_j;
-                temp4(EV_integrated == 0) = 0;
-            end
+            becareful = isfinite(temp4) & isfinite(WG_rep);
+            temp4(becareful) = (sj_j * temp4(becareful).^ezc8_j + (1 - sj_j) * WG_rep(becareful).^ezc8_j).^ezc6_j;
+            temp4((EV_integrated == 0) & (WG_rep == 0)) = 0;
         else
-            temp4 = WG_rep;
-            fin_mask = isfinite(temp4) & (temp4 ~= 0);
-            temp4(fin_mask) = ((1 - sj_j) * temp4(fin_mask).^ezc8_j).^ezc6_j;
-            temp4(WG_rep == 0) = 0;
+            fin_mask = isfinite(temp4);
+            temp4(fin_mask) = (sj_j * temp4(fin_mask).^ezc8_j).^ezc6_j;
+            temp4(EV_integrated == 0) = 0;
         end
-        temp4_scaled = (Dims.ezc9 * Dims.ezc3 * df) * temp4;
-        temp4_scaled(isinf(temp4)) = -Inf;
-        [EV_onlyd3, d2index] = max(reshape(temp4_scaled, [N_d2, N_d3 * N_a1, N_bothz]), [], 1);
-    end
-
-    DiscountedEV_d3 = reshape(EV_onlyd3, [N_d3, N_a1, 1, 1, N_bothz, 1]);
-    if N_d1 > 1
-        DiscountedEV_d13 = repelem(DiscountedEV_d3, N_d1, 1, 1, 1, 1, 1);
     else
-        DiscountedEV_d13 = DiscountedEV_d3;
+        temp4 = WG_rep;
+        fin_mask = isfinite(temp4) & (temp4 ~= 0);
+        temp4(fin_mask) = ((1 - sj_j) * temp4(fin_mask).^ezc8_j).^ezc6_j;
+        temp4(WG_rep == 0) = 0;
     end
-    d2index = reshape(d2index, [N_d3 * N_a1, N_bothz]);
+    temp4_scaled = (Dims.ezc9 * Dims.ezc3 * df) * temp4;
+    temp4_scaled(isinf(temp4)) = -Inf;
+    [EV_onlyd3, d2index] = max(reshape(temp4_scaled, [N_d2, N_d3 * N_a1, N_bothz]), [], 1);
+end
+
+DiscountedEV_d3 = reshape(EV_onlyd3, [N_d3, N_a1, 1, 1, N_bothz, 1]);
+if N_d1 > 1
+    DiscountedEV_d13 = repelem(DiscountedEV_d3, N_d1, 1, 1, 1, 1, 1);
+else
+    DiscountedEV_d13 = DiscountedEV_d3;
+end
+d2index = reshape(d2index, [N_d3 * N_a1, N_bothz]);
 end
 
 function [V_j, Pol_j, max_d_out] = extract_pol_local(V_fordouter, P_fordouter, N_a1, N_a2, N_bothz, N_e)
-    N_a = N_a1 * N_a2;
-    [V_j, max_d_out] = max(V_fordouter, [], 5);
-    lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d_out(:) - 1);
-    Pol_j = reshape(P_fordouter(lin_idx), [1, N_a1, N_a2, N_bothz, N_e]);
+N_a = N_a1 * N_a2;
+[V_j, max_d_out] = max(V_fordouter, [], 5);
+lin_idx = gpuArray(1:(N_a * N_bothz * N_e))' + (N_a * N_bothz * N_e) * (max_d_out(:) - 1);
+Pol_j = reshape(P_fordouter(lin_idx), [1, N_a1, N_a2, N_bothz, N_e]);
 end
 
 function slice = get_grid_slice_local(grid_J, idx, j, has_var)
-    if ~has_var || isempty(grid_J); slice = []; return; end
-    if strcmp(idx, 'all')
-        if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
-    else
-        if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
-    end
+if ~has_var || isempty(grid_J); slice = []; return; end
+if strcmp(idx, 'all')
+    if ndims(grid_J) >= 3; slice = grid_J(:, :, j); else; slice = grid_J; end
+else
+    if ndims(grid_J) >= 3; slice = grid_J(idx, :, j); else; slice = grid_J(idx, :); end
+end
 end
