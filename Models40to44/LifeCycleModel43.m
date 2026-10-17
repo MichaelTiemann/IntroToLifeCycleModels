@@ -136,6 +136,7 @@ simoptions.experienceassetz=1;
 simoptions.aprimeFn=vfoptions.aprimeFn;
 simoptions.d_grid=d_grid; % Needed to handle aprimeFn
 simoptions.a_grid=a_grid; % Needed to handle aprimeFn
+simoptions.z_grid=z_grid; % Needed to handle aprimeFn
 
 % Use divide-and-conquer and grid interpolation layer on the standard endogenous state, assets (see Life-Cycle Models 29 and 30)
 vfoptions.divideandconquer=1; % turn on divide-and-conquer
