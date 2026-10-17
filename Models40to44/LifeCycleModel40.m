@@ -141,6 +141,7 @@ ReturnFn=@(aprime,hprime,a,h,z,w,r,p,sigma,theta,upsilon,gamma,phi,delta_o,agej,
 vfoptions.divideandconquer=1; % turn on divide-and-conquer
 vfoptions.gridinterplayer=1; % turn on grid interpolation layer
 vfoptions.ngridinterp=20; % 20 evenly-spaced points between each pair of consecutive grid points on the first endogenous state
+vfoptions.lowmemory=1; % default=0, set =1 to use loops (over e, or z if no e) if you get a gpu out-of-memory error, the loops reduce memory use but slow the runtimes [models with e & z can set =2]
 simoptions.gridinterplayer=vfoptions.gridinterplayer; % grid interpolation layer must also be set in simoptions (it changes Policy size/interpretation)
 simoptions.ngridinterp=vfoptions.ngridinterp;
 
