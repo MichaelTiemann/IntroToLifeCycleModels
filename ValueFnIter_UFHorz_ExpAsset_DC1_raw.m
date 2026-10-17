@@ -1,10 +1,9 @@
 function [V, Policy, Valt, Policyalt] = ValueFnIter_UFHorz_ExpAsset_DC1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfoptions)
-
 % --- 1. Universal Setup ---
 [Dims, Grids] = Setup_UFHorz(n_d, n_a, n_z, N_j, d_gridvals, z_gridvals_J, vfoptions, Parameters);
 
-N_a1 = Dims.N_a1; N_a2 = Dims.N_a2; N_a = Dims.N_a;
-N_bothz = Dims.N_bothz; N_e = Dims.N_e; N_z = Dims.N_z; N_semiz = Dims.N_semiz;
+N_a1 = Dims.N_a1; N_a2 = Dims.N_a2; N_a = Dims.N_a; N_bothz = Dims.N_bothz; N_e = Dims.N_e;
+N_z = Dims.N_z; N_semiz = Dims.N_semiz;
 N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_d_inner = Dims.N_d_inner; N_d_outer = Dims.N_d_outer;
 has_z = Dims.has_z; has_semiz = Dims.has_semiz; has_e = Dims.has_e; has_bothz = Dims.has_bothz;
 n_a1 = Dims.n_a1; n_a2 = Dims.n_a2; n_e = Dims.n_e; n_semiz = Dims.n_semiz; n_d2 = Dims.n_d2;
@@ -20,6 +19,7 @@ a1_gridvals = Grids.a1_gridvals;
 a2_gridvals = Grids.a2_gridvals;
 d2_gridvals = Grids.d2_gridvals;
 aprimeFnParamNames = Dims.aprimeFnParamNames;
+
 N_e_interp    = Dims.N_e_interp;
 N_e_SL_interp = min(N_e_slice, N_e_interp);
 
@@ -31,14 +31,14 @@ if isempty(ReturnFnParamNames)
 end
 
 if qh_mode == 1
-    vfopt_exp = vfoptions; vfopt_exp.exoticpreferences = 'None';
+    vfopt_exp = vfoptions;
+    vfopt_exp.exoticpreferences = 'None';
     [Valt, Policyalt] = ValueFnIter_UFHorz_ExpAsset_DC1_raw(n_d, n_a, n_z, N_j, d_gridvals, a_grid, z_gridvals_J, pi_z_J, ReturnFn, Parameters, DiscountFactorParamNames, ReturnFnParamNames, vfopt_exp);
 elseif qh_mode == 2
     Valt = zeros(N_a1, N_a2, N_bothz, N_e, N_j, 'gpuArray');
     Policyalt = [];
 else
-    Valt = [];
-    Policyalt = [];
+    Valt = []; Policyalt = [];
 end
 
 % --- 2. Preallocate Outputs & Persistent Slice Offsets ---
@@ -46,13 +46,12 @@ V      = zeros(N_a1, N_a2, N_bothz, N_e, N_j, 'gpuArray');
 Policy = zeros(1, N_a1, N_a2, N_bothz, N_e, N_j, 'gpuArray');
 
 a1p_offsets_base = gpuArray(0:1:N_a1);
-
 d2_off_L2 = reshape(repelem(gpuArray(1:1:N_d2)', N_d1, 1), [N_d_inner, 1, 1, 1, 1, 1]);
 a2_off_L2 = reshape(gpuArray(0:1:N_a2-1),                  [1, 1, 1, N_a2, 1, 1]);
 bz_off_L2 = reshape(gpuArray(0:1:N_z_slice-1),             [1, 1, 1, 1, N_z_slice, 1]);
 e_off_L2  = reshape(gpuArray(0:1:N_e_SL_interp-1),         [1, 1, 1, 1, 1, N_e_SL_interp]);
-
-le_state_off = N_d_inner * reshape(gpuArray(0:1:(N_a2 * N_z_slice * N_e_slice - 1)), [1, 1, N_a2, N_z_slice, N_e_slice]);
+le_state_off    = N_d_inner * reshape(gpuArray(0:1:(N_a2 * N_z_slice * N_e_slice - 1)), [1, 1, N_a2, N_z_slice, N_e_slice]);
+le_state_off_L1 = N_d_inner * reshape(gpuArray(0:1:(level1n * N_a2 * N_z_slice * N_e_slice - 1)), [1, 1, level1n, N_a2, N_z_slice, N_e_slice]);
 
 if qh_mode == 2
     a2_ind_soph = reshape(gpuArray(0:1:N_a2-1),          [1, 1, N_a2, 1, 1]);
@@ -96,7 +95,8 @@ for j = N_j:-1:1
     if ez_flag
         if Dims.EZoneminusbeta == 1;     ezc1_j = 1 - df;
         elseif Dims.EZoneminusbeta == 2; ezc1_j = 1 - Dims.sj(j) * df;
-        else;                            ezc1_j = Dims.ezc1; end
+        else;                            ezc1_j = Dims.ezc1;
+        end
         if Dims.warmglow
             WGParamsVec = CreateVectorFromParams(Parameters, Dims.WarmGlowParamNames, j);
             WGraw = CreateWarmGlowFnMatrix_Case1_Disc_Par2(vfoptions.WarmGlowBequestsFn, n_a, a_grid, WGParamsVec);
@@ -145,6 +145,16 @@ for j = N_j:-1:1
         end
         ExpAsset_J.a2primeIndex = a2primeIndex;
         ExpAsset_J.a2primeProbs = a2primeProbs;
+        if ~isempty(EVpre_flat)
+            ExpAsset_J.EV_u = preinterp_expasset_u_local(EVpre_flat, a2primeIndex, a2primeProbs, Dims);
+        else
+            ExpAsset_J.EV_u = [];
+        end
+        if ez_flag && Dims.warmglow
+            ExpAsset_J.WG_u = preinterp_expasset_u_local(repmat(WG_j, 1, N_bothz), a2primeIndex, a2primeProbs, Dims);
+        else
+            ExpAsset_J.WG_u = [];
+        end
     end
 
     for d_outer_c = 1:N_d_outer
@@ -168,7 +178,7 @@ for j = N_j:-1:1
             else
                 pi_bz = 1;
             end
-            [DiscountedEV, DiscountedEV_d2] = precalc_ev_local(EVpre_flat, df, pi_bz, N_e_interp, ExpAsset_J, Dims, vfoptions, j, WG_j);
+            [DiscountedEV, DiscountedEV_d2] = precalc_ev_local(df, pi_bz, N_e_interp, ExpAsset_J, Dims, vfoptions, j);
         end
 
         for z_c = 1:N_z_iter
@@ -203,6 +213,7 @@ for j = N_j:-1:1
                     temp2_L1 = RM_L1;
                     temp2_L1(becareful1) = RM_L1(becareful1).^Dims.ezc2(j);
                     temp2_L1(RM_L1 == 0) = -Inf;
+
                     if has_ev_term
                         if z_mode == 0 && (e_mode == 0 || N_e_interp == 1)
                             EV_slice = DiscountedEV;
@@ -230,11 +241,13 @@ for j = N_j:-1:1
                     RHS_L1 = RM_L1;
                 end
 
-                [~, a1p_idx_L1] = max(RHS_L1, [], 2);
-                [v_tmp_L1, maxindex1] = max(reshape(RHS_L1, [N_d_inner * N_a1, level1n, N_a2, N_z_slice, N_e_slice]), [], 1);
-
-                d_in_L1 = rem(maxindex1 - 1, N_d_inner) + 1;
-                a1p_L1  = ceil(maxindex1 / N_d_inner);
+                [v_d_L1, a1p_idx_L1] = max(RHS_L1, [], 2);
+                [v_tmp_L1, d_in_L1]  = max(v_d_L1, [], 1);
+                a1p_L1    = a1p_idx_L1(d_in_L1 + le_state_off_L1);
+                v_tmp_L1  = reshape(v_tmp_L1, [1, level1n, N_a2, N_z_slice, N_e_slice]);
+                d_in_L1   = reshape(d_in_L1,  [1, level1n, N_a2, N_z_slice, N_e_slice]);
+                a1p_L1    = reshape(a1p_L1,   [1, level1n, N_a2, N_z_slice, N_e_slice]);
+                maxindex1 = d_in_L1 + N_d_inner * (a1p_L1 - 1);
 
                 if qh_mode == 2
                     if has_ev_term
@@ -285,8 +298,8 @@ for j = N_j:-1:1
                         loweredge = a1p_idx_L1(:, 1, ii, :, :, :);
                         a1p_idx = loweredge;
                     end
-                    a1p_grid_safe = reshape(a1_gridvals(a1p_idx), [N_d_inner, mg+1, 1, N_a2, N_z_slice, N_e_slice]);
 
+                    a1p_grid_safe = reshape(a1_gridvals(a1p_idx), [N_d_inner, mg+1, 1, N_a2, N_z_slice, N_e_slice]);
                     RM_L2 = CreateReturnFnMatrix_ExpAsset_UDisc_DC1(ReturnFn, Dims.special_n_d, n_a1, n_a2, spec_n_bz, spec_n_e, d_val, a1p_grid_safe, a1_gridvals(curraindex), a2_gridvals, bz_val, e_val, ReturnFnParamsVec, 2);
                     RM_L2 = reshape(RM_L2, [N_d_inner, mg+1, L, N_a2, N_z_slice, N_e_slice]);
 
@@ -381,16 +394,11 @@ end
 
 end % <--- MAIN FUNCTION ENDS HERE!
 
-function [DiscountedEV, DiscountedEV_d2] = precalc_ev_local(EVpre_flat, df, pi_bz, N_e_interp, ExpAsset_J, Dims, vfoptions, j, WG_j)
-N_a1 = Dims.N_a1; N_a2 = Dims.N_a2; N_bothz = Dims.N_bothz;
-N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_d_inner = Dims.N_d_inner;
+function [DiscountedEV, DiscountedEV_d2] = precalc_ev_local(df, pi_bz, N_e_interp, ExpAsset_J, Dims, vfoptions, j)
+N_a1 = Dims.N_a1; N_a2 = Dims.N_a2; N_bothz = Dims.N_bothz; N_d1 = Dims.N_d1; N_d2 = Dims.N_d2; N_d_inner = Dims.N_d_inner;
 
-a2p_idx_base    = ExpAsset_J.a2primeIndex;
-a2p_weight_base = ExpAsset_J.a2primeProbs;
-
-if ~isempty(EVpre_flat)
-    EV_val = reshape(EVpre_flat, [N_a1*N_a2, N_bothz]);
-    EV_raw = interp_expasset_local(EV_val, a2p_idx_base, a2p_weight_base, pi_bz, N_e_interp, Dims, vfoptions);
+if ~isempty(ExpAsset_J.EV_u)
+    EV_raw = apply_pibz_expasset_local(ExpAsset_J.EV_u, pi_bz, N_e_interp, Dims, vfoptions);
 else
     EV_raw = [];
 end
@@ -400,8 +408,7 @@ if ~Dims.ez_flag
 else
     sj_j = Dims.sj(j); ezc6_j = Dims.ezc6(j); ezc8_j = Dims.ezc8(j);
     if Dims.warmglow
-        WG_val = repmat(WG_j, 1, N_bothz);
-        WG_raw = interp_expasset_local(WG_val, a2p_idx_base, a2p_weight_base, pi_bz, N_e_interp, Dims, vfoptions);
+        WG_raw = apply_pibz_expasset_local(ExpAsset_J.WG_u, pi_bz, N_e_interp, Dims, vfoptions);
     end
     if ~isempty(EV_raw)
         temp4 = EV_raw;
@@ -428,8 +435,8 @@ N_d_exp  = size(EV_coarse, 1);
 N_a2_exp = size(EV_coarse, 4);
 if N_d_exp == 1 && N_d2 > 1;  EV_coarse = repmat(EV_coarse, [N_d2, 1, 1, 1, 1, 1]); end
 if N_a2_exp == 1 && N_a2 > 1; EV_coarse = repmat(EV_coarse, [1, 1, 1, N_a2, 1, 1]); end
-
 DiscountedEV_d2 = EV_coarse;
+
 if N_d1 > 1
     DiscountedEV = repelem(DiscountedEV_d2, N_d1, 1, 1, 1, 1, 1);
 else
@@ -438,8 +445,10 @@ end
 DiscountedEV = reshape(DiscountedEV, [N_d_inner, N_a1, 1, N_a2, N_bothz, N_e_interp]);
 end
 
-function EV_coarse = interp_expasset_local(EV_val, a2p_idx_base, a2p_weight_base, pi_bz, N_e_interp, Dims, vfoptions)
+function EV_u = preinterp_expasset_u_local(EV_val, a2p_idx_base, a2p_weight_base, Dims)
 N_a1 = Dims.N_a1; N_bothz = Dims.N_bothz; N_semiz = Dims.N_semiz; n_a2 = Dims.n_a2;
+EV_val = reshape(EV_val, [N_a1 * Dims.N_a2, N_bothz]);
+
 if length(n_a2) == 1
     N_d_exp  = size(a2p_idx_base, 1);
     N_a2_exp = size(a2p_idx_base, 2);
@@ -512,6 +521,13 @@ else
     c_hiy = (1-p2) .* EV_hiy; c_hiy(isnan(c_hiy)) = 0;
     EV_u = c_loy + c_hiy;
 end
+end
+
+function EV_coarse = apply_pibz_expasset_local(EV_u, pi_bz, N_e_interp, Dims, vfoptions)
+N_a1 = Dims.N_a1; N_bothz = Dims.N_bothz;
+N_d_exp  = size(EV_u, 1) / N_a1;
+N_a2_exp = size(EV_u, 2);
+N_3rd    = size(EV_u, 3);
 
 if Dims.exp_flag == 6
     pi_u = shiftdim(gpuArray(vfoptions.pi_u), -2);
