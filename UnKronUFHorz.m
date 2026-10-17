@@ -73,10 +73,13 @@ if is_gi
             a_cum = a_cum * n_a_choice(i);
         end
     end
+
+    Policy(n_rows - 1,:,:,:,:) = PolicyKron(3,:,:,:,:);
+    Policy(n_rows,:,:,:,:)     = PolicyKron(4,:,:,:,:);
 else
     if vfoptions.outputkron == 1
-        if l_d == 0
-            Policy = reshape(PolicyKron, [size(PolicyKron, 2), size(PolicyKron, 3), size(PolicyKron, 4), size(PolicyKron, 5)]);
+        if l_d == 0 && size(PolicyKron, 1) == 1
+            Policy = reshape(PolicyKron, size(VKron));
         else
             Policy = PolicyKron;
         end
@@ -84,12 +87,26 @@ else
         return;
     end
 
-    s2 = size(PolicyKron, 2); s3 = size(PolicyKron, 3); s4 = size(PolicyKron, 4); s5 = size(PolicyKron, 5);
+    s2 = size(PolicyKron, 2);
+    s3 = size(PolicyKron, 3);
+    s4 = size(PolicyKron, 4);
+    s5 = size(PolicyKron, 5);
     n_rows = l_d + l_a_c;
     Policy = zeros(n_rows, s2, s3, s4, s5, 'gpuArray');
 
+    if size(PolicyKron, 1) == 2
+        d_idx = PolicyKron(1,:,:,:,:);
+        a_idx = PolicyKron(2,:,:,:,:);
+    else
+        if l_d > 0
+            d_idx = rem(PolicyKron(1,:,:,:,:) - 1, N_d) + 1;
+            a_idx = ceil(PolicyKron(1,:,:,:,:) / N_d);
+        else
+            a_idx = PolicyKron(1,:,:,:,:);
+        end
+    end
+
     if l_d > 0
-        d_idx = rem(PolicyKron - 1, N_d) + 1;
         d_cum = 1;
         for i = 1:l_d
             Policy(i,:,:,:,:) = rem(ceil(d_idx / d_cum) - 1, n_d(i)) + 1;
@@ -98,7 +115,6 @@ else
     end
 
     if l_a_c > 0
-        a_idx = ceil(PolicyKron / N_d);
         a_cum = 1;
         for i = 1:l_a_c
             Policy(l_d + i,:,:,:,:) = rem(ceil(a_idx / a_cum) - 1, n_a_choice(i)) + 1;
